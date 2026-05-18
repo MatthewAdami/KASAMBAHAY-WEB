@@ -563,51 +563,10 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div style={s.shell}>
-      {/* Sidebar */}
-      <aside style={s.sidebar}>
-        <div style={s.sidebarLogo}>
-          <div style={s.logoMark}>K</div>
-          <div>
-            <p style={s.logoName}>Kasambahay</p>
-            <p style={s.logoSub}>QC Gov't System</p>
-          </div>
-        </div>
-
-        <nav style={s.nav}>
-          <p style={s.navSection}>Main</p>
-          {NAV.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              style={{ ...s.navItem, ...(tab === key ? s.navItemActive : {}) }}
-            >
-              <Icon color={tab === key ? '#1a2744' : '#9ca3af'} />
-              {label}
-            </button>
-          ))}
-        </nav>
-
-        <div style={s.sidebarFooter}>
-          <div style={s.userChip}>
-            <div style={s.userAvatar}>{initials}</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={s.userName}>{user.name || 'Administrator'}</p>
-              <p style={s.userRole}>{user.role || 'admin'}</p>
-            </div>
-          </div>
-          <button onClick={logout} style={s.logoutBtn}>
-            <LogoutIcon color="#ef4444" />
-            Sign out
-          </button>
-        </div>
-      </aside>
-
-      {/* Main content */}
-      <main style={s.main}>
+      <div style={s.main}>
         <header style={s.topbar}>
           <h1 style={s.topbarTitle}>
-            {tab === 'overview' ? 'Overview' : tab === 'records' ? 'Records' : 'Users'}
+            Overview
           </h1>
           <div style={s.topbarRight}>
             <span style={{ fontSize: 12, color: '#9ca3af' }}>
@@ -617,44 +576,15 @@ export default function AdminDashboard() {
         </header>
 
         <div style={s.content}>
-          {tab === 'overview' && <OverviewTab />}
-          {tab === 'records'  && <RecordsTab />}
-          {tab === 'users'    && <UsersTab />}
+          <OverviewTab />
         </div>
-      </main>
-
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #f4f3ef; }
-        select:focus, input:focus { outline: none; border-color: #2563a8; box-shadow: 0 0 0 3px rgba(37,99,168,0.1); }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #d1cfc7; border-radius: 3px; }
-      `}</style>
-    </div>
+      </div>
   )
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const s = {
-  shell:       { display: 'flex', height: '100vh', fontFamily: "'DM Sans', sans-serif", background: '#f4f3ef', overflow: 'hidden' },
-  sidebar:     { width: 230, flexShrink: 0, background: '#fff', borderRight: '1px solid #e8e5de', display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' },
-  sidebarLogo: { display: 'flex', alignItems: 'center', gap: 10, padding: '20px 18px', borderBottom: '1px solid #f3f4f6' },
-  logoMark:    { width: 32, height: 32, borderRadius: 8, background: '#1a2744', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, color: '#fff', fontFamily: "'DM Serif Display', serif", flexShrink: 0 },
-  logoName:    { fontSize: 13, fontWeight: 600, color: '#111827', lineHeight: 1.2 },
-  logoSub:     { fontSize: 11, color: '#9ca3af', lineHeight: 1.2 },
-  nav:         { flex: 1, padding: '12px 10px', overflowY: 'auto' },
-  navSection:  { fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#c9c7c0', fontWeight: 500, padding: '8px 8px 4px', marginBottom: 2 },
-  navItem:     { display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#6b7280', fontFamily: "'DM Sans', sans-serif", fontWeight: 400, textAlign: 'left', marginBottom: 1 },
-  navItemActive: { background: '#eef0f5', color: '#1a2744', fontWeight: 500 },
-  sidebarFooter: { padding: '12px 10px', borderTop: '1px solid #f3f4f6' },
-  userChip:    { display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', marginBottom: 4 },
-  userAvatar:  { width: 30, height: 30, borderRadius: '50%', background: '#eef0f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, color: '#1a2744', flexShrink: 0 },
-  userName:    { fontSize: 12, fontWeight: 500, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  userRole:    { fontSize: 11, color: '#9ca3af' },
-  logoutBtn:   { display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#ef4444', fontFamily: "'DM Sans', sans-serif", fontWeight: 400, textAlign: 'left' },
-  main:        { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  main:        { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: "'DM Sans', sans-serif", background: '#f4f3ef' },
   topbar:      { height: 56, background: '#fff', borderBottom: '1px solid #e8e5de', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', flexShrink: 0 },
   topbarTitle: { fontSize: 16, fontWeight: 600, color: '#111827' },
   topbarRight: { display: 'flex', alignItems: 'center', gap: 12 },
