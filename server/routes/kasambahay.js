@@ -32,7 +32,7 @@ router.get('/', auth, async (req, res) => {
     // Build filter — only add fields that were provided
     const filter = {}
     if (year)     filter.year     = parseInt(year)
-    if (district) filter.district = `District ${district}`
+    if (district) filter.district = { $in: [`District ${district}`, district.toString()] }
 
     // Optional text search
     if (search && search.trim()) {
@@ -41,6 +41,7 @@ router.get('/', auth, async (req, res) => {
         { lastName:  regex },
         { firstName: regex },
         { barangay:  regex },
+        { mobileNumber: regex },
       ]
     }
 
@@ -91,7 +92,14 @@ router.get('/stats', auth, async (req, res) => {
 // ─── POST /api/kasambahay ─────────────────────────────────────────────────────
 router.post('/', auth, async (req, res) => {
   try {
-    const newKasambahay = new Kasambahay(req.body)
+    const kasambahayData = { ...req.body }
+    
+    // Format district to match "District X" database schema
+    if (kasambahayData.district && !String(kasambahayData.district).startsWith('District')) {
+      kasambahayData.district = `District ${kasambahayData.district}`
+    }
+
+    const newKasambahay = new Kasambahay(kasambahayData)
     await newKasambahay.save()
     res.status(201).json({ message: 'Kasambahay added successfully!', data: newKasambahay })
   } catch (err) {

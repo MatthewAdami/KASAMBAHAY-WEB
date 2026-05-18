@@ -27,7 +27,20 @@ app.use(express.json());
 
 // ─── MongoDB Connection ───────────────────────────────────────────────────────
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('✅ MongoDB Connected: Kasambahay Database is ready!'))
+  .then(() => {
+    console.log('✅ MongoDB Connected: Kasambahay Database is ready!')
+    
+    // 🛠️ Auto-heal dirty district data (runs once on startup)
+    const Kasambahay = require('./models/Kasambahay');
+    Kasambahay.find({ district: { $in: ["1", "2", "3", "4", "5", "6"] } })
+      .then(async (dirtyRecords) => {
+        for (let record of dirtyRecords) {
+          record.district = `District ${record.district}`;
+          await record.save();
+        }
+        if (dirtyRecords.length > 0) console.log(`✅ Automatically fixed ${dirtyRecords.length} dirty district records!`);
+      }).catch(err => console.error(err));
+  })
   .catch(err => {
     console.log('❌ MongoDB Connection Error:')
     console.error(err.message)
