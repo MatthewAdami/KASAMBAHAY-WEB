@@ -90,21 +90,25 @@ function KasambahayData() {
   const [showAddModal, setShowAddModal] = useState(false)
   const navigate = useNavigate()
 
-  const fetchData = useCallback(async (pageNum = 1, searchVal = '') => {
-    if (!year || !district) return
+  const fetchData = useCallback(async (pageNum = 1, searchVal = '', overrideYear = null, overrideDistrict = null) => {
+    const targetYear = overrideYear || year;
+    const targetDistrict = overrideDistrict || district;
+    if (!targetYear || !targetDistrict) return
+
     try {
       setLoading(true)
       setError('')
       const token = localStorage.getItem('token')
       const params = new URLSearchParams({
-        year,
-        district,
+        year: targetYear,
+        district: targetDistrict,
         page:  pageNum,
         limit: LIMIT,
         ...(searchVal ? { search: searchVal } : {}),
       })
       const res = await fetch(`${API_ENDPOINTS.KASAMBAHAY}?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` },
+        cache: 'no-store' // 💡 Bypasses browser cache to guarantee fresh data!
       });
       const json = await res.json()
       if (!res.ok) { setError(json.message); return }
@@ -155,9 +159,12 @@ function KasambahayData() {
       {showAddModal && (
         <AddKasambahayModal 
           onClose={() => setShowAddModal(false)} 
-          onSuccess={() => {
+          onSuccess={(newYear, newDistrict) => {
             setShowAddModal(false)
-            if (year && district) fetchData(1, '')
+            // Instantly switch table to show the new record!
+            setYear(newYear)
+            setDistrict(newDistrict)
+            fetchData(1, '', newYear, newDistrict)
           }} 
         />
       )}
@@ -440,7 +447,7 @@ function AddKasambahayModal({ onClose, onSuccess }) {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || 'Failed to save record.');
-      onSuccess();
+      onSuccess(formData.year, formData.district);
     } catch (err) {
       setError(err.message);
     } finally {
