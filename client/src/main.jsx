@@ -6,7 +6,8 @@ import App from './App.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <BrowserRouter>
+    {/* 💡 ADDED THE BASENAME PARAMETER HERE */}
+    <BrowserRouter basename="/KASAMBAHAY-WEB">
       <App />
     </BrowserRouter>
   </StrictMode>,
