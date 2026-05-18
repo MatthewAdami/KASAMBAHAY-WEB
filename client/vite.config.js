@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import react from '@vitejs/react-core' // or '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/KASAMBAHAY-WEB/', // Allows GitHub Pages to route your assets correctly
+  // 💡 Make sure there is NO "base" property here anymore!
 })
