@@ -1,17 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const YEARS     = [2024, 2025]
 const DISTRICTS = [1, 2, 3, 4, 5, 6]
-const API       = 'http://localhost:5000/api'
+const API       = '/api'   // Use relative URL — Vite proxy forwards to localhost:5000
 
-// ─── Sidebar Nav Items ────────────────────────────────────────────────────────
-const NAV = [
-  { key: 'overview',    label: 'Overview',    icon: ChartIcon },
-  { key: 'records',     label: 'Records',     icon: ListIcon  },
-  { key: 'users',       label: 'Users',       icon: UsersIcon },
-]
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function authHeader() {
+  return { Authorization: `Bearer ${localStorage.getItem('token')}` }
+}
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 function ChartIcon({ size = 18, color = 'currentColor' }) {
@@ -56,13 +54,18 @@ function SearchIcon({ size = 16 }) {
   )
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+const NAV = [
+  { key: 'overview', label: 'Overview', icon: ChartIcon },
+  { key: 'records',  label: 'Records',  icon: ListIcon  },
+  { key: 'users',    label: 'Users',    icon: UsersIcon },
+]
 
+// ─── StatCard ─────────────────────────────────────────────────────────────────
 function StatCard({ label, value, sub, accent }) {
   return (
     <div style={{ ...s.statCard, borderTop: `3px solid ${accent}` }}>
       <p style={s.statLabel}>{label}</p>
-      <p style={s.statValue}>{value}</p>
+      <p style={s.statValue}>{value ?? '—'}</p>
       {sub && <p style={s.statSub}>{sub}</p>}
     </div>
   )
@@ -70,12 +73,12 @@ function StatCard({ label, value, sub, accent }) {
 
 function Badge({ text, color = 'gray' }) {
   const map = {
-    green:  { bg: '#eaf3de', text: '#3b6d11' },
-    blue:   { bg: '#e6f1fb', text: '#185fa5' },
-    amber:  { bg: '#faeeda', text: '#854f0b' },
-    red:    { bg: '#fcebeb', text: '#a32d2d' },
-    gray:   { bg: '#f1efe8', text: '#5f5e5a' },
-    navy:   { bg: '#e8eaf4', text: '#1a2744' },
+    green: { bg: '#eaf3de', text: '#3b6d11' },
+    blue:  { bg: '#e6f1fb', text: '#185fa5' },
+    amber: { bg: '#faeeda', text: '#854f0b' },
+    red:   { bg: '#fcebeb', text: '#a32d2d' },
+    gray:  { bg: '#f1efe8', text: '#5f5e5a' },
+    navy:  { bg: '#e8eaf4', text: '#1a2744' },
   }
   const c = map[color] || map.gray
   return (
@@ -87,34 +90,69 @@ function Badge({ text, color = 'gray' }) {
 
 // ─── OVERVIEW TAB ─────────────────────────────────────────────────────────────
 function OverviewTab() {
-  const [stats, setStats] = useState(null)
+  const [stats, setStats]   = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError]   = useState('')
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    // Aggregate stats from 2024 & 2025 across all districts
-    Promise.all(
-      YEARS.flatMap(year =>
-        DISTRICTS.map(d =>
-          fetch(`${API}/kasambahay?year=${year}&district=${d}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          }).then(r => r.ok ? r.json() : []).catch(() => [])
-        )
-      )
-    ).then(results => {
-      const all = results.flat()
-      const female   = all.filter(r => r.isFemale).length
-      const male     = all.filter(r => r.isMale).length
-      const liveIn   = all.filter(r => r.isLiveIn).length
-      const senior   = all.filter(r => r.isSeniorCitizen).length
-      const trained  = all.filter(r => r.kasambahayOrientation).length
-      setStats({ total: all.length, female, male, liveIn, senior, trained })
-    })
+    async function load() {
+      setLoading(true)
+      setError('')
+      try {
+        // Use the /stats endpoint — one call, all the data we need
+        const res = await fetch(`${API}/kasambahay/stats`, { headers: authHeader() })
+
+        if (res.status === 401) {
+          // Token expired — redirect to login
+          localStorage.clear()
+          window.location.href = '/login'
+          return
+        }
+
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}))
+          setError(j.message || `Server error ${res.status}`)
+          setLoading(false)
+          return
+        }
+
+        const { total, breakdown } = await res.json()
+
+        // breakdown = [{ _id: { year, district }, count }]
+        // We need per-field counts so we fetch all records (paginated) for gender/liveIn/etc.
+        // But to keep it fast, fetch just page 1 with limit=500 and show what we have,
+        // OR use the breakdown totals we already have.
+        // For now: show total + district breakdown from /stats, and fetch detailed counts separately.
+
+        const detailRes = await fetch(`${API}/kasambahay?limit=500`, { headers: authHeader() })
+        let detailed = { female: 0, male: 0, liveIn: 0, senior: 0, trained: 0 }
+
+        if (detailRes.ok) {
+          const detailJson = await detailRes.json()
+          // API returns { data: [...], pagination: {...} }
+          const records = detailJson.data || []
+          detailed = {
+            female:  records.filter(r => r.isFemale).length,
+            male:    records.filter(r => r.isMale).length,
+            liveIn:  records.filter(r => r.isLiveIn).length,
+            senior:  records.filter(r => r.isSeniorCitizen).length,
+            trained: records.filter(r => r.kasambahayOrientation).length,
+          }
+        }
+
+        setStats({ total, breakdown, ...detailed })
+      } catch (err) {
+        setError('Failed to load statistics. Is the server running?')
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
   }, [])
 
-  const districtBreakdown = [
-    { label: '2024', color: '#1a2744' },
-    { label: '2025', color: '#2563a8' },
-  ]
+  if (loading) return <div style={s.loadingBox}>Loading statistics…</div>
+  if (error)   return <div style={s.errorBox}>⚠ {error}</div>
+  if (!stats)  return null
 
   return (
     <div>
@@ -123,44 +161,58 @@ function OverviewTab() {
         <p style={s.sectionSub}>Aggregate statistics across all districts and years</p>
       </div>
 
-      {!stats ? (
-        <div style={s.loadingBox}>Loading statistics…</div>
-      ) : (
-        <>
-          <div style={s.statGrid}>
-            <StatCard label="Total Records"       value={stats.total.toLocaleString()}  sub="All districts, all years"   accent="#1a2744" />
-            <StatCard label="Female Kasambahay"   value={stats.female.toLocaleString()} sub={`${stats.male} male`}        accent="#d4537e" />
-            <StatCard label="Live-in Arrangement" value={stats.liveIn.toLocaleString()} sub="Residential workers"         accent="#1d9e75" />
-            <StatCard label="Orientation Trained" value={stats.trained.toLocaleString()} sub="Attended orientation"       accent="#ba7517" />
-          </div>
+      <div style={s.statGrid}>
+        <StatCard label="Total Records"       value={stats.total.toLocaleString()}   sub="All districts, all years"  accent="#1a2744" />
+        <StatCard label="Female Kasambahay"   value={stats.female.toLocaleString()}  sub={`${stats.male} male`}      accent="#d4537e" />
+        <StatCard label="Live-in Arrangement" value={stats.liveIn.toLocaleString()}  sub="Residential workers"       accent="#1d9e75" />
+        <StatCard label="Orientation Trained" value={stats.trained.toLocaleString()} sub="Attended orientation"      accent="#ba7517" />
+      </div>
 
-          <div style={s.card}>
-            <div style={s.cardHead}>
-              <span style={s.cardHeadTitle}>Classification breakdown</span>
+      <div style={s.card}>
+        <div style={s.cardHead}>
+          <span style={s.cardHeadTitle}>Records by year &amp; district</span>
+        </div>
+        <div style={{ padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+          {stats.breakdown.length === 0 ? (
+            <p style={{ color: '#9ca3af', fontSize: 13 }}>No data yet. Run the seeder or import records.</p>
+          ) : stats.breakdown.map(b => (
+            <div key={`${b._id.year}-${b._id.district}`} style={{ ...s.breakdownItem, borderLeft: '3px solid #1a2744' }}>
+              <span style={{ fontSize: 11, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {b._id.year} · {b._id.district}
+              </span>
+              <span style={{ fontSize: 20, fontWeight: 600, color: '#111827', marginTop: 2 }}>
+                {b.count.toLocaleString()}
+              </span>
             </div>
-            <div style={{ padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-              {[
-                ['General Househelp', stats.total, '#1a2744'],
-                ['Female',           stats.female, '#d4537e'],
-                ['Male',             stats.male,   '#185fa5'],
-                ['Live-in',          stats.liveIn, '#1d9e75'],
-                ['Senior Citizen',   stats.senior, '#ba7517'],
-                ['Orientation Done', stats.trained,'#639922'],
-              ].map(([label, count, color]) => (
-                <div key={label} style={{ ...s.breakdownItem, borderLeft: `3px solid ${color}` }}>
-                  <span style={{ fontSize: 11, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
-                  <span style={{ fontSize: 20, fontWeight: 600, color: '#111827', marginTop: 2 }}>{count.toLocaleString()}</span>
-                </div>
-              ))}
+          ))}
+        </div>
+      </div>
+
+      <div style={s.card}>
+        <div style={s.cardHead}>
+          <span style={s.cardHeadTitle}>Classification breakdown</span>
+        </div>
+        <div style={{ padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+          {[
+            ['Total',            stats.total,   '#1a2744'],
+            ['Female',           stats.female,  '#d4537e'],
+            ['Male',             stats.male,    '#185fa5'],
+            ['Live-in',          stats.liveIn,  '#1d9e75'],
+            ['Senior Citizen',   stats.senior,  '#ba7517'],
+            ['Orientation Done', stats.trained, '#639922'],
+          ].map(([label, count, color]) => (
+            <div key={label} style={{ ...s.breakdownItem, borderLeft: `3px solid ${color}` }}>
+              <span style={{ fontSize: 11, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
+              <span style={{ fontSize: 20, fontWeight: 600, color: '#111827', marginTop: 2 }}>{count.toLocaleString()}</span>
             </div>
-          </div>
-        </>
-      )}
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
 
-// ─── RECORDS TAB ─────────────────────────────────────────────────────────────
+// ─── RECORDS TAB ──────────────────────────────────────────────────────────────
 function RecordsTab() {
   const [year, setYear]         = useState('')
   const [district, setDistrict] = useState('')
@@ -177,16 +229,19 @@ function RecordsTab() {
     setError('')
     setSearched(false)
     try {
-      const token = localStorage.getItem('token')
-      const res   = await fetch(`${API}/kasambahay?year=${year}&district=${district}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      const json  = await res.json()
-      if (!res.ok) { setError(json.message); return }
-      setData(json)
+      const params = new URLSearchParams({ year, district, limit: 500 })
+      const res = await fetch(`${API}/kasambahay?${params}`, { headers: authHeader() })
+
+      if (res.status === 401) { localStorage.clear(); window.location.href = '/login'; return }
+
+      const json = await res.json()
+      if (!res.ok) { setError(json.message || 'Failed to load'); return }
+
+      // ✅ FIX: API returns { data: [...], pagination: {...} }
+      setData(json.data || [])
       setSearched(true)
     } catch {
-      setError('Failed to load records. Check your connection.')
+      setError('Failed to load records. Is the server running on port 5000?')
     } finally {
       setLoading(false)
     }
@@ -220,7 +275,6 @@ function RecordsTab() {
         <p style={s.sectionSub}>Select a year and district to load records</p>
       </div>
 
-      {/* Filter bar */}
       <div style={s.filterBar}>
         <div style={s.filterGroup}>
           <label style={s.filterLabel}>Year</label>
@@ -245,13 +299,10 @@ function RecordsTab() {
         </button>
       </div>
 
-      {error && (
-        <div style={s.errorBox}>{error}</div>
-      )}
+      {error && <div style={s.errorBox}>{error}</div>}
 
       {searched && (
         <div style={s.card}>
-          {/* Table header */}
           <div style={s.tableToolbar}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
@@ -271,7 +322,6 @@ function RecordsTab() {
             </div>
           </div>
 
-          {/* Table */}
           <div style={{ overflowX: 'auto' }}>
             <table style={s.table}>
               <thead>
@@ -310,7 +360,7 @@ function RecordsTab() {
                       {k.monthlySalary ? `₱${k.monthlySalary.toLocaleString()}` : '—'}
                     </td>
                     <td style={s.td}>
-                      <Badge text={k.isFemale ? 'Female' : k.isMale ? 'Male' : '—'} color={k.isFemale ? 'blue' : k.isMale ? 'gray' : 'gray'} />
+                      <Badge text={k.isFemale ? 'Female' : k.isMale ? 'Male' : '—'} color={k.isFemale ? 'blue' : 'gray'} />
                     </td>
                     <td style={s.td}>{jobLabel(k)}</td>
                     <td style={s.td}>
@@ -328,7 +378,6 @@ function RecordsTab() {
         </div>
       )}
 
-      {/* Detail drawer */}
       {selected && (
         <DetailDrawer record={selected} onClose={() => setSelected(null)} jobLabel={jobLabel} arrangementLabel={arrangementLabel} />
       )}
@@ -361,8 +410,8 @@ function DetailDrawer({ record: k, onClose, jobLabel, arrangementLabel }) {
           <div style={{ flex: 1 }}>
             <h3 style={s.drawerName}>{k.firstName} {k.middleName} {k.lastName}</h3>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
-              <Badge text={`District ${k.district?.split(' ')[1] || '?'}`} color="navy" />
-              <Badge text={String(k.year)} color="gray" />
+              <Badge text={`${k.district || 'District ?'}`} color="navy" />
+              <Badge text={String(k.year || '')} color="gray" />
               <Badge text={jobLabel(k)} color="green" />
             </div>
           </div>
@@ -371,22 +420,22 @@ function DetailDrawer({ record: k, onClose, jobLabel, arrangementLabel }) {
 
         <div style={s.drawerBody}>
           <Section title="Personal Information">
-            <Row label="Birthday"      value={k.birthday ? new Date(k.birthday).toLocaleDateString('en-PH', { year:'numeric', month:'long', day:'numeric' }) : '—'} />
-            <Row label="Age"           value={k.age || '—'} />
-            <Row label="Civil Status"  value={k.civilStatus || '—'} />
-            <Row label="Birth Place"   value={k.birthPlace || '—'} />
-            <Row label="Residence"     value={k.currentResidence || '—'} />
-            <Row label="Education"     value={k.educationalAttainment || '—'} />
-            <Row label="Mobile"        value={k.mobileNumber || '—'} />
+            <Row label="Birthday"     value={k.birthday ? new Date(k.birthday).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'} />
+            <Row label="Age"          value={k.age || '—'} />
+            <Row label="Civil Status" value={k.civilStatus || '—'} />
+            <Row label="Birth Place"  value={k.birthPlace || '—'} />
+            <Row label="Residence"    value={k.currentResidence || '—'} />
+            <Row label="Education"    value={k.educationalAttainment || '—'} />
+            <Row label="Mobile"       value={k.mobileNumber || '—'} />
           </Section>
 
           <Section title="Employment">
-            <Row label="Monthly Salary"   value={k.monthlySalary ? `₱${k.monthlySalary.toLocaleString()}` : '—'} />
-            <Row label="Employer Address" value={k.employerAddress || '—'} />
-            <Row label="Work Type"        value={jobLabel(k)} />
-            <Row label="Arrangement"      value={arrangementLabel(k)} />
+            <Row label="Monthly Salary"    value={k.monthlySalary ? `₱${k.monthlySalary.toLocaleString()}` : '—'} />
+            <Row label="Employer Address"  value={k.employerAddress || '—'} />
+            <Row label="Work Type"         value={jobLabel(k)} />
+            <Row label="Arrangement"       value={arrangementLabel(k)} />
             <Row label="Length of Service" value={k.lengthOfService || '—'} />
-            <Row label="Employer's Work"  value={k.workOfEmployer || '—'} />
+            <Row label="Employer's Work"   value={k.workOfEmployer || '—'} />
           </Section>
 
           <Section title="Government IDs">
@@ -397,13 +446,12 @@ function DetailDrawer({ record: k, onClose, jobLabel, arrangementLabel }) {
           </Section>
 
           <Section title="Classifications">
-            <Row label="Ex-OFW"          value={k.isExOfw ? 'Yes' : 'No'} />
-            <Row label="Solo Parent"      value={k.isSoloParent ? 'Yes' : 'No'} />
-            <Row label="PWD"              value={k.isPersonWithDisability ? 'Yes' : 'No'} />
-            <Row label="Senior Citizen"   value={k.isSeniorCitizen ? 'Yes' : 'No'} />
-            <Row label="QC Voter"         value={k.isQcVoter || '—'} />
-            <Row label="KAPSA Member"     value={k.isKapsaMember ? 'Yes' : 'No'} />
-            <Row label="BCOOP Member"     value={k.isBcoopMember ? 'Yes' : 'No'} />
+            <Row label="Ex-OFW"        value={k.isExOfw ? 'Yes' : 'No'} />
+            <Row label="Solo Parent"   value={k.isSoloParent ? 'Yes' : 'No'} />
+            <Row label="PWD"           value={k.isPersonWithDisability ? 'Yes' : 'No'} />
+            <Row label="Senior Citizen" value={k.isSeniorCitizen ? 'Yes' : 'No'} />
+            <Row label="KAPSA Member"  value={k.isKapsaMember ? 'Yes' : 'No'} />
+            <Row label="BCOOP Member"  value={k.isBcoopMember ? 'Yes' : 'No'} />
           </Section>
 
           <Section title="Trainings Attended">
@@ -431,9 +479,7 @@ function Section({ title, children }) {
       <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#9ca3af', fontWeight: 500, marginBottom: 10 }}>
         {title}
       </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-        {children}
-      </div>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>{children}</div>
     </div>
   )
 }
@@ -442,18 +488,23 @@ function Row({ label, value }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '7px 0', borderBottom: '1px solid #f3f4f6', gap: 12 }}>
       <span style={{ fontSize: 13, color: '#6b7280', flexShrink: 0 }}>{label}</span>
-      <span style={{ fontSize: 13, color: '#111827', fontWeight: 400, textAlign: 'right', wordBreak: 'break-word', maxWidth: '60%' }}>{value}</span>
+      <span style={{ fontSize: 13, color: '#111827', textAlign: 'right', wordBreak: 'break-word', maxWidth: '60%' }}>{value}</span>
     </div>
   )
 }
 
-// ─── USERS TAB (placeholder) ──────────────────────────────────────────────────
+// ─── USERS TAB ────────────────────────────────────────────────────────────────
 function UsersTab() {
-  const mockUsers = [
-    { name: 'Admin User',     email: 'admin@kasambahay.com', role: 'Admin',  joined: 'Jan 1, 2026' },
-    { name: 'Maria Santos',   email: 'maria@example.com',    role: 'Helper', joined: 'Feb 3, 2026' },
-    { name: 'Juan Dela Cruz', email: 'juan@example.com',     role: 'Helper', joined: 'Mar 10, 2026' },
-  ]
+  const [users, setUsers]   = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError]   = useState('')
+
+  useEffect(() => {
+    fetch(`${API}/users`, { headers: authHeader() })
+      .then(r => r.json())
+      .then(data => { setUsers(Array.isArray(data) ? data : []); setLoading(false) })
+      .catch(() => { setError('Failed to load users.'); setLoading(false) })
+  }, [])
 
   return (
     <div>
@@ -464,8 +515,9 @@ function UsersTab() {
       <div style={s.card}>
         <div style={{ ...s.tableToolbar, borderBottom: '1px solid #f3f4f6' }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>All users</span>
-          <Badge text={`${mockUsers.length} accounts`} color="navy" />
+          {!loading && <Badge text={`${users.length} accounts`} color="navy" />}
         </div>
+        {error && <div style={{ ...s.errorBox, margin: 16 }}>{error}</div>}
         <table style={s.table}>
           <thead>
             <tr style={{ background: '#f9f8f5' }}>
@@ -475,14 +527,20 @@ function UsersTab() {
             </tr>
           </thead>
           <tbody>
-            {mockUsers.map(u => (
-              <tr key={u.email} style={s.tr}>
+            {loading ? (
+              <tr><td colSpan={4} style={{ padding: 32, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Loading…</td></tr>
+            ) : users.length === 0 ? (
+              <tr><td colSpan={4} style={{ padding: 32, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>No users found.</td></tr>
+            ) : users.map(u => (
+              <tr key={u._id || u.email} style={s.tr}>
                 <td style={{ ...s.td, fontWeight: 500, color: '#111827' }}>{u.name}</td>
                 <td style={{ ...s.td, color: '#6b7280' }}>{u.email}</td>
                 <td style={s.td}>
-                  <Badge text={u.role} color={u.role === 'Admin' ? 'navy' : 'green'} />
+                  <Badge text={u.role} color={u.role === 'admin' ? 'navy' : 'green'} />
                 </td>
-                <td style={{ ...s.td, color: '#6b7280' }}>{u.joined}</td>
+                <td style={{ ...s.td, color: '#6b7280' }}>
+                  {u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-PH') : '—'}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -494,19 +552,18 @@ function UsersTab() {
 
 // ─── MAIN DASHBOARD ───────────────────────────────────────────────────────────
 export default function AdminDashboard() {
-  const [tab, setTab]     = useState('overview')
-  const navigate          = useNavigate()
-  const user              = JSON.parse(localStorage.getItem('user') || '{}')
-  const initials          = user.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'AD'
+  const [tab, setTab] = useState('overview')
+  const navigate      = useNavigate()
+  const user          = JSON.parse(localStorage.getItem('user') || '{}')
+  const initials      = user.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'AD'
 
   const logout = () => {
     localStorage.clear()
-    navigate('/')
+    navigate('/login')
   }
 
   return (
     <div style={s.shell}>
-
       {/* Sidebar */}
       <aside style={s.sidebar}>
         <div style={s.sidebarLogo}>
@@ -536,7 +593,7 @@ export default function AdminDashboard() {
             <div style={s.userAvatar}>{initials}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={s.userName}>{user.name || 'Administrator'}</p>
-              <p style={s.userRole}>{user.role || 'Admin'}</p>
+              <p style={s.userRole}>{user.role || 'admin'}</p>
             </div>
           </div>
           <button onClick={logout} style={s.logoutBtn}>
@@ -546,14 +603,12 @@ export default function AdminDashboard() {
         </div>
       </aside>
 
-      {/* Main */}
+      {/* Main content */}
       <main style={s.main}>
         <header style={s.topbar}>
-          <div>
-            <h1 style={s.topbarTitle}>
-              {tab === 'overview' ? 'Overview' : tab === 'records' ? 'Records' : 'Users'}
-            </h1>
-          </div>
+          <h1 style={s.topbarTitle}>
+            {tab === 'overview' ? 'Overview' : tab === 'records' ? 'Records' : 'Users'}
+          </h1>
           <div style={s.topbarRight}>
             <span style={{ fontSize: 12, color: '#9ca3af' }}>
               {new Date().toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
@@ -583,430 +638,59 @@ export default function AdminDashboard() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const s = {
-  shell: {
-    display: 'flex',
-    height: '100vh',
-    fontFamily: "'DM Sans', sans-serif",
-    background: '#f4f3ef',
-    overflow: 'hidden',
-  },
-  sidebar: {
-    width: 230,
-    flexShrink: 0,
-    background: '#fff',
-    borderRight: '1px solid #e8e5de',
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100vh',
-    overflow: 'hidden',
-  },
-  sidebarLogo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    padding: '20px 18px',
-    borderBottom: '1px solid #f3f4f6',
-  },
-  logoMark: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    background: '#1a2744',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 16,
-    fontWeight: 700,
-    color: '#fff',
-    fontFamily: "'DM Serif Display', serif",
-    flexShrink: 0,
-  },
-  logoName: {
-    fontSize: 13,
-    fontWeight: 600,
-    color: '#111827',
-    lineHeight: 1.2,
-  },
-  logoSub: {
-    fontSize: 11,
-    color: '#9ca3af',
-    lineHeight: 1.2,
-  },
-  nav: {
-    flex: 1,
-    padding: '12px 10px',
-    overflowY: 'auto',
-  },
-  navSection: {
-    fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: '0.08em',
-    color: '#c9c7c0',
-    fontWeight: 500,
-    padding: '8px 8px 4px',
-    marginBottom: 2,
-  },
-  navItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 9,
-    width: '100%',
-    padding: '8px 10px',
-    borderRadius: 7,
-    border: 'none',
-    background: 'transparent',
-    cursor: 'pointer',
-    fontSize: 13,
-    color: '#6b7280',
-    fontFamily: "'DM Sans', sans-serif",
-    fontWeight: 400,
-    textAlign: 'left',
-    marginBottom: 1,
-    transition: 'background 0.1s',
-  },
-  navItemActive: {
-    background: '#eef0f5',
-    color: '#1a2744',
-    fontWeight: 500,
-  },
-  sidebarFooter: {
-    padding: '12px 10px',
-    borderTop: '1px solid #f3f4f6',
-  },
-  userChip: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 9,
-    padding: '8px 10px',
-    marginBottom: 4,
-  },
-  userAvatar: {
-    width: 30,
-    height: 30,
-    borderRadius: '50%',
-    background: '#eef0f5',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 11,
-    fontWeight: 600,
-    color: '#1a2744',
-    flexShrink: 0,
-  },
-  userName: {
-    fontSize: 12,
-    fontWeight: 500,
-    color: '#111827',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  userRole: {
-    fontSize: 11,
-    color: '#9ca3af',
-  },
-  logoutBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    width: '100%',
-    padding: '7px 10px',
-    borderRadius: 7,
-    border: 'none',
-    background: 'transparent',
-    cursor: 'pointer',
-    fontSize: 13,
-    color: '#ef4444',
-    fontFamily: "'DM Sans', sans-serif",
-    fontWeight: 400,
-    textAlign: 'left',
-  },
-  main: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    overflow: 'hidden',
-  },
-  topbar: {
-    height: 56,
-    background: '#fff',
-    borderBottom: '1px solid #e8e5de',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '0 28px',
-    flexShrink: 0,
-  },
-  topbarTitle: {
-    fontSize: 16,
-    fontWeight: 600,
-    color: '#111827',
-  },
-  topbarRight: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-  },
-  content: {
-    flex: 1,
-    overflowY: 'auto',
-    padding: '28px 32px',
-  },
-  sectionHead: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 600,
-    color: '#111827',
-    fontFamily: "'DM Serif Display', serif",
-    marginBottom: 4,
-  },
-  sectionSub: {
-    fontSize: 13,
-    color: '#6b7280',
-  },
-  statGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
-    gap: 16,
-    marginBottom: 20,
-  },
-  statCard: {
-    background: '#fff',
-    border: '1px solid #e8e5de',
-    borderRadius: 10,
-    padding: '16px 20px',
-  },
-  statLabel: {
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: '0.06em',
-    color: '#9ca3af',
-    fontWeight: 500,
-    marginBottom: 8,
-  },
-  statValue: {
-    fontSize: 26,
-    fontWeight: 700,
-    color: '#111827',
-    fontFamily: "'DM Serif Display', serif",
-    lineHeight: 1,
-    marginBottom: 6,
-  },
-  statSub: {
-    fontSize: 12,
-    color: '#9ca3af',
-  },
-  card: {
-    background: '#fff',
-    border: '1px solid #e8e5de',
-    borderRadius: 10,
-    overflow: 'hidden',
-    marginBottom: 20,
-  },
-  cardHead: {
-    padding: '14px 20px',
-    borderBottom: '1px solid #f3f4f6',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  cardHeadTitle: {
-    fontSize: 13,
-    fontWeight: 600,
-    color: '#111827',
-  },
-  breakdownItem: {
-    display: 'flex',
-    flexDirection: 'column',
-    paddingLeft: 12,
-    minWidth: 120,
-  },
-  filterBar: {
-    background: '#fff',
-    border: '1px solid #e8e5de',
-    borderRadius: 10,
-    padding: '16px 20px',
-    display: 'flex',
-    alignItems: 'flex-end',
-    gap: 14,
-    marginBottom: 20,
-    flexWrap: 'wrap',
-  },
-  filterGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 6,
-  },
-  filterLabel: {
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: '0.06em',
-    color: '#9ca3af',
-    fontWeight: 500,
-  },
-  select: {
-    height: 38,
-    padding: '0 12px',
-    fontSize: 13,
-    border: '1px solid #d1cfc7',
-    borderRadius: 7,
-    background: '#fafaf9',
-    color: '#111827',
-    cursor: 'pointer',
-    minWidth: 160,
-    fontFamily: "'DM Sans', sans-serif",
-  },
-  btn: {
-    height: 38,
-    padding: '0 20px',
-    background: '#1a2744',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 7,
-    fontSize: 13,
-    fontWeight: 500,
-    cursor: 'pointer',
-    fontFamily: "'DM Sans', sans-serif",
-    flexShrink: 0,
-  },
-  btnDisabled: {
-    background: '#d1cfc7',
-    cursor: 'not-allowed',
-  },
-  errorBox: {
-    background: '#fef2f2',
-    border: '1px solid #fecaca',
-    borderRadius: 8,
-    padding: '10px 14px',
-    fontSize: 13,
-    color: '#b91c1c',
-    marginBottom: 16,
-  },
-  loadingBox: {
-    background: '#fff',
-    border: '1px solid #e8e5de',
-    borderRadius: 10,
-    padding: '40px 20px',
-    textAlign: 'center',
-    fontSize: 13,
-    color: '#9ca3af',
-  },
-  tableToolbar: {
-    padding: '12px 16px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    flexWrap: 'wrap',
-    borderBottom: '1px solid #f3f4f6',
-  },
-  searchWrap: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    background: '#fafaf9',
-    border: '1px solid #e8e5de',
-    borderRadius: 7,
-    padding: '0 12px',
-    height: 34,
-    color: '#9ca3af',
-  },
-  searchInput: {
-    border: 'none',
-    background: 'transparent',
-    outline: 'none',
-    fontSize: 13,
-    color: '#111827',
-    width: 200,
-    fontFamily: "'DM Sans', sans-serif",
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-  },
-  th: {
-    padding: '8px 12px',
-    textAlign: 'left',
-    fontSize: 11,
-    fontWeight: 500,
-    color: '#9ca3af',
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-    borderBottom: '1px solid #f3f4f6',
-    whiteSpace: 'nowrap',
-  },
-  tr: {
-    borderBottom: '1px solid #f9f8f5',
-    transition: 'background 0.1s',
-  },
-  td: {
-    padding: '10px 12px',
-    fontSize: 12,
-    color: '#374151',
-  },
-  overlay: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0,0,0,0.3)',
-    zIndex: 100,
-  },
-  drawer: {
-    position: 'fixed',
-    top: 0,
-    right: 0,
-    width: 420,
-    height: '100vh',
-    background: '#fff',
-    borderLeft: '1px solid #e8e5de',
-    zIndex: 101,
-    display: 'flex',
-    flexDirection: 'column',
-    overflow: 'hidden',
-  },
-  drawerHead: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: 14,
-    padding: '20px 22px',
-    borderBottom: '1px solid #f3f4f6',
-    flexShrink: 0,
-  },
-  drawerAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: '50%',
-    background: '#eef0f5',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 15,
-    fontWeight: 600,
-    color: '#1a2744',
-    flexShrink: 0,
-    fontFamily: "'DM Serif Display', serif",
-  },
-  drawerName: {
-    fontSize: 15,
-    fontWeight: 600,
-    color: '#111827',
-    lineHeight: 1.3,
-  },
-  closeBtn: {
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    fontSize: 16,
-    color: '#9ca3af',
-    padding: 4,
-    lineHeight: 1,
-    flexShrink: 0,
-    marginLeft: 'auto',
-  },
-  drawerBody: {
-    flex: 1,
-    overflowY: 'auto',
-    padding: '20px 22px',
-  },
+  shell:       { display: 'flex', height: '100vh', fontFamily: "'DM Sans', sans-serif", background: '#f4f3ef', overflow: 'hidden' },
+  sidebar:     { width: 230, flexShrink: 0, background: '#fff', borderRight: '1px solid #e8e5de', display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' },
+  sidebarLogo: { display: 'flex', alignItems: 'center', gap: 10, padding: '20px 18px', borderBottom: '1px solid #f3f4f6' },
+  logoMark:    { width: 32, height: 32, borderRadius: 8, background: '#1a2744', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, color: '#fff', fontFamily: "'DM Serif Display', serif", flexShrink: 0 },
+  logoName:    { fontSize: 13, fontWeight: 600, color: '#111827', lineHeight: 1.2 },
+  logoSub:     { fontSize: 11, color: '#9ca3af', lineHeight: 1.2 },
+  nav:         { flex: 1, padding: '12px 10px', overflowY: 'auto' },
+  navSection:  { fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#c9c7c0', fontWeight: 500, padding: '8px 8px 4px', marginBottom: 2 },
+  navItem:     { display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#6b7280', fontFamily: "'DM Sans', sans-serif", fontWeight: 400, textAlign: 'left', marginBottom: 1 },
+  navItemActive: { background: '#eef0f5', color: '#1a2744', fontWeight: 500 },
+  sidebarFooter: { padding: '12px 10px', borderTop: '1px solid #f3f4f6' },
+  userChip:    { display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', marginBottom: 4 },
+  userAvatar:  { width: 30, height: 30, borderRadius: '50%', background: '#eef0f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, color: '#1a2744', flexShrink: 0 },
+  userName:    { fontSize: 12, fontWeight: 500, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  userRole:    { fontSize: 11, color: '#9ca3af' },
+  logoutBtn:   { display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#ef4444', fontFamily: "'DM Sans', sans-serif", fontWeight: 400, textAlign: 'left' },
+  main:        { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  topbar:      { height: 56, background: '#fff', borderBottom: '1px solid #e8e5de', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', flexShrink: 0 },
+  topbarTitle: { fontSize: 16, fontWeight: 600, color: '#111827' },
+  topbarRight: { display: 'flex', alignItems: 'center', gap: 12 },
+  content:     { flex: 1, overflowY: 'auto', padding: '28px 32px' },
+  sectionHead: { marginBottom: 24 },
+  sectionTitle: { fontSize: 20, fontWeight: 600, color: '#111827', fontFamily: "'DM Serif Display', serif", marginBottom: 4 },
+  sectionSub:  { fontSize: 13, color: '#6b7280' },
+  statGrid:    { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 20 },
+  statCard:    { background: '#fff', border: '1px solid #e8e5de', borderRadius: 10, padding: '16px 20px' },
+  statLabel:   { fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', fontWeight: 500, marginBottom: 8 },
+  statValue:   { fontSize: 26, fontWeight: 700, color: '#111827', fontFamily: "'DM Serif Display', serif", lineHeight: 1, marginBottom: 6 },
+  statSub:     { fontSize: 12, color: '#9ca3af' },
+  card:        { background: '#fff', border: '1px solid #e8e5de', borderRadius: 10, overflow: 'hidden', marginBottom: 20 },
+  cardHead:    { padding: '14px 20px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+  cardHeadTitle: { fontSize: 13, fontWeight: 600, color: '#111827' },
+  breakdownItem: { display: 'flex', flexDirection: 'column', paddingLeft: 12, minWidth: 120 },
+  filterBar:   { background: '#fff', border: '1px solid #e8e5de', borderRadius: 10, padding: '16px 20px', display: 'flex', alignItems: 'flex-end', gap: 14, marginBottom: 20, flexWrap: 'wrap' },
+  filterGroup: { display: 'flex', flexDirection: 'column', gap: 6 },
+  filterLabel: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', fontWeight: 500 },
+  select:      { height: 38, padding: '0 12px', fontSize: 13, border: '1px solid #d1cfc7', borderRadius: 7, background: '#fafaf9', color: '#111827', cursor: 'pointer', minWidth: 160, fontFamily: "'DM Sans', sans-serif" },
+  btn:         { height: 38, padding: '0 20px', background: '#1a2744', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", flexShrink: 0 },
+  btnDisabled: { background: '#d1cfc7', cursor: 'not-allowed' },
+  errorBox:    { background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#b91c1c', marginBottom: 16 },
+  loadingBox:  { background: '#fff', border: '1px solid #e8e5de', borderRadius: 10, padding: '40px 20px', textAlign: 'center', fontSize: 13, color: '#9ca3af' },
+  tableToolbar: { padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', borderBottom: '1px solid #f3f4f6' },
+  searchWrap:  { display: 'flex', alignItems: 'center', gap: 8, background: '#fafaf9', border: '1px solid #e8e5de', borderRadius: 7, padding: '0 12px', height: 34, color: '#9ca3af' },
+  searchInput: { border: 'none', background: 'transparent', outline: 'none', fontSize: 13, color: '#111827', width: 200, fontFamily: "'DM Sans', sans-serif" },
+  table:       { width: '100%', borderCollapse: 'collapse' },
+  th:          { padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 500, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #f3f4f6', whiteSpace: 'nowrap' },
+  tr:          { borderBottom: '1px solid #f9f8f5' },
+  td:          { padding: '10px 12px', fontSize: 12, color: '#374151' },
+  overlay:     { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 100 },
+  drawer:      { position: 'fixed', top: 0, right: 0, width: 420, height: '100vh', background: '#fff', borderLeft: '1px solid #e8e5de', zIndex: 101, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  drawerHead:  { display: 'flex', alignItems: 'flex-start', gap: 14, padding: '20px 22px', borderBottom: '1px solid #f3f4f6', flexShrink: 0 },
+  drawerAvatar: { width: 44, height: 44, borderRadius: '50%', background: '#eef0f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 600, color: '#1a2744', flexShrink: 0 },
+  drawerName:  { fontSize: 15, fontWeight: 600, color: '#111827', lineHeight: 1.3 },
+  closeBtn:    { background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#9ca3af', padding: 4, lineHeight: 1, flexShrink: 0, marginLeft: 'auto' },
+  drawerBody:  { flex: 1, overflowY: 'auto', padding: '20px 22px' },
 }
