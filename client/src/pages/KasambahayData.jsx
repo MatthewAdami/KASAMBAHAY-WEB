@@ -93,7 +93,9 @@ function KasambahayData() {
         limit: LIMIT,
         ...(searchVal ? { search: searchVal } : {}),
       })
-      const res = await fetch(`${API_ENDPOINTS.KASAMBAHAY}?${param}`);
+      const res = await fetch(`${API_ENDPOINTS.KASAMBAHAY}?${params}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const json = await res.json()
       if (!res.ok) { setError(json.message); return }
       setData(json.data)
