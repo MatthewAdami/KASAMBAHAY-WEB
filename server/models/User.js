@@ -8,7 +8,7 @@ const UserSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true, // Prevents duplicate accounts
+    unique: true,
     lowercase: true
   },
   password: {
@@ -16,9 +16,19 @@ const UserSchema = new mongoose.Schema({
     required: true
   },
   role: {
-    type: String, 
-    enum: ['Admin', 'Encoder', 'helper'], // Useful for your Kasambahay portal logic
+    type: String,
+    enum: ['Admin', 'Encoder', 'helper'],
     default: 'Encoder'
+  },
+  // Districts this user can access (empty = all, only enforced for Encoder/helper)
+  assignedDistricts: {
+    type: [String],
+    default: []   // e.g. ['District 1', 'District 3']
+  },
+  // Years this user can access (empty = all, only enforced for Encoder/helper)
+  assignedYears: {
+    type: [Number],
+    default: []   // e.g. [2024, 2025]
   },
   createdAt: {
     type: Date,

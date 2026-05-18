@@ -1,27 +1,29 @@
-const express = require('express')
-const router  = express.Router()
+const express    = require('express')
+const router     = express.Router()
 const Kasambahay = require('../models/Kasambahay')
-const jwt = require('jsonwebtoken')
+const User       = require('../models/User')
+const { auth, requireRole } = require('../middleware')
 
-// ─── Auth middleware ──────────────────────────────────────────────────────────
-const auth = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1]
-  if (!token) return res.status(401).json({ message: 'No token' })
-  try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET)
-    next()
-  } catch {
-    res.status(401).json({ message: 'Invalid token' })
+// Helper: apply district/year restrictions based on user role + assignments
+async function buildFilter(req, extraFilter = {}) {
+  const filter = { ...extraFilter }
+
+  // Encoders and helpers are restricted to their assigned districts/years
+  if (req.user.role !== 'Admin') {
+    const userDoc = await User.findById(req.user.id, 'assignedDistricts assignedYears')
+
+    if (userDoc?.assignedDistricts?.length > 0) {
+      filter.district = { $in: userDoc.assignedDistricts }
+    }
+    if (userDoc?.assignedYears?.length > 0) {
+      filter.year = { $in: userDoc.assignedYears }
+    }
   }
+
+  return filter
 }
 
-// ─── GET /api/kasambahay ──────────────────────────────────────────────────────
-// All params are OPTIONAL — omit to get all records
-//   year      e.g. 2024          (omit = all years)
-//   district  e.g. 1             (omit = all districts)
-//   page      default 1
-//   limit     default 100, max 500
-//   search    searches lastName, firstName, barangay
+// GET /api/kasambahay — All logged-in roles, filtered by assignment
 router.get('/', auth, async (req, res) => {
   try {
     const { year, district, search } = req.query
@@ -29,79 +31,88 @@ router.get('/', auth, async (req, res) => {
     const limit = Math.min(500, parseInt(req.query.limit) || 100)
     const skip  = (page - 1) * limit
 
-    // Build filter — only add fields that were provided
-    const filter = {}
-    if (year)     filter.year     = parseInt(year)
-    if (district) filter.district = { $in: [`District ${district}`, district.toString()] }
-
-    // Optional text search
-    if (search && search.trim()) {
+    // Start with query params filter
+    const queryFilter = {}
+    if (year)     queryFilter.year     = parseInt(year)
+    if (district) queryFilter.district = `District ${district}`
+    if (search?.trim()) {
       const regex = new RegExp(search.trim(), 'i')
-      filter.$or = [
-        { lastName:  regex },
-        { firstName: regex },
-        { barangay:  regex },
-        { mobileNumber: regex },
-      ]
+      queryFilter.$or = [{ lastName: regex }, { firstName: regex }, { barangay: regex }]
     }
 
+    // Merge with role-based assignment restrictions
+    const filter = await buildFilter(req, queryFilter)
+
+    // If Encoder requested a district/year outside their assignment, return empty
     const [data, total] = await Promise.all([
       Kasambahay.find(filter)
         .sort({ district: 1, year: 1, lastName: 1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
+        .skip(skip).limit(limit).lean(),
       Kasambahay.countDocuments(filter),
     ])
 
-    res.json({
-      data,
-      pagination: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    })
+    res.json({ data, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } })
   } catch (err) {
     res.status(500).json({ message: err.message })
   }
 })
 
-// ─── GET /api/kasambahay/stats ────────────────────────────────────────────────
-// Returns totals per year+district — for dashboard overview cards
+// GET /api/kasambahay/stats — filtered by assignment
 router.get('/stats', auth, async (req, res) => {
   try {
+    const filter = await buildFilter(req)
+
     const stats = await Kasambahay.aggregate([
-      {
-        $group: {
-          _id:   { year: '$year', district: '$district' },
-          count: { $sum: 1 },
-        },
-      },
+      { $match: filter },
+      { $group: { _id: { year: '$year', district: '$district' }, count: { $sum: 1 } } },
       { $sort: { '_id.year': 1, '_id.district': 1 } },
     ])
-
-    const total = await Kasambahay.countDocuments()
+    const total = await Kasambahay.countDocuments(filter)
     res.json({ total, breakdown: stats })
   } catch (err) {
     res.status(500).json({ message: err.message })
   }
 })
 
-// ─── POST /api/kasambahay ─────────────────────────────────────────────────────
-router.post('/', auth, async (req, res) => {
+// GET single record
+router.get('/:id', auth, async (req, res) => {
   try {
-    const kasambahayData = { ...req.body }
-    
-    // Format district to match "District X" database schema
-    if (kasambahayData.district && !String(kasambahayData.district).startsWith('District')) {
-      kasambahayData.district = `District ${kasambahayData.district}`
-    }
+    const record = await Kasambahay.findById(req.params.id).lean()
+    if (!record) return res.status(404).json({ message: 'Record not found.' })
+    res.json(record)
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+})
 
-    const newKasambahay = new Kasambahay(kasambahayData)
-    await newKasambahay.save()
-    res.status(201).json({ message: 'Kasambahay added successfully!', data: newKasambahay })
+// POST create — Admin + Encoder
+router.post('/', auth, requireRole('Admin', 'Encoder'), async (req, res) => {
+  try {
+    const record = new Kasambahay(req.body)
+    await record.save()
+    res.status(201).json(record)
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// PUT update — Admin + Encoder
+router.put('/:id', auth, requireRole('Admin', 'Encoder'), async (req, res) => {
+  try {
+    const updated = await Kasambahay.findByIdAndUpdate(req.params.id, req.body, { new: true })
+    if (!updated) return res.status(404).json({ message: 'Record not found.' })
+    res.json(updated)
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// DELETE — Admin only
+router.delete('/:id', auth, requireRole('Admin'), async (req, res) => {
+  try {
+    const deleted = await Kasambahay.findByIdAndDelete(req.params.id)
+    if (!deleted) return res.status(404).json({ message: 'Record not found.' })
+    res.json({ message: 'Record deleted.' })
   } catch (err) {
     res.status(500).json({ message: err.message })
   }

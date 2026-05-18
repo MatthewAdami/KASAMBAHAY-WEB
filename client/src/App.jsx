@@ -5,48 +5,90 @@ import AdminDashboard from './pages/AdminDashboard'
 import UsersPage      from './pages/UserPage'
 import KasambahayPage from './pages/KasambahayData'
 import LoginPage      from './pages/LoginPage'
+import { can, getRole } from './rbac'
 
 const ReportsPage  = () => <div style={{ padding: 24 }}>Reports page</div>
 const SettingsPage = () => <div style={{ padding: 24 }}>Settings page</div>
 const AuditPage    = () => <div style={{ padding: 24 }}>Audit log page</div>
 
-// 💡 Simple guard component to protect admin routes
+// ─── Access Denied page ───────────────────────────────────────────────────────
+const AccessDenied = () => (
+  <div style={{
+    display: 'flex', flexDirection: 'column', alignItems: 'center',
+    justifyContent: 'center', height: '100%', gap: 12, padding: 40,
+    fontFamily: "'DM Sans', sans-serif",
+  }}>
+    <div style={{ fontSize: 48 }}>🚫</div>
+    <h2 style={{ fontSize: 18, fontWeight: 600, color: '#111', margin: 0 }}>Access Denied</h2>
+    <p style={{ fontSize: 14, color: '#888', textAlign: 'center', margin: 0 }}>
+      You don't have permission to view this page.<br />
+      Contact your administrator if you think this is a mistake.
+    </p>
+  </div>
+)
+
+// ─── Auth guard — checks token exists ─────────────────────────────────────────
 const ProtectedRoute = ({ children }) => {
-  // Check if a user token exists in local storage (change 'token' to whatever key your login system uses)
-  const token = localStorage.getItem('token'); 
-  
-  if (!token) {
-    // No token found? Boot them back to the login page!
-    return <Navigate to="/login" replace />;
-  }
-  
-  return children;
-};
+  const token = localStorage.getItem('token')
+  if (!token) return <Navigate to="/login" replace />
+  return children
+}
+
+// ─── Role guard — checks role has permission ──────────────────────────────────
+const RoleRoute = ({ permission, children }) => {
+  const role = getRole()
+  if (!can(role, permission)) return <AccessDenied />
+  return children
+}
 
 export default function App() {
   return (
     <Routes>
-      {/* Public Route */}
+      {/* Public */}
       <Route path="/login" element={<LoginPage />} />
 
-      {/* 💡 Protected Routes: Wrapped inside our authentication guard */}
-      <Route 
-        path="/admin" 
+      {/* Protected: must be logged in */}
+      <Route
+        path="/admin"
         element={
           <ProtectedRoute>
             <AdminLayout />
           </ProtectedRoute>
         }
       >
-        <Route index             element={<AdminDashboard />} />
-        <Route path="users"      element={<UsersPage />} />
-        <Route path="kasambahay" element={<KasambahayPage />} />
-        <Route path="reports"    element={<ReportsPage />} />
-        <Route path="settings"   element={<SettingsPage />} />
-        <Route path="audit"      element={<AuditPage />} />
+        {/* All logged-in roles can see the dashboard */}
+        <Route index element={<AdminDashboard />} />
+
+        {/* Admin only */}
+        <Route path="users" element={
+          <RoleRoute permission="viewUsers">
+            <UsersPage />
+          </RoleRoute>
+        } />
+        <Route path="audit" element={
+          <RoleRoute permission="viewAuditLog">
+            <AuditPage />
+          </RoleRoute>
+        } />
+        <Route path="settings" element={
+          <RoleRoute permission="viewSettings">
+            <SettingsPage />
+          </RoleRoute>
+        } />
+
+        {/* Admin + Encoder */}
+        <Route path="kasambahay" element={
+          <RoleRoute permission="viewKasambahay">
+            <KasambahayPage />
+          </RoleRoute>
+        } />
+        <Route path="reports" element={
+          <RoleRoute permission="viewReports">
+            <ReportsPage />
+          </RoleRoute>
+        } />
       </Route>
 
-      {/* Default Fallback: If not logged in, ProtectedRoute will catch it and send to /login */}
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   )
