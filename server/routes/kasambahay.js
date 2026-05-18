@@ -88,4 +88,15 @@ router.get('/stats', auth, async (req, res) => {
   }
 })
 
+// ─── POST /api/kasambahay ─────────────────────────────────────────────────────
+router.post('/', auth, async (req, res) => {
+  try {
+    const newKasambahay = new Kasambahay(req.body)
+    await newKasambahay.save()
+    res.status(201).json({ message: 'Kasambahay added successfully!', data: newKasambahay })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
 module.exports = router

@@ -41,14 +41,23 @@ const ALL_COLUMNS = [
   { key: 'isKapsaMember',        label: 'KAPSA',                   render: k => k.isKapsaMember ? '✓' : '—', width: 70, center: true },
   { key: 'isBcoopMember',        label: 'BCOOP',                   render: k => k.isBcoopMember ? '✓' : '—', width: 70, center: true },
   { key: 'kasambahayOrientation',   label: 'Orientation',          render: k => k.kasambahayOrientation ? '✓' : '—', width: 90, center: true },
+  { key: 'dateOfOrientation',       label: 'Orientation Date',     render: k => k.dateOfOrientation || '—', width: 120 },
   { key: 'kasambahayOrganizing',    label: 'Organizing',           render: k => k.kasambahayOrganizing ? '✓' : '—', width: 90, center: true },
+  { key: 'dateOfOrganizing',        label: 'Organizing Date',      render: k => k.dateOfOrganizing || '—', width: 120 },
   { key: 'occupationalSafetyAndHealth', label: 'OSH',              render: k => k.occupationalSafetyAndHealth ? '✓' : '—', width: 60, center: true },
+  { key: 'dateOfOshTraining',       label: 'OSH Date',             render: k => k.dateOfOshTraining || '—', width: 120 },
   { key: 'genderSensitivityTraining',   label: 'GST',              render: k => k.genderSensitivityTraining ? '✓' : '—', width: 60, center: true },
+  { key: 'dateOfGenderSensitivity', label: 'GST Date',             render: k => k.dateOfGenderSensitivity || '—', width: 120 },
   { key: 'basicFirstAidTraining',       label: 'First Aid',        render: k => k.basicFirstAidTraining ? '✓' : '—', width: 80, center: true },
+  { key: 'dateOfBasicFirstAid',     label: 'First Aid Date',       render: k => k.dateOfBasicFirstAid || '—', width: 120 },
   { key: 'homeSecurityAwareness',       label: 'Home Security',    render: k => k.homeSecurityAwareness ? '✓' : '—', width: 110, center: true },
+  { key: 'dateOfHomeSecurity',      label: 'Home Security Date',   render: k => k.dateOfHomeSecurity || '—', width: 140 },
   { key: 'kasambahayGeneralAssembly',   label: 'Gen. Assembly',    render: k => k.kasambahayGeneralAssembly ? '✓' : '—', width: 110, center: true },
+  { key: 'dateOfGenAssembly',       label: 'Gen. Assembly Date',   render: k => k.dateOfGenAssembly || '—', width: 140 },
   { key: 'kasambahayDay',               label: 'K. Day',           render: k => k.kasambahayDay ? '✓' : '—', width: 70, center: true },
+  { key: 'dateOfKasambahayDay',     label: 'K. Day Date',          render: k => k.dateOfKasambahayDay || '—', width: 120 },
   { key: 'disasterPreparedness',        label: 'Disaster Prep',    render: k => k.disasterPreparedness ? '✓' : '—', width: 100, center: true },
+  { key: 'dateOfDisasterPreparedness',label: 'Disaster Prep Date', render: k => k.dateOfDisasterPreparedness || '—', width: 140 },
 ]
 
 const BADGE_COLORS = {
@@ -78,6 +87,7 @@ function KasambahayData() {
   const [searchInput, setSearchInput] = useState('')
   const [pagination, setPagination]   = useState(null)
   const [page, setPage]               = useState(1)
+  const [showAddModal, setShowAddModal] = useState(false)
   const navigate = useNavigate()
 
   const fetchData = useCallback(async (pageNum = 1, searchVal = '') => {
@@ -142,15 +152,33 @@ function KasambahayData() {
     <div style={{ padding: 24, minHeight: '100vh', background: '#f9f9f9' }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <button
-          onClick={() => navigate('/admin/dashboard')}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#888', padding: 0 }}
-        >←</button>
-        <div>
-          <h2 style={{ fontSize: 18, fontWeight: 600, color: '#111', margin: 0 }}>Kasambahay data</h2>
-          <p style={{ fontSize: 13, color: '#888', margin: 0 }}>Select year and district to view records</p>
+      {showAddModal && (
+        <AddKasambahayModal 
+          onClose={() => setShowAddModal(false)} 
+          onSuccess={() => {
+            setShowAddModal(false)
+            if (year && district) fetchData(1, '')
+          }} 
+        />
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            onClick={() => navigate('/admin/dashboard')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#888', padding: 0 }}
+          >←</button>
+          <div>
+            <h2 style={{ fontSize: 18, fontWeight: 600, color: '#111', margin: 0 }}>Kasambahay data</h2>
+            <p style={{ fontSize: 13, color: '#888', margin: 0 }}>Select year and district to view records</p>
+          </div>
         </div>
+        <button 
+          onClick={() => setShowAddModal(true)}
+          style={{ height: 38, padding: '0 16px', background: '#111', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
+        >
+          + Add Kasambahay
+        </button>
       </div>
 
       {/* Selector card */}
@@ -365,6 +393,217 @@ function KasambahayData() {
       )}
     </div>
   )
+}
+
+function AddKasambahayModal({ onClose, onSuccess }) {
+  const [formData, setFormData] = useState({
+    firstName: '', middleName: '', lastName: '',
+    year: new Date().getFullYear(), district: '1', barangay: '',
+    birthday: '', age: '', civilStatus: '', mobileNumber: '',
+    isMale: false, isFemale: false,
+    monthlySalary: '', employerAddress: '', lengthOfService: '',
+    isLiveIn: false, isLiveOut: false, isOnCall: false,
+    isGeneralHousehelp: false, isCook: false, isLaundryPerson: false, isYaya: false, isGardener: false,
+    sss: '', pagIbig: '', philhealth: '', qcid: '',
+    isExOfw: false, isSoloParent: false, isPersonWithDisability: false, isSeniorCitizen: false,
+    isQcVoter: '', noOfFamilyVoters: '', noOfKasambahayInFamily: '', workOfEmployer: '', isKapsaMember: false, isBcoopMember: false,
+    kasambahayOrientation: false, dateOfOrientation: '',
+    kasambahayOrganizing: false, dateOfOrganizing: '',
+    occupationalSafetyAndHealth: false, dateOfOshTraining: '',
+    genderSensitivityTraining: false, dateOfGenderSensitivity: '',
+    basicFirstAidTraining: false, dateOfBasicFirstAid: '',
+    homeSecurityAwareness: false, dateOfHomeSecurity: '',
+    kasambahayGeneralAssembly: false, dateOfGenAssembly: '',
+    kasambahayDay: false, dateOfKasambahayDay: '',
+    disasterPreparedness: false, dateOfDisasterPreparedness: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleGender = (gender) => setFormData(prev => ({ ...prev, isMale: gender === 'male', isFemale: gender === 'female' }));
+  const handleArrangement = (arr) => setFormData(prev => ({ ...prev, isLiveIn: arr === 'liveIn', isLiveOut: arr === 'liveOut', isOnCall: arr === 'onCall' }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true); setError('');
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(API_ENDPOINTS.KASAMBAHAY, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(formData)
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || 'Failed to save record.');
+      onSuccess();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const inputStyle = { width: '100%', height: 36, padding: '0 10px', fontSize: 13, border: '1px solid #e4e4e7', borderRadius: 6, outline: 'none', boxSizing: 'border-box' };
+  const labelStyle = { display: 'block', fontSize: 11, fontWeight: 600, color: '#555', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.04em' };
+  const secTitle = { margin: '0 0 12px 0', fontSize: 14, color: '#111', borderBottom: '1px solid #eee', paddingBottom: 6 };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ background: '#fff', width: '100%', maxWidth: 700, maxHeight: '90vh', borderRadius: 12, display: 'flex', flexDirection: 'column', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid #e4e4e7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Add New Kasambahay</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#888' }}>&times;</button>
+        </div>
+        
+        <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
+          {error && <div style={{ background: '#fef2f2', color: '#ef4444', padding: '10px 14px', borderRadius: 6, marginBottom: 16, fontSize: 13, border: '1px solid #fecaca' }}>{error}</div>}
+          <form id="add-kasambahay-form" onSubmit={handleSubmit}>
+            
+            <h4 style={secTitle}>Personal Information</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div><label style={labelStyle}>First Name *</label><input required name="firstName" value={formData.firstName} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Middle Name</label><input name="middleName" value={formData.middleName} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Last Name *</label><input required name="lastName" value={formData.lastName} onChange={handleChange} style={inputStyle} /></div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div><label style={labelStyle}>Birthday</label><input type="date" name="birthday" value={formData.birthday} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Age</label><input type="number" name="age" value={formData.age} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Mobile Number</label><input name="mobileNumber" value={formData.mobileNumber} onChange={handleChange} style={inputStyle} /></div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
+              <div><label style={labelStyle}>Gender</label>
+                <div style={{ display: 'flex', gap: 16, height: 36, alignItems: 'center' }}>
+                  <label style={{ fontSize: 13 }}><input type="radio" checked={formData.isFemale} onChange={() => handleGender('female')} /> Female</label>
+                  <label style={{ fontSize: 13 }}><input type="radio" checked={formData.isMale} onChange={() => handleGender('male')} /> Male</label>
+                </div></div>
+              <div><label style={labelStyle}>Civil Status</label><input name="civilStatus" value={formData.civilStatus} onChange={handleChange} style={inputStyle} /></div>
+            </div>
+
+            <h4 style={secTitle}>Location & Meta</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 24 }}>
+              <div><label style={labelStyle}>Year</label><input type="number" name="year" value={formData.year} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>District</label>
+                <select name="district" value={formData.district} onChange={handleChange} style={inputStyle}>
+                   {[1,2,3,4,5,6].map(d => <option key={d} value={d}>District {d}</option>)}
+                </select></div>
+              <div><label style={labelStyle}>Barangay</label><input name="barangay" value={formData.barangay} onChange={handleChange} style={inputStyle} /></div>
+            </div>
+
+            <h4 style={secTitle}>Employment Info</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div><label style={labelStyle}>Monthly Salary (₱)</label><input type="number" name="monthlySalary" value={formData.monthlySalary} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Employer Address</label><input name="employerAddress" value={formData.employerAddress} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Length of Service</label><input name="lengthOfService" value={formData.lengthOfService} onChange={handleChange} style={inputStyle} /></div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
+              <div><label style={labelStyle}>Arrangement</label>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13, height: 36, alignItems: 'center' }}>
+                  <label><input type="radio" checked={formData.isLiveIn} onChange={() => handleArrangement('liveIn')} /> Live-in</label>
+                  <label><input type="radio" checked={formData.isLiveOut} onChange={() => handleArrangement('liveOut')} /> Live-out</label>
+                  <label><input type="radio" checked={formData.isOnCall} onChange={() => handleArrangement('onCall')} /> On-call</label>
+                </div></div>
+              <div><label style={labelStyle}>Type of Work (Check all that apply)</label>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13, minHeight: 36, alignItems: 'center' }}>
+                  <label><input type="checkbox" name="isGeneralHousehelp" checked={formData.isGeneralHousehelp} onChange={handleChange} /> Househelp</label>
+                  <label><input type="checkbox" name="isCook" checked={formData.isCook} onChange={handleChange} /> Cook</label>
+                  <label><input type="checkbox" name="isLaundryPerson" checked={formData.isLaundryPerson} onChange={handleChange} /> Laundry</label>
+                  <label><input type="checkbox" name="isYaya" checked={formData.isYaya} onChange={handleChange} /> Yaya</label>
+                  <label><input type="checkbox" name="isGardener" checked={formData.isGardener} onChange={handleChange} /> Gardener</label>
+                </div></div>
+            </div>
+
+            <h4 style={secTitle}>Government IDs</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 24 }}>
+              <div>
+                <label style={labelStyle}>SSS</label>
+                <select name="sss" value={formData.sss} onChange={handleChange} style={inputStyle}>
+                  <option value="">Select</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Pag-IBIG</label>
+                <select name="pagIbig" value={formData.pagIbig} onChange={handleChange} style={inputStyle}>
+                  <option value="">Select</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>PhilHealth</label>
+                <select name="philhealth" value={formData.philhealth} onChange={handleChange} style={inputStyle}>
+                  <option value="">Select</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>QCID</label>
+                <select name="qcid" value={formData.qcid} onChange={handleChange} style={inputStyle}>
+                  <option value="">Select</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </div>
+            </div>
+
+            <h4 style={secTitle}>Classifications & Other Info</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div><label style={labelStyle}>QC Voter?</label><input name="isQcVoter" value={formData.isQcVoter} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Family Voters</label><input type="number" name="noOfFamilyVoters" value={formData.noOfFamilyVoters} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Kasambahays in Fam</label><input type="number" name="noOfKasambahayInFamily" value={formData.noOfKasambahayInFamily} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Employer's Work</label><input name="workOfEmployer" value={formData.workOfEmployer} onChange={handleChange} style={inputStyle} /></div>
+            </div>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13, marginBottom: 24, alignItems: 'center' }}>
+              <label><input type="checkbox" name="isExOfw" checked={formData.isExOfw} onChange={handleChange} /> Ex-OFW</label>
+              <label><input type="checkbox" name="isSoloParent" checked={formData.isSoloParent} onChange={handleChange} /> Solo Parent</label>
+              <label><input type="checkbox" name="isPersonWithDisability" checked={formData.isPersonWithDisability} onChange={handleChange} /> PWD</label>
+              <label><input type="checkbox" name="isSeniorCitizen" checked={formData.isSeniorCitizen} onChange={handleChange} /> Senior</label>
+              <label><input type="checkbox" name="isKapsaMember" checked={formData.isKapsaMember} onChange={handleChange} /> KAPSA</label>
+              <label><input type="checkbox" name="isBcoopMember" checked={formData.isBcoopMember} onChange={handleChange} /> BCOOP</label>
+            </div>
+
+            <h4 style={secTitle}>Trainings & Seminars</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+              {[
+                { label: 'Orientation', check: 'kasambahayOrientation', date: 'dateOfOrientation' },
+                { label: 'Organizing', check: 'kasambahayOrganizing', date: 'dateOfOrganizing' },
+                { label: 'OSH', check: 'occupationalSafetyAndHealth', date: 'dateOfOshTraining' },
+                { label: 'GST', check: 'genderSensitivityTraining', date: 'dateOfGenderSensitivity' },
+                { label: 'First Aid', check: 'basicFirstAidTraining', date: 'dateOfBasicFirstAid' },
+                { label: 'Home Security', check: 'homeSecurityAwareness', date: 'dateOfHomeSecurity' },
+                { label: 'Gen. Assembly', check: 'kasambahayGeneralAssembly', date: 'dateOfGenAssembly' },
+                { label: 'K. Day', check: 'kasambahayDay', date: 'dateOfKasambahayDay' },
+                { label: 'Disaster Prep', check: 'disasterPreparedness', date: 'dateOfDisasterPreparedness' },
+              ].map((t) => (
+                <div key={t.check} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 140, fontSize: 13 }}>
+                    <label><input type="checkbox" name={t.check} checked={formData[t.check]} onChange={handleChange} /> {t.label}</label>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <input type="date" name={t.date} value={formData[t.date]} onChange={handleChange} disabled={!formData[t.check]} style={{ ...inputStyle, background: formData[t.check] ? '#fff' : '#f4f4f5' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </form>
+        </div>
+
+        <div style={{ padding: '16px 24px', borderTop: '1px solid #e4e4e7', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button type="button" onClick={onClose} style={{ height: 38, padding: '0 16px', background: '#f4f4f5', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 500 }}>Cancel</button>
+          <button type="submit" form="add-kasambahay-form" disabled={loading} style={{ height: 38, padding: '0 20px', background: '#111', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 500 }}>
+            {loading ? 'Saving...' : 'Save Record'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default KasambahayData
