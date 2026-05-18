@@ -13,7 +13,11 @@ const userRoutes      = require('./routes/users')
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  origin: [
+    'http://localhost:5173', 
+    'http://localhost:3000',
+    'https://kasambahay-web.vercel.app' // 💡 Added your live Vercel URL
+  ],
   credentials: true,
 }));
 app.use(express.json());
