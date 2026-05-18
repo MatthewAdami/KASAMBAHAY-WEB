@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-
+import { API_ENDPOINTS } from '../utils/api';
 const YEARS = [2024, 2025]
 const DISTRICTS = [1, 2, 3, 4, 5, 6]
 const LIMIT = 100
@@ -93,10 +93,7 @@ function KasambahayData() {
         limit: LIMIT,
         ...(searchVal ? { search: searchVal } : {}),
       })
-      const res = await fetch(
-        `http://localhost:5000/api/kasambahay?${params}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+      const res = await fetch(`${API_ENDPOINTS.KASAMBAHAY}?${param}`);
       const json = await res.json()
       if (!res.ok) { setError(json.message); return }
       setData(json.data)
@@ -360,6 +357,7 @@ function KasambahayData() {
               </div>
             </div>
           )}
+
 
         </div>
       )}

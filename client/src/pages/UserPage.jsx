@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-
+import { API_ENDPOINTS } from '../utils/api';
 const AVATAR_COLORS = [
   { bg: '#EEEDFE', fg: '#534AB7' },
   { bg: '#EAF3DE', fg: '#3B6D11' },
@@ -225,7 +225,7 @@ export default function UserPage() {
   async function fetchUsers() {
     try {
       const token = localStorage.getItem('token') || ''
-      const res = await fetch('http://localhost:5000/api/users', {
+      const res = await fetch(`${API_ENDPOINTS.USERS}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       if (res.ok) {
@@ -253,7 +253,7 @@ export default function UserPage() {
   async function handleSave({ name, email, role, password }) {
     try {
       const token = localStorage.getItem('token') || ''
-      const res = await fetch('http://localhost:5000/api/users', {
+      const res = await fetch(`${API_ENDPOINTS.USERS}`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
