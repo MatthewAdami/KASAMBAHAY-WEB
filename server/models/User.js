@@ -1,6 +1,10 @@
 const mongoose = require('mongoose');
 
 const UserSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true
+  },
   email: {
     type: String,
     required: true,
@@ -13,8 +17,8 @@ const UserSchema = new mongoose.Schema({
   },
   role: {
     type: String, 
-    enum: ['Admin', 'helper'], // Useful for your Kasambahay portal logic
-    default: 'helper'
+    enum: ['Admin', 'Encoder', 'helper'], // Useful for your Kasambahay portal logic
+    default: 'Encoder'
   },
   createdAt: {
     type: Date,

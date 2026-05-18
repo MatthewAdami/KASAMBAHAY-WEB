@@ -8,6 +8,7 @@ dns.setServers(['8.8.8.8', '8.8.4.4'])
 const app = express();
 const authRoutes = require('./routes/auth')
 const kasambahayRoutes = require('./routes/kasambahay')
+const userRoutes = require('./routes/users')
 
 // Middleware
 app.use(cors());
@@ -29,6 +30,7 @@ app.get('/', (req, res) => {
 });
 app.use('/api/auth', authRoutes)
 app.use('/api/kasambahay', kasambahayRoutes)
+app.use('/api/users', userRoutes)
 
 
 // Server
