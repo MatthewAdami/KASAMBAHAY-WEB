@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 // ─── Constants ────────────────────────────────────────────────────────────────
 const YEARS     = [2024, 2025]
 const DISTRICTS = [1, 2, 3, 4, 5, 6]
-const API       = '/api'   // Use relative URL — Vite proxy forwards to localhost:5000
+export const API = "https://kasambahay-backend.onrender.com/api";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function authHeader() {
