@@ -2,9 +2,12 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
-const dns = require('dns')
-dns.setDefaultResultOrder('ipv4first')
-dns.setServers(['8.8.8.8', '8.8.4.4'])
+
+if (process.env.NODE_ENV !== 'production') {
+  const dns = require('dns');
+  dns.setDefaultResultOrder('ipv4first');
+  dns.setServers(['8.8.8.8', '8.8.4.4']);
+}
 
 const app = express();
 const authRoutes      = require('./routes/auth')
