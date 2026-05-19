@@ -13,6 +13,7 @@ const app = express();
 const authRoutes      = require('./routes/auth')
 const kasambahayRoutes = require('./routes/kasambahay')
 const userRoutes      = require('./routes/users')
+const activityLogsRoute = require('./routes/activityLogs');
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(cors({
@@ -52,6 +53,7 @@ app.get('/', (req, res) => res.send('Kasambahay API is running!'));
 app.use('/api/auth',       authRoutes)
 app.use('/api/kasambahay', kasambahayRoutes)
 app.use('/api/users',      userRoutes)
+app.use('/api/activity-logs', activityLogsRoute);
 
 // ─── 404 handler ─────────────────────────────────────────────────────────────
 app.use((req, res) => {

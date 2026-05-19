@@ -4,6 +4,7 @@ import AdminLayout    from './layout/AdminLayout'
 import AdminDashboard from './pages/AdminDashboard'
 import UsersPage      from './pages/UserPage'
 import KasambahayPage from './pages/KasambahayData'
+import ActivityLogs   from './pages/ActivityLogs'
 import LoginPage      from './pages/LoginPage'
 import { can, getRole } from './rbac'
 
@@ -85,6 +86,11 @@ export default function App() {
         <Route path="reports" element={
           <RoleRoute permission="viewReports">
             <ReportsPage />
+          </RoleRoute>
+        } />
+        <Route path="activity-logs" element={
+          <RoleRoute permission="viewAuditLog">
+            <ActivityLogs />
           </RoleRoute>
         } />
       </Route>

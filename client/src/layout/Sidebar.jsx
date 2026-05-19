@@ -21,7 +21,7 @@ const NAV = [
     section: 'System',
     items: [
       { key: 'settings',   label: 'Settings',        icon: '⚙️', route: '/admin/settings',    permission: 'viewSettings' },
-      { key: 'auditlog',   label: 'Audit log',       icon: '🗒️', route: '/admin/audit',       permission: 'viewAuditLog' },
+      { key: 'activitylogs', label: 'Activity logs', icon: '📝', route: '/admin/activity-logs', permission: 'viewAuditLog' },
     ],
   },
 ]

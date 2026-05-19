@@ -3,6 +3,7 @@ const router     = express.Router()
 const Kasambahay = require('../models/Kasambahay')
 const User       = require('../models/User')
 const { auth, requireRole } = require('../middleware')
+const { logActivity } = require('../utils/logger');
 
 // Helper: apply district/year restrictions based on user role + assignments
 async function buildFilter(req, extraFilter = {}) {
@@ -141,6 +142,7 @@ router.post('/', auth, requireRole('Admin', 'Encoder'), async (req, res) => {
   try {
     const record = new Kasambahay(req.body)
     await record.save()
+    await logActivity(req.user.id, req.user.name || 'Unknown User', 'Kasambahay', 'ADD', `Added new Kasambahay record for ${record.firstName} ${record.lastName}`)
     res.status(201).json(record)
   } catch (err) {
     res.status(500).json({ message: err.message })
@@ -152,6 +154,7 @@ router.put('/:id/restore', auth, requireRole('Admin'), async (req, res) => {
   try {
     const restored = await Kasambahay.findByIdAndUpdate(req.params.id, { isDeleted: false, deletedAt: null })
     if (!restored) return res.status(404).json({ message: 'Record not found.' })
+    await logActivity(req.user.id, req.user.name || 'Unknown User', 'Kasambahay', 'RESTORE', `Restored Kasambahay record for ${restored.firstName} ${restored.lastName}`)
     res.json({ message: 'Record restored.' })
   } catch (err) {
     res.status(500).json({ message: err.message })
@@ -163,6 +166,7 @@ router.put('/:id', auth, requireRole('Admin', 'Encoder'), async (req, res) => {
   try {
     const updated = await Kasambahay.findByIdAndUpdate(req.params.id, req.body, { new: true })
     if (!updated) return res.status(404).json({ message: 'Record not found.' })
+    await logActivity(req.user.id, req.user.name || 'Unknown User', 'Kasambahay', 'EDIT', `Updated Kasambahay record for ${updated.firstName} ${updated.lastName}`)
     res.json(updated)
   } catch (err) {
     res.status(500).json({ message: err.message })
@@ -174,6 +178,7 @@ router.delete('/:id/permanent', auth, requireRole('Admin'), async (req, res) => 
   try {
     const deleted = await Kasambahay.findByIdAndDelete(req.params.id)
     if (!deleted) return res.status(404).json({ message: 'Record not found.' })
+    await logActivity(req.user.id, req.user.name || 'Unknown User', 'Kasambahay', 'DELETE', `Permanently deleted Kasambahay record for ${deleted.firstName} ${deleted.lastName}`)
     res.json({ message: 'Record permanently deleted.' })
   } catch (err) {
     res.status(500).json({ message: err.message })
@@ -185,6 +190,7 @@ router.delete('/:id', auth, requireRole('Admin', 'Encoder'), async (req, res) =>
   try {
     const deleted = await Kasambahay.findByIdAndUpdate(req.params.id, { isDeleted: true, deletedAt: new Date() })
     if (!deleted) return res.status(404).json({ message: 'Record not found.' })
+    await logActivity(req.user.id, req.user.name || 'Unknown User', 'Kasambahay', 'DELETE', `Soft deleted Kasambahay record for ${deleted.firstName} ${deleted.lastName}`)
     res.json({ message: 'Record soft deleted.' })
   } catch (err) {
     res.status(500).json({ message: err.message })

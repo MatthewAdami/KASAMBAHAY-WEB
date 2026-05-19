@@ -8,4 +8,5 @@ export const API_ENDPOINTS = {
   AUTH_LOGIN: `${BASE_URL}/auth/login`,
   AUTH_REGISTER: `${BASE_URL}/auth/register`,
   USERS: `${BASE_URL}/users`,
+  ACTIVITY_LOGS: `${BASE_URL}/activity-logs`,
 };
