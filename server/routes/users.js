@@ -3,6 +3,7 @@ const router  = express.Router()
 const bcrypt  = require('bcrypt')
 const User    = require('../models/User')
 const { auth, requireRole } = require('../middleware')
+const { logActivity } = require('../utils/logger')  // ← ADD THIS
 
 // GET all users — Admin only
 router.get('/', auth, requireRole('Admin'), async (req, res) => {
@@ -14,7 +15,7 @@ router.get('/', auth, requireRole('Admin'), async (req, res) => {
   }
 })
 
-// GET own profile — used by frontend to get assignments
+// GET own profile
 router.get('/me', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id, '-password')
@@ -34,7 +35,7 @@ router.post('/', auth, requireRole('Admin'), async (req, res) => {
 
     const validRoles = ['Admin', 'Encoder', 'helper']
     if (role && !validRoles.includes(role))
-      return res.status(400).json({ message: `Invalid role.` })
+      return res.status(400).json({ message: 'Invalid role.' })
 
     const existing = await User.findOne({ email: email.toLowerCase() })
     if (existing)
@@ -48,6 +49,16 @@ router.post('/', auth, requireRole('Admin'), async (req, res) => {
       assignedYears: assignedYears || [],
     })
     await newUser.save()
+
+    // ← LOG IT
+    await logActivity(
+      req.user.id,
+      req.user.name || 'Unknown',
+      'Users',
+      'CREATE',
+      `Created user account for ${newUser.name} (${newUser.email}) with role ${newUser.role}`
+    )
+
     const out = newUser.toObject(); delete out.password
     res.status(201).json(out)
   } catch (err) {
@@ -64,27 +75,55 @@ router.put('/:id', auth, requireRole('Admin'), async (req, res) => {
       return res.status(400).json({ message: 'Invalid role.' })
 
     const update = {}
-    if (name !== undefined) update.name = name
-    if (role !== undefined) update.role = role
+    if (name !== undefined)              update.name              = name
+    if (role !== undefined)              update.role              = role
     if (assignedDistricts !== undefined) update.assignedDistricts = assignedDistricts
     if (assignedYears     !== undefined) update.assignedYears     = assignedYears
     if (password) update.password = await bcrypt.hash(password, 10)
 
     const updated = await User.findByIdAndUpdate(req.params.id, update, { new: true, select: '-password' })
     if (!updated) return res.status(404).json({ message: 'User not found.' })
+
+    // ← LOG IT
+    const changes = []
+    if (name)              changes.push(`name → ${name}`)
+    if (role)              changes.push(`role → ${role}`)
+    if (password)          changes.push('password changed')
+    if (assignedDistricts) changes.push(`districts → ${assignedDistricts.join(', ') || 'all'}`)
+    if (assignedYears)     changes.push(`years → ${assignedYears.join(', ') || 'all'}`)
+
+    await logActivity(
+      req.user.id,
+      req.user.name || 'Unknown',
+      'Users',
+      'UPDATE',
+      `Updated user account for ${updated.name} (${updated.email})${changes.length ? ': ' + changes.join('; ') : ''}`
+    )
+
     res.json(updated)
   } catch (err) {
     res.status(500).json({ message: err.message })
   }
 })
 
-// DELETE user — Admin only, cannot delete self
+// DELETE user — Admin only
 router.delete('/:id', auth, requireRole('Admin'), async (req, res) => {
   try {
     if (req.user.id === req.params.id)
       return res.status(400).json({ message: 'You cannot delete your own account.' })
+
     const deleted = await User.findByIdAndDelete(req.params.id)
     if (!deleted) return res.status(404).json({ message: 'User not found.' })
+
+    // ← LOG IT
+    await logActivity(
+      req.user.id,
+      req.user.name || 'Unknown',
+      'Users',
+      'DELETE',
+      `Deleted user account for ${deleted.name} (${deleted.email})`
+    )
+
     res.json({ message: 'User deleted successfully.' })
   } catch (err) {
     res.status(500).json({ message: err.message })
