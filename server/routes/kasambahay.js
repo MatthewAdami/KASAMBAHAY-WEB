@@ -8,10 +8,8 @@ const { auth, requireRole } = require('../middleware')
 async function buildFilter(req, extraFilter = {}) {
   const filter = { ...extraFilter }
 
-  // Encoders and helpers are restricted to their assigned districts/years
   if (req.user.role !== 'Admin') {
     const userDoc = await User.findById(req.user.id, 'assignedDistricts assignedYears')
-
     if (userDoc?.assignedDistricts?.length > 0) {
       filter.district = { $in: userDoc.assignedDistricts }
     }
@@ -23,7 +21,7 @@ async function buildFilter(req, extraFilter = {}) {
   return filter
 }
 
-// GET /api/kasambahay — All logged-in roles, filtered by assignment
+// ─── GET /api/kasambahay — All logged-in roles, filtered by assignment ─────────
 router.get('/', auth, async (req, res) => {
   try {
     const { year, district, search, isDeleted } = req.query
@@ -31,7 +29,6 @@ router.get('/', auth, async (req, res) => {
     const limit = Math.min(500, parseInt(req.query.limit) || 100)
     const skip  = (page - 1) * limit
 
-    // Start with query params filter
     const queryFilter = {}
     if (isDeleted === 'true') {
       queryFilter.isDeleted = true
@@ -45,10 +42,8 @@ router.get('/', auth, async (req, res) => {
       queryFilter.$or = [{ lastName: regex }, { firstName: regex }, { barangay: regex }]
     }
 
-    // Merge with role-based assignment restrictions
     const filter = await buildFilter(req, queryFilter)
 
-    // If Encoder requested a district/year outside their assignment, return empty
     const [data, total] = await Promise.all([
       Kasambahay.find(filter)
         .sort({ district: 1, year: 1, lastName: 1 })
@@ -62,11 +57,10 @@ router.get('/', auth, async (req, res) => {
   }
 })
 
-// GET /api/kasambahay/stats — filtered by assignment
+// ─── GET /api/kasambahay/stats ─────────────────────────────────────────────────
 router.get('/stats', auth, async (req, res) => {
   try {
     const filter = await buildFilter(req, { isDeleted: { $ne: true } })
-
     const stats = await Kasambahay.aggregate([
       { $match: filter },
       { $group: { _id: { year: '$year', district: '$district' }, count: { $sum: 1 } } },
@@ -79,7 +73,59 @@ router.get('/stats', auth, async (req, res) => {
   }
 })
 
-// GET single record
+// ─── POST /api/kasambahay/check-duplicate ─────────────────────────────────────
+// Checks if a record with the same name already exists.
+// Used before Add and Edit to warn the user before saving.
+//
+// Body: { firstName, lastName, middleName, district, year, excludeId? }
+//   excludeId — pass the current record's _id when checking during an Edit
+//               so the record doesn't flag itself as a duplicate.
+//
+// Response 200: { hasDuplicate: false }
+// Response 200: { hasDuplicate: true, matches: [ ...records ] }
+router.post('/check-duplicate', auth, requireRole('Admin', 'Encoder'), async (req, res) => {
+  try {
+    const { firstName, lastName, middleName, district, year, excludeId } = req.body
+
+    if (!firstName || !lastName) {
+      return res.status(400).json({ message: 'firstName and lastName are required for duplicate check.' })
+    }
+
+    // Build a case-insensitive name match.
+    // We match on firstName + lastName always.
+    // middleName is optional — only included in the filter if provided,
+    // so that "Juan dela Cruz" still flags "Juan C. dela Cruz" as a potential match.
+    const nameFilter = {
+      firstName:  new RegExp(`^${firstName.trim()}$`, 'i'),
+      lastName:   new RegExp(`^${lastName.trim()}$`,  'i'),
+      isDeleted:  { $ne: true },
+    }
+
+    // Scope to same district+year if provided (tighter match)
+    if (district) nameFilter.district = `District ${district}`
+    if (year)     nameFilter.year     = parseInt(year)
+
+    // Exclude the record being edited (so it doesn't flag itself)
+    if (excludeId) {
+      nameFilter._id = { $ne: excludeId }
+    }
+
+    const matches = await Kasambahay.find(nameFilter)
+      .select('firstName middleName lastName barangay district year birthday mobileNumber registrationNo')
+      .limit(5)
+      .lean()
+
+    if (matches.length === 0) {
+      return res.json({ hasDuplicate: false })
+    }
+
+    res.json({ hasDuplicate: true, matches })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// ─── GET single record ────────────────────────────────────────────────────────
 router.get('/:id', auth, async (req, res) => {
   try {
     const record = await Kasambahay.findById(req.params.id).lean()
@@ -90,7 +136,7 @@ router.get('/:id', auth, async (req, res) => {
   }
 })
 
-// POST create — Admin + Encoder
+// ─── POST create — Admin + Encoder ───────────────────────────────────────────
 router.post('/', auth, requireRole('Admin', 'Encoder'), async (req, res) => {
   try {
     const record = new Kasambahay(req.body)
@@ -101,7 +147,7 @@ router.post('/', auth, requireRole('Admin', 'Encoder'), async (req, res) => {
   }
 })
 
-// PUT — Restore (Admin only)
+// ─── PUT restore — Admin only ─────────────────────────────────────────────────
 router.put('/:id/restore', auth, requireRole('Admin'), async (req, res) => {
   try {
     const restored = await Kasambahay.findByIdAndUpdate(req.params.id, { isDeleted: false, deletedAt: null })
@@ -112,7 +158,7 @@ router.put('/:id/restore', auth, requireRole('Admin'), async (req, res) => {
   }
 })
 
-// PUT update — Admin + Encoder
+// ─── PUT update — Admin + Encoder ────────────────────────────────────────────
 router.put('/:id', auth, requireRole('Admin', 'Encoder'), async (req, res) => {
   try {
     const updated = await Kasambahay.findByIdAndUpdate(req.params.id, req.body, { new: true })
@@ -123,7 +169,7 @@ router.put('/:id', auth, requireRole('Admin', 'Encoder'), async (req, res) => {
   }
 })
 
-// DELETE — Permanent (Admin only)
+// ─── DELETE permanent — Admin only ────────────────────────────────────────────
 router.delete('/:id/permanent', auth, requireRole('Admin'), async (req, res) => {
   try {
     const deleted = await Kasambahay.findByIdAndDelete(req.params.id)
@@ -134,7 +180,7 @@ router.delete('/:id/permanent', auth, requireRole('Admin'), async (req, res) => 
   }
 })
 
-// DELETE — Soft Delete (Admin + Encoder)
+// ─── DELETE soft — Admin + Encoder ───────────────────────────────────────────
 router.delete('/:id', auth, requireRole('Admin', 'Encoder'), async (req, res) => {
   try {
     const deleted = await Kasambahay.findByIdAndUpdate(req.params.id, { isDeleted: true, deletedAt: new Date() })
