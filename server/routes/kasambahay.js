@@ -26,13 +26,18 @@ async function buildFilter(req, extraFilter = {}) {
 // GET /api/kasambahay — All logged-in roles, filtered by assignment
 router.get('/', auth, async (req, res) => {
   try {
-    const { year, district, search } = req.query
+    const { year, district, search, isDeleted } = req.query
     const page  = Math.max(1, parseInt(req.query.page)  || 1)
     const limit = Math.min(500, parseInt(req.query.limit) || 100)
     const skip  = (page - 1) * limit
 
     // Start with query params filter
     const queryFilter = {}
+    if (isDeleted === 'true') {
+      queryFilter.isDeleted = true
+    } else {
+      queryFilter.isDeleted = { $ne: true }
+    }
     if (year)     queryFilter.year     = parseInt(year)
     if (district) queryFilter.district = `District ${district}`
     if (search?.trim()) {
@@ -60,7 +65,7 @@ router.get('/', auth, async (req, res) => {
 // GET /api/kasambahay/stats — filtered by assignment
 router.get('/stats', auth, async (req, res) => {
   try {
-    const filter = await buildFilter(req)
+    const filter = await buildFilter(req, { isDeleted: { $ne: true } })
 
     const stats = await Kasambahay.aggregate([
       { $match: filter },
@@ -96,6 +101,17 @@ router.post('/', auth, requireRole('Admin', 'Encoder'), async (req, res) => {
   }
 })
 
+// PUT — Restore (Admin only)
+router.put('/:id/restore', auth, requireRole('Admin'), async (req, res) => {
+  try {
+    const restored = await Kasambahay.findByIdAndUpdate(req.params.id, { isDeleted: false, deletedAt: null })
+    if (!restored) return res.status(404).json({ message: 'Record not found.' })
+    res.json({ message: 'Record restored.' })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
 // PUT update — Admin + Encoder
 router.put('/:id', auth, requireRole('Admin', 'Encoder'), async (req, res) => {
   try {
@@ -107,12 +123,23 @@ router.put('/:id', auth, requireRole('Admin', 'Encoder'), async (req, res) => {
   }
 })
 
-// DELETE — Admin only
-router.delete('/:id', auth, requireRole('Admin'), async (req, res) => {
+// DELETE — Permanent (Admin only)
+router.delete('/:id/permanent', auth, requireRole('Admin'), async (req, res) => {
   try {
     const deleted = await Kasambahay.findByIdAndDelete(req.params.id)
     if (!deleted) return res.status(404).json({ message: 'Record not found.' })
-    res.json({ message: 'Record deleted.' })
+    res.json({ message: 'Record permanently deleted.' })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// DELETE — Soft Delete (Admin + Encoder)
+router.delete('/:id', auth, requireRole('Admin', 'Encoder'), async (req, res) => {
+  try {
+    const deleted = await Kasambahay.findByIdAndUpdate(req.params.id, { isDeleted: true, deletedAt: new Date() })
+    if (!deleted) return res.status(404).json({ message: 'Record not found.' })
+    res.json({ message: 'Record soft deleted.' })
   } catch (err) {
     res.status(500).json({ message: err.message })
   }

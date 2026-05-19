@@ -88,11 +88,20 @@ function KasambahayData() {
   const [pagination, setPagination]   = useState(null)
   const [page, setPage]               = useState(1)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [editItem, setEditItem]       = useState(null)
+  const [checkedItems, setCheckedItems] = useState([])
+  const [viewDeleted, setViewDeleted] = useState(false)
+  const [deleteItem, setDeleteItem]   = useState(null)
+  const [permanentDeleteItem, setPermanentDeleteItem] = useState(null)
   const navigate = useNavigate()
 
-  const fetchData = useCallback(async (pageNum = 1, searchVal = '', overrideYear = null, overrideDistrict = null) => {
+  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  const isAdmin = user.role === 'Admin'
+
+  const fetchData = useCallback(async (pageNum = 1, searchVal = '', overrideYear = null, overrideDistrict = null, overrideDeleted = null) => {
     const targetYear = overrideYear || year;
     const targetDistrict = overrideDistrict || district;
+    const targetDeleted = overrideDeleted !== null ? overrideDeleted : viewDeleted;
     if (!targetYear || !targetDistrict) return
 
     try {
@@ -104,6 +113,7 @@ function KasambahayData() {
         district: targetDistrict,
         page:  pageNum,
         limit: LIMIT,
+        isDeleted: targetDeleted,
         ...(searchVal ? { search: searchVal } : {}),
       })
       const res = await fetch(`${API_ENDPOINTS.KASAMBAHAY}?${params}`, {
@@ -114,6 +124,7 @@ function KasambahayData() {
       if (!res.ok) { setError(json.message); return }
       setData(json.data)
       setPagination(json.pagination)
+      setCheckedItems([]) // clear selection when data changes
       setSearched(true)
       setPage(pageNum)
     } catch {
@@ -121,7 +132,7 @@ function KasambahayData() {
     } finally {
       setLoading(false)
     }
-  }, [year, district])
+  }, [year, district, viewDeleted])
 
   const handleFetch = () => {
     setSearch('')
@@ -169,6 +180,35 @@ function KasambahayData() {
         />
       )}
 
+      {editItem && (
+        <EditKasambahayModal 
+          item={editItem}
+          onClose={() => setEditItem(null)} 
+          onSuccess={(newYear, newDistrict) => {
+            setEditItem(null)
+            setYear(newYear)
+            setDistrict(newDistrict)
+            fetchData(1, search, newYear, newDistrict)
+          }} 
+        />
+      )}
+
+      {(deleteItem || permanentDeleteItem) && (
+        <DeleteConfirmModal
+          item={deleteItem || permanentDeleteItem}
+          isPermanent={!!permanentDeleteItem}
+          onClose={() => {
+            setDeleteItem(null);
+            setPermanentDeleteItem(null);
+          }}
+          onSuccess={() => {
+            setDeleteItem(null);
+            setPermanentDeleteItem(null);
+            fetchData(page, search);
+          }}
+        />
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
@@ -176,16 +216,34 @@ function KasambahayData() {
             style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#888', padding: 0 }}
           >←</button>
           <div>
-            <h2 style={{ fontSize: 18, fontWeight: 600, color: '#111', margin: 0 }}>Kasambahay data</h2>
+            <h2 style={{ fontSize: 18, fontWeight: 600, color: '#111', margin: 0 }}>
+              Kasambahay data {viewDeleted ? '(Deleted)' : ''}
+            </h2>
             <p style={{ fontSize: 13, color: '#888', margin: 0 }}>Select year and district to view records</p>
           </div>
         </div>
-        <button 
-          onClick={() => setShowAddModal(true)}
-          style={{ height: 38, padding: '0 16px', background: '#111', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
-        >
-          + Add Kasambahay
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          {isAdmin && (
+            <button 
+              onClick={() => {
+                const newMode = !viewDeleted;
+                setViewDeleted(newMode);
+                fetchData(1, search, null, null, newMode);
+              }}
+              style={{ height: 38, padding: '0 16px', background: viewDeleted ? '#ef4444' : '#f4f4f5', color: viewDeleted ? '#fff' : '#111', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
+            >
+              {viewDeleted ? 'View Active Records' : 'View Deleted Records'}
+            </button>
+          )}
+          {!viewDeleted && (
+            <button 
+              onClick={() => setShowAddModal(true)}
+              style={{ height: 38, padding: '0 16px', background: '#111', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
+            >
+              + Add Kasambahay
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Selector card */}
@@ -256,6 +314,70 @@ function KasambahayData() {
 
             {/* Search */}
             <div style={{ display: 'flex', gap: 8 }}>
+              {!viewDeleted ? (
+                <>
+                  <button
+                    onClick={() => {
+                      const item = data.find(d => d._id === checkedItems[0]);
+                      if (item) setEditItem(item);
+                    }}
+                    disabled={checkedItems.length !== 1}
+                    style={{
+                      height: 34, padding: '0 14px',
+                      background: checkedItems.length === 1 ? '#534AB7' : '#e4e4e7',
+                      color: checkedItems.length === 1 ? '#fff' : '#888',
+                      border: 'none', borderRadius: 8, fontSize: 13,
+                      cursor: checkedItems.length === 1 ? 'pointer' : 'not-allowed'
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => {
+                      const item = data.find(d => d._id === checkedItems[0]);
+                      if (item) setDeleteItem(item);
+                    }}
+                    disabled={checkedItems.length !== 1}
+                    style={{
+                      height: 34, padding: '0 14px',
+                      background: checkedItems.length === 1 ? '#ef4444' : '#e4e4e7',
+                      color: checkedItems.length === 1 ? '#fff' : '#888',
+                      border: 'none', borderRadius: 8, fontSize: 13,
+                      cursor: checkedItems.length === 1 ? 'pointer' : 'not-allowed'
+                    }}
+                  >
+                    Delete
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={async () => {
+                      const item = data.find(d => d._id === checkedItems[0]);
+                      if (!item) return;
+                      if (window.confirm(`Restore record for ${item.firstName} ${item.lastName}?`)) {
+                        const token = localStorage.getItem('token');
+                        await fetch(`${API_ENDPOINTS.KASAMBAHAY}/${item._id}/restore`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
+                        fetchData(page, search);
+                      }
+                    }}
+                    disabled={checkedItems.length !== 1}
+                    style={{ height: 34, padding: '0 14px', background: checkedItems.length === 1 ? '#10b981' : '#e4e4e7', color: checkedItems.length === 1 ? '#fff' : '#888', border: 'none', borderRadius: 8, fontSize: 13, cursor: checkedItems.length === 1 ? 'pointer' : 'not-allowed' }}
+                  >
+                    Restore
+                  </button>
+                  <button
+                    onClick={() => {
+                      const item = data.find(d => d._id === checkedItems[0]);
+                      if (item) setPermanentDeleteItem(item);
+                    }}
+                    disabled={checkedItems.length !== 1}
+                    style={{ height: 34, padding: '0 14px', background: checkedItems.length === 1 ? '#ef4444' : '#e4e4e7', color: checkedItems.length === 1 ? '#fff' : '#888', border: 'none', borderRadius: 8, fontSize: 13, cursor: checkedItems.length === 1 ? 'pointer' : 'not-allowed' }}
+                  >
+                    Perm. Delete
+                  </button>
+                </>
+              )}
               <input
                 type="text"
                 placeholder="Search name or barangay..."
@@ -284,6 +406,19 @@ function KasambahayData() {
             <table style={{ borderCollapse: 'collapse', fontSize: 12, whiteSpace: 'nowrap' }}>
               <thead>
                 <tr style={{ background: '#fafafa' }}>
+                  <th
+                    style={{
+                      padding: '8px 12px',
+                      textAlign: 'center',
+                      borderBottom: '2px solid #e4e4e7',
+                      borderRight: '1px solid #f0f0f0',
+                      position: 'sticky', top: 0,
+                      background: '#fafafa', zIndex: 1,
+                      width: 40,
+                    }}
+                  >
+                    <input type="checkbox" checked={data.length > 0 && checkedItems.length === data.length} onChange={e => setCheckedItems(e.target.checked ? data.map(d => d._id) : [])} />
+                  </th>
                   {ALL_COLUMNS.map(col => (
                     <th
                       key={col.key}
@@ -307,13 +442,13 @@ function KasambahayData() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={ALL_COLUMNS.length} style={{ padding: 40, textAlign: 'center', color: '#aaa', fontSize: 13 }}>
+                    <td colSpan={ALL_COLUMNS.length + 1} style={{ padding: 40, textAlign: 'center', color: '#aaa', fontSize: 13 }}>
                       Loading...
                     </td>
                   </tr>
                 ) : data.length === 0 ? (
                   <tr>
-                    <td colSpan={ALL_COLUMNS.length} style={{ padding: 40, textAlign: 'center', color: '#aaa', fontSize: 13 }}>
+                    <td colSpan={ALL_COLUMNS.length + 1} style={{ padding: 40, textAlign: 'center', color: '#aaa', fontSize: 13 }}>
                       No records found.
                     </td>
                   </tr>
@@ -324,6 +459,15 @@ function KasambahayData() {
                     onMouseEnter={e => e.currentTarget.style.background = '#fafff8'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   >
+                    <td
+                      style={{
+                        padding: '9px 12px',
+                        textAlign: 'center',
+                        borderRight: '1px solid #f5f5f5',
+                      }}
+                    >
+                      <input type="checkbox" checked={checkedItems.includes(k._id)} onChange={() => setCheckedItems(prev => prev.includes(k._id) ? prev.filter(id => id !== k._id) : [...prev, k._id])} />
+                    </td>
                     {ALL_COLUMNS.map(col => {
                       const value = col.render(k, i, page)
                       const badgeColor = col.badge ? col.badge(k) : null
@@ -404,9 +548,11 @@ function KasambahayData() {
 
 function AddKasambahayModal({ onClose, onSuccess }) {
   const [formData, setFormData] = useState({
+    registrationNo: '', dateRegistered: '',
     firstName: '', middleName: '', lastName: '',
     year: new Date().getFullYear(), district: '1', barangay: '',
     birthday: '', age: '', civilStatus: '', mobileNumber: '',
+    birthPlace: '', currentResidence: '', educationalAttainment: '',
     isMale: false, isFemale: false,
     monthlySalary: '', employerAddress: '', lengthOfService: '',
     isLiveIn: false, isLiveOut: false, isOnCall: false,
@@ -471,6 +617,12 @@ function AddKasambahayModal({ onClose, onSuccess }) {
           {error && <div style={{ background: '#fef2f2', color: '#ef4444', padding: '10px 14px', borderRadius: 6, marginBottom: 16, fontSize: 13, border: '1px solid #fecaca' }}>{error}</div>}
           <form id="add-kasambahay-form" onSubmit={handleSubmit}>
             
+            <h4 style={secTitle}>Registration Info</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div><label style={labelStyle}>Reg. No.</label><input type="number" name="registrationNo" value={formData.registrationNo} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Date Registered</label><input type="date" name="dateRegistered" value={formData.dateRegistered} onChange={handleChange} style={inputStyle} /></div>
+            </div>
+
             <h4 style={secTitle}>Personal Information</h4>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
               <div><label style={labelStyle}>First Name *</label><input required name="firstName" value={formData.firstName} onChange={handleChange} style={inputStyle} /></div>
@@ -481,6 +633,11 @@ function AddKasambahayModal({ onClose, onSuccess }) {
               <div><label style={labelStyle}>Birthday</label><input type="date" name="birthday" value={formData.birthday} onChange={handleChange} style={inputStyle} /></div>
               <div><label style={labelStyle}>Age</label><input type="number" name="age" value={formData.age} onChange={handleChange} style={inputStyle} /></div>
               <div><label style={labelStyle}>Mobile Number</label><input name="mobileNumber" value={formData.mobileNumber} onChange={handleChange} style={inputStyle} /></div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div><label style={labelStyle}>Birth Place</label><input name="birthPlace" value={formData.birthPlace} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Current Residence</label><input name="currentResidence" value={formData.currentResidence} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Education</label><input name="educationalAttainment" value={formData.educationalAttainment} onChange={handleChange} style={inputStyle} /></div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
               <div><label style={labelStyle}>Gender</label>
@@ -606,6 +763,346 @@ function AddKasambahayModal({ onClose, onSuccess }) {
           <button type="button" onClick={onClose} style={{ height: 38, padding: '0 16px', background: '#f4f4f5', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 500 }}>Cancel</button>
           <button type="submit" form="add-kasambahay-form" disabled={loading} style={{ height: 38, padding: '0 20px', background: '#111', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 500 }}>
             {loading ? 'Saving...' : 'Save Record'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditKasambahayModal({ item, onClose, onSuccess }) {
+  const [formData, setFormData] = useState(() => {
+    const data = { ...item };
+    const dateFields = [
+      'dateRegistered', 'birthday', 'dateOfOrientation', 'dateOfOrganizing', 'dateOfOshTraining',
+      'dateOfGenderSensitivity', 'dateOfBasicFirstAid', 'dateOfHomeSecurity',
+      'dateOfGenAssembly', 'dateOfKasambahayDay', 'dateOfDisasterPreparedness'
+    ];
+    dateFields.forEach(f => {
+      if (data[f]) data[f] = data[f].split('T')[0];
+      else data[f] = '';
+    });
+    for (const key in data) {
+      if (data[key] === null) data[key] = '';
+    }
+    return data;
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [confirmChanges, setConfirmChanges] = useState(null);
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleGender = (gender) => setFormData(prev => ({ ...prev, isMale: gender === 'male', isFemale: gender === 'female' }));
+  const handleArrangement = (arr) => setFormData(prev => ({ ...prev, isLiveIn: arr === 'liveIn', isLiveOut: arr === 'liveOut', isOnCall: arr === 'onCall' }));
+
+  const handleReview = (e) => {
+    e.preventDefault();
+    const diff = [];
+    const dateFields = [
+      'dateRegistered', 'birthday', 'dateOfOrientation', 'dateOfOrganizing', 'dateOfOshTraining',
+      'dateOfGenderSensitivity', 'dateOfBasicFirstAid', 'dateOfHomeSecurity',
+      'dateOfGenAssembly', 'dateOfKasambahayDay', 'dateOfDisasterPreparedness'
+    ];
+
+    for (const key in formData) {
+      if (key === '_id' || key === '__v' || key === 'createdAt' || key === 'updatedAt' || key === 'createdBy' || typeof formData[key] === 'function') continue;
+      
+      let orig = item[key];
+      if (dateFields.includes(key) && orig) {
+        orig = orig.split('T')[0];
+      }
+      if (orig === null || orig === undefined) orig = '';
+      
+      if (String(formData[key]) !== String(orig)) {
+        diff.push({ field: key, old: orig, new: formData[key] });
+      }
+    }
+
+    if (diff.length === 0) {
+      setError('No changes made.');
+      return;
+    }
+    setError('');
+    setConfirmChanges(diff);
+  };
+
+  const handleSubmit = async () => {
+    setLoading(true); setError('');
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_ENDPOINTS.KASAMBAHAY}/${item._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(formData)
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || 'Failed to update record.');
+      onSuccess(formData.year, formData.district);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const inputStyle = { width: '100%', height: 36, padding: '0 10px', fontSize: 13, border: '1px solid #e4e4e7', borderRadius: 6, outline: 'none', boxSizing: 'border-box' };
+  const labelStyle = { display: 'block', fontSize: 11, fontWeight: 600, color: '#555', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.04em' };
+  const secTitle = { margin: '0 0 12px 0', fontSize: 14, color: '#111', borderBottom: '1px solid #eee', paddingBottom: 6 };
+
+  if (confirmChanges) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div style={{ background: '#fff', width: '100%', maxWidth: 500, borderRadius: 12, display: 'flex', flexDirection: 'column', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
+          <div style={{ padding: '16px 24px', borderBottom: '1px solid #e4e4e7' }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Review Changes</h3>
+          </div>
+          <div style={{ padding: '24px', maxHeight: '60vh', overflowY: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', paddingBottom: 8, borderBottom: '1px solid #eee' }}>Field</th>
+                  <th style={{ textAlign: 'left', paddingBottom: 8, borderBottom: '1px solid #eee' }}>Previous</th>
+                  <th style={{ textAlign: 'left', paddingBottom: 8, borderBottom: '1px solid #eee' }}>New</th>
+                </tr>
+              </thead>
+              <tbody>
+                {confirmChanges.map(c => (
+                  <tr key={c.field}>
+                    <td style={{ padding: '8px 0', borderBottom: '1px solid #f9f9f9', fontWeight: 500 }}>{c.field}</td>
+                    <td style={{ padding: '8px 0', borderBottom: '1px solid #f9f9f9', color: '#888', textDecoration: 'line-through', wordBreak: 'break-all' }}>{String(c.old) || '—'}</td>
+                    <td style={{ padding: '8px 0', borderBottom: '1px solid #f9f9f9', color: '#16a34a', wordBreak: 'break-all' }}>{String(c.new) || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {error && <div style={{ marginTop: 16, color: '#ef4444', fontSize: 13 }}>{error}</div>}
+          </div>
+          <div style={{ padding: '16px 24px', borderTop: '1px solid #e4e4e7', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <button onClick={() => setConfirmChanges(null)} style={{ height: 38, padding: '0 16px', background: '#f4f4f5', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 500 }}>Back to Edit</button>
+            <button onClick={handleSubmit} disabled={loading} style={{ height: 38, padding: '0 20px', background: '#111', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 500 }}>
+              {loading ? 'Saving...' : 'Confirm & Save'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ background: '#fff', width: '100%', maxWidth: 700, maxHeight: '90vh', borderRadius: 12, display: 'flex', flexDirection: 'column', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid #e4e4e7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Edit Kasambahay</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#888' }}>&times;</button>
+        </div>
+        
+        <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
+          {error && <div style={{ background: '#fef2f2', color: '#ef4444', padding: '10px 14px', borderRadius: 6, marginBottom: 16, fontSize: 13, border: '1px solid #fecaca' }}>{error}</div>}
+          <form id="edit-kasambahay-form" onSubmit={handleReview}>
+            
+            <h4 style={secTitle}>Registration Info</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div><label style={labelStyle}>Reg. No.</label><input type="number" name="registrationNo" value={formData.registrationNo} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Date Registered</label><input type="date" name="dateRegistered" value={formData.dateRegistered} onChange={handleChange} style={inputStyle} /></div>
+            </div>
+
+            <h4 style={secTitle}>Personal Information</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div><label style={labelStyle}>First Name *</label><input required name="firstName" value={formData.firstName} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Middle Name</label><input name="middleName" value={formData.middleName} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Last Name *</label><input required name="lastName" value={formData.lastName} onChange={handleChange} style={inputStyle} /></div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div><label style={labelStyle}>Birthday</label><input type="date" name="birthday" value={formData.birthday} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Age</label><input type="number" name="age" value={formData.age} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Mobile Number</label><input name="mobileNumber" value={formData.mobileNumber} onChange={handleChange} style={inputStyle} /></div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div><label style={labelStyle}>Birth Place</label><input name="birthPlace" value={formData.birthPlace} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Current Residence</label><input name="currentResidence" value={formData.currentResidence} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Education</label><input name="educationalAttainment" value={formData.educationalAttainment} onChange={handleChange} style={inputStyle} /></div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
+              <div><label style={labelStyle}>Gender</label>
+                <div style={{ display: 'flex', gap: 16, height: 36, alignItems: 'center' }}>
+                  <label style={{ fontSize: 13 }}><input type="radio" checked={formData.isFemale} onChange={() => handleGender('female')} /> Female</label>
+                  <label style={{ fontSize: 13 }}><input type="radio" checked={formData.isMale} onChange={() => handleGender('male')} /> Male</label>
+                </div></div>
+              <div><label style={labelStyle}>Civil Status</label><input name="civilStatus" value={formData.civilStatus} onChange={handleChange} style={inputStyle} /></div>
+            </div>
+
+            <h4 style={secTitle}>Location & Meta</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 24 }}>
+              <div><label style={labelStyle}>Year</label><input type="number" name="year" value={formData.year} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>District</label>
+                <select name="district" value={formData.district} onChange={handleChange} style={inputStyle}>
+                   {[1,2,3,4,5,6].map(d => <option key={d} value={d}>District {d}</option>)}
+                </select></div>
+              <div><label style={labelStyle}>Barangay</label><input name="barangay" value={formData.barangay} onChange={handleChange} style={inputStyle} /></div>
+            </div>
+
+            <h4 style={secTitle}>Employment Info</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div><label style={labelStyle}>Monthly Salary (₱)</label><input type="number" name="monthlySalary" value={formData.monthlySalary} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Employer Address</label><input name="employerAddress" value={formData.employerAddress} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Length of Service</label><input name="lengthOfService" value={formData.lengthOfService} onChange={handleChange} style={inputStyle} /></div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
+              <div><label style={labelStyle}>Arrangement</label>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13, height: 36, alignItems: 'center' }}>
+                  <label><input type="radio" checked={formData.isLiveIn} onChange={() => handleArrangement('liveIn')} /> Live-in</label>
+                  <label><input type="radio" checked={formData.isLiveOut} onChange={() => handleArrangement('liveOut')} /> Live-out</label>
+                  <label><input type="radio" checked={formData.isOnCall} onChange={() => handleArrangement('onCall')} /> On-call</label>
+                </div></div>
+              <div><label style={labelStyle}>Type of Work (Check all that apply)</label>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13, minHeight: 36, alignItems: 'center' }}>
+                  <label><input type="checkbox" name="isGeneralHousehelp" checked={formData.isGeneralHousehelp} onChange={handleChange} /> Househelp</label>
+                  <label><input type="checkbox" name="isCook" checked={formData.isCook} onChange={handleChange} /> Cook</label>
+                  <label><input type="checkbox" name="isLaundryPerson" checked={formData.isLaundryPerson} onChange={handleChange} /> Laundry</label>
+                  <label><input type="checkbox" name="isYaya" checked={formData.isYaya} onChange={handleChange} /> Yaya</label>
+                  <label><input type="checkbox" name="isGardener" checked={formData.isGardener} onChange={handleChange} /> Gardener</label>
+                </div></div>
+            </div>
+
+            <h4 style={secTitle}>Government IDs</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 24 }}>
+              <div>
+                <label style={labelStyle}>SSS</label>
+                <select name="sss" value={formData.sss} onChange={handleChange} style={inputStyle}>
+                  <option value="">Select</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Pag-IBIG</label>
+                <select name="pagIbig" value={formData.pagIbig} onChange={handleChange} style={inputStyle}>
+                  <option value="">Select</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>PhilHealth</label>
+                <select name="philhealth" value={formData.philhealth} onChange={handleChange} style={inputStyle}>
+                  <option value="">Select</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>QCID</label>
+                <select name="qcid" value={formData.qcid} onChange={handleChange} style={inputStyle}>
+                  <option value="">Select</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </div>
+            </div>
+
+            <h4 style={secTitle}>Classifications & Other Info</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div><label style={labelStyle}>QC Voter?</label><input name="isQcVoter" value={formData.isQcVoter} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Family Voters</label><input type="number" name="noOfFamilyVoters" value={formData.noOfFamilyVoters} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Kasambahays in Fam</label><input type="number" name="noOfKasambahayInFamily" value={formData.noOfKasambahayInFamily} onChange={handleChange} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Employer's Work</label><input name="workOfEmployer" value={formData.workOfEmployer} onChange={handleChange} style={inputStyle} /></div>
+            </div>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13, marginBottom: 24, alignItems: 'center' }}>
+              <label><input type="checkbox" name="isExOfw" checked={formData.isExOfw} onChange={handleChange} /> Ex-OFW</label>
+              <label><input type="checkbox" name="isSoloParent" checked={formData.isSoloParent} onChange={handleChange} /> Solo Parent</label>
+              <label><input type="checkbox" name="isPersonWithDisability" checked={formData.isPersonWithDisability} onChange={handleChange} /> PWD</label>
+              <label><input type="checkbox" name="isSeniorCitizen" checked={formData.isSeniorCitizen} onChange={handleChange} /> Senior</label>
+              <label><input type="checkbox" name="isKapsaMember" checked={formData.isKapsaMember} onChange={handleChange} /> KAPSA</label>
+              <label><input type="checkbox" name="isBcoopMember" checked={formData.isBcoopMember} onChange={handleChange} /> BCOOP</label>
+            </div>
+
+            <h4 style={secTitle}>Trainings & Seminars</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+              {[
+                { label: 'Orientation', check: 'kasambahayOrientation', date: 'dateOfOrientation' },
+                { label: 'Organizing', check: 'kasambahayOrganizing', date: 'dateOfOrganizing' },
+                { label: 'OSH', check: 'occupationalSafetyAndHealth', date: 'dateOfOshTraining' },
+                { label: 'GST', check: 'genderSensitivityTraining', date: 'dateOfGenderSensitivity' },
+                { label: 'First Aid', check: 'basicFirstAidTraining', date: 'dateOfBasicFirstAid' },
+                { label: 'Home Security', check: 'homeSecurityAwareness', date: 'dateOfHomeSecurity' },
+                { label: 'Gen. Assembly', check: 'kasambahayGeneralAssembly', date: 'dateOfGenAssembly' },
+                { label: 'K. Day', check: 'kasambahayDay', date: 'dateOfKasambahayDay' },
+                { label: 'Disaster Prep', check: 'disasterPreparedness', date: 'dateOfDisasterPreparedness' },
+              ].map((t) => (
+                <div key={t.check} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 140, fontSize: 13 }}>
+                    <label><input type="checkbox" name={t.check} checked={formData[t.check]} onChange={handleChange} /> {t.label}</label>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <input type="date" name={t.date} value={formData[t.date]} onChange={handleChange} disabled={!formData[t.check]} style={{ ...inputStyle, background: formData[t.check] ? '#fff' : '#f4f4f5' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </form>
+        </div>
+
+        <div style={{ padding: '16px 24px', borderTop: '1px solid #e4e4e7', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button type="button" onClick={onClose} style={{ height: 38, padding: '0 16px', background: '#f4f4f5', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 500 }}>Cancel</button>
+          <button type="submit" form="edit-kasambahay-form" style={{ height: 38, padding: '0 20px', background: '#111', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 500 }}>
+            Review Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeleteConfirmModal({ item, isPermanent, onClose, onSuccess }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleDelete = async () => {
+    setLoading(true); setError('');
+    try {
+      const token = localStorage.getItem('token');
+      const url = `${API_ENDPOINTS.KASAMBAHAY}/${item._id}${isPermanent ? '/permanent' : ''}`;
+      const res = await fetch(url, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || 'Failed to delete record.');
+      onSuccess();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ background: '#fff', width: '100%', maxWidth: 400, borderRadius: 12, display: 'flex', flexDirection: 'column', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid #e4e4e7' }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: isPermanent ? '#ef4444' : '#111' }}>
+            {isPermanent ? 'Permanently Delete' : 'Soft Delete'} Record
+          </h3>
+        </div>
+        <div style={{ padding: '24px' }}>
+          {error && <div style={{ marginBottom: 16, color: '#ef4444', fontSize: 13 }}>{error}</div>}
+          <p style={{ margin: '0 0 10px 0', fontSize: 14, color: '#333' }}>
+            Are you sure you want to {isPermanent ? 'permanently delete' : 'delete'} <strong>{item.firstName} {item.lastName}</strong>?
+          </p>
+          {isPermanent ? (
+            <p style={{ margin: 0, fontSize: 12, color: '#888' }}>This action cannot be undone and will remove the data permanently from the system.</p>
+          ) : (
+            <p style={{ margin: 0, fontSize: 12, color: '#888' }}>This will move the record to the deleted data page. Admins can restore it later.</p>
+          )}
+        </div>
+        <div style={{ padding: '16px 24px', borderTop: '1px solid #e4e4e7', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button onClick={onClose} style={{ height: 38, padding: '0 16px', background: '#f4f4f5', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 500 }}>Cancel</button>
+          <button onClick={handleDelete} disabled={loading} style={{ height: 38, padding: '0 20px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 500 }}>
+            {loading ? 'Deleting...' : 'Yes, Delete'}
           </button>
         </div>
       </div>

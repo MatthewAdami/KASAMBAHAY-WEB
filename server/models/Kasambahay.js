@@ -71,6 +71,8 @@ const KasambahaySchema = new mongoose.Schema({
   // Meta
   district: { type: String, default: 'District 1' },
   year: { type: Number, default: 2024 },
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date }
 }, { timestamps: true })
 
 module.exports = mongoose.model('Kasambahay', KasambahaySchema)
