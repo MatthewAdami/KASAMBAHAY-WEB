@@ -357,7 +357,7 @@ function AddKasambahayModal({ onClose, onSuccess }) {
       const result = await checkDuplicate({
         firstName: formData.firstName,
         lastName:  formData.lastName,
-        district:  formData.district,
+        district:  formData.district.replace('District ', ''), // ← strip the prefix
         year:      formData.year,
       })
       if (result.hasDuplicate) {
@@ -490,7 +490,7 @@ function EditKasambahayModal({ item, onClose, onSuccess }) {
         const result = await checkDuplicate({
           firstName: formData.firstName,
           lastName:  formData.lastName,
-          district:  formData.district,
+          district:  formData.district.replace('District ', ''),
           year:      formData.year,
           excludeId: item._id, // exclude self
         })
