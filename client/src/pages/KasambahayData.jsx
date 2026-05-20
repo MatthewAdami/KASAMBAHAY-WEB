@@ -278,14 +278,14 @@ function DuplicateWarningModal({ matches, onCancel, onSaveAnyway, isSaving }) {
                   {m.year     && <Badge color="gray">{m.year}</Badge>}
                 </div>
               </div>
-              {m.mobileNumber && (
-                <p style={{ margin: '8px 0 0', fontSize: 13, color: '#888' }}>📱 {m.mobileNumber}</p>
-              )}
-              {m.birthday && (
-                <p style={{ margin: '4px 0 0', fontSize: 13, color: '#888' }}>
-                  🎂 {new Date(m.birthday).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}
-                </p>
-              )}
+              <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px 16px', fontSize: 13, color: '#555' }}>
+                <span>🎂 Birthday: <strong>{m.birthday ? new Date(m.birthday).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}</strong></span>
+                <span>🔢 Age: <strong>{m.age || '—'}</strong></span>
+                <span>📱 Mobile: <strong>{m.mobileNumber || '—'}</strong></span>
+                <span>💍 Civil Status: <strong>{m.civilStatus || '—'}</strong></span>
+                <span>📋 Reg. No.: <strong>{m.registrationNo || '—'}</strong></span>
+                <span>🏠 Barangay: <strong>{m.barangay || '—'}</strong></span>
+              </div>
             </div>
           ))}
         </div>
@@ -367,10 +367,12 @@ function AddKasambahayModal({ onClose, onSuccess }) {
     setLoading(true)
     try {
       const result = await checkDuplicate({
-        firstName: formData.firstName,
-        lastName:  formData.lastName,
-        district:  formData.district.replace('District ', ''),
-        year:      formData.year,
+        firstName:  formData.firstName,
+        lastName:   formData.lastName,
+        middleName: formData.middleName,
+        birthday:   formData.birthday,
+        district:   formData.district.replace('District ', ''),
+        year:       formData.year,
       })
       if (result.hasDuplicate) {
         setDupMatches(result.matches)
@@ -496,11 +498,13 @@ function EditKasambahayModal({ item, onClose, onSuccess }) {
       setLoading(true)
       try {
         const result = await checkDuplicate({
-          firstName: formData.firstName,
-          lastName:  formData.lastName,
-          district:  formData.district.replace('District ', ''),
-          year:      formData.year,
-          excludeId: item._id,
+          firstName:  formData.firstName,
+          lastName:   formData.lastName,
+          middleName: formData.middleName,
+          birthday:   formData.birthday,
+          district:   formData.district.replace('District ', ''),
+          year:       formData.year,
+          excludeId:  item._id,
         })
         if (result.hasDuplicate) {
           setDupMatches({ matches: result.matches, diff })

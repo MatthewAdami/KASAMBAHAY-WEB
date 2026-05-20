@@ -96,10 +96,34 @@ router.post('/check-duplicate', auth, requireRole('Admin', 'Encoder'), async (re
     // We match on firstName + lastName always.
     // middleName is optional — only included in the filter if provided,
     // so that "Juan dela Cruz" still flags "Juan C. dela Cruz" as a potential match.
-    const nameFilter = {
+    // Match if EITHER full name matches OR birthday matches
+    const fullNameMatch = {
       firstName:  new RegExp(`^${firstName.trim()}$`, 'i'),
       lastName:   new RegExp(`^${lastName.trim()}$`,  'i'),
       isDeleted:  { $ne: true },
+    }
+    if (middleName?.trim()) {
+      fullNameMatch.middleName = new RegExp(`^${middleName.trim()}$`, 'i')
+    }
+
+    const orConditions = [fullNameMatch]
+
+    // Also flag if birthday matches (and name partially matches)
+    if (birthday) {
+      const birthdayStart = new Date(birthday)
+      birthdayStart.setHours(0, 0, 0, 0)
+      const birthdayEnd = new Date(birthday)
+      birthdayEnd.setHours(23, 59, 59, 999)
+      orConditions.push({
+        birthday: { $gte: birthdayStart, $lte: birthdayEnd },
+        firstName: new RegExp(`^${firstName.trim()}$`, 'i'),
+        isDeleted: { $ne: true },
+      })
+    }
+
+    const nameFilter = {
+      $or: orConditions,
+      isDeleted: { $ne: true },
     }
 
     // Scope to same district+year if provided (tighter match)
@@ -112,7 +136,7 @@ router.post('/check-duplicate', auth, requireRole('Admin', 'Encoder'), async (re
     }
 
     const matches = await Kasambahay.find(nameFilter)
-      .select('firstName middleName lastName barangay district year birthday mobileNumber registrationNo')
+      .select('firstName middleName lastName barangay district year birthday mobileNumber registrationNo age civilStatus')
       .limit(5)
       .lean()
 
