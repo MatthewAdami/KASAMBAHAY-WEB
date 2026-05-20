@@ -6,7 +6,8 @@ import {
 import * as XLSX from 'xlsx';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const API_URL   = 'http://localhost:5000/api/kasambahay';
+const BASE_URL  = import.meta.env?.VITE_API_URL || process.env?.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL   = `${BASE_URL}/kasambahay`;
 const DISTRICTS = ['District 1','District 2','District 3','District 4','District 5','District 6'];
 const YEARS     = [2024, 2025];
 
