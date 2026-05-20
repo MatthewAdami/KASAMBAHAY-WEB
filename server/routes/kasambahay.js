@@ -126,9 +126,9 @@ router.post('/check-duplicate', auth, requireRole('Admin', 'Encoder'), async (re
       isDeleted: { $ne: true },
     }
 
-    // Scope to same district+year if provided (tighter match)
-    if (district) nameFilter.district = `District ${district}`
-    if (year)     nameFilter.year     = parseInt(year)
+    // // Scope to same district+year if provided (tighter match)
+    // if (district) nameFilter.district = `District ${district}`
+    // if (year)     nameFilter.year     = parseInt(year)
 
     // Exclude the record being edited (so it doesn't flag itself)
     if (excludeId) {
