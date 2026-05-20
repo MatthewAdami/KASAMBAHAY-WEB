@@ -164,9 +164,31 @@ router.put('/:id/restore', auth, requireRole('Admin'), async (req, res) => {
 // ─── PUT update — Admin + Encoder ────────────────────────────────────────────
 router.put('/:id', auth, requireRole('Admin', 'Encoder'), async (req, res) => {
   try {
+    // Fetch old record BEFORE updating so we can diff it
+    const old = await Kasambahay.findById(req.params.id).lean()
+    if (!old) return res.status(404).json({ message: 'Record not found.' })
+
     const updated = await Kasambahay.findByIdAndUpdate(req.params.id, req.body, { new: true })
-    if (!updated) return res.status(404).json({ message: 'Record not found.' })
-    await logActivity(req.user.id, req.user.name || 'Unknown User', 'Kasambahay', 'EDIT', `Updated Kasambahay record for ${updated.firstName} ${updated.lastName}`)
+
+    // Build a human-readable diff of what changed
+    const skip = ['_id', '__v', 'createdAt', 'updatedAt', 'isDeleted', 'deletedAt']
+    const changes = []
+    for (const key of Object.keys(req.body)) {
+      if (skip.includes(key)) continue
+      const oldVal = old[key] ?? ''
+      const newVal = req.body[key] ?? ''
+      if (String(oldVal) !== String(newVal)) {
+        changes.push(`${key}: "${oldVal}" → "${newVal}"`)
+      }
+    }
+
+    const diffText = changes.length > 0
+      ? `Changed: ${changes.join('; ')}`
+      : 'No field changes detected'
+
+    const description = `Updated Kasambahay record for ${updated.firstName} ${updated.lastName}. ${diffText}`
+    await logActivity(req.user.id, req.user.name || 'Unknown User', 'Kasambahay', 'EDIT', description)
+
     res.json(updated)
   } catch (err) {
     res.status(500).json({ message: err.message })
