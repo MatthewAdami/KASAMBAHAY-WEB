@@ -694,6 +694,8 @@ function KasambahayData() {
   const [viewDeleted, setViewDeleted]             = useState(false)
   const [deleteItem, setDeleteItem]               = useState(null)
   const [permanentDeleteItem, setPermanentDeleteItem] = useState(null)
+  const [sortKey, setSortKey]   = useState(null)
+  const [sortDir, setSortDir]   = useState('asc')
   const navigate = useNavigate()
 
   const user    = JSON.parse(localStorage.getItem('user') || '{}')
@@ -731,6 +733,29 @@ function KasambahayData() {
     }
   }, [year, district, viewDeleted])
 
+  const handleSort = (key) => {
+    if (key === '#' || key === 'gender' || key === 'type' || key === 'arrangement') return
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
+
+  const sortedData = [...data].sort((a, b) => {
+    if (!sortKey) return 0
+    let aVal = a[sortKey] ?? ''
+    let bVal = b[sortKey] ?? ''
+    if (typeof aVal === 'boolean') aVal = aVal ? 1 : 0
+    if (typeof bVal === 'boolean') bVal = bVal ? 1 : 0
+    if (typeof aVal === 'number' && typeof bVal === 'number') {
+      return sortDir === 'asc' ? aVal - bVal : bVal - aVal
+    }
+    return sortDir === 'asc'
+      ? String(aVal).localeCompare(String(bVal))
+      : String(bVal).localeCompare(String(aVal))
+  })
   const handleFetch  = () => { setSearch(''); setSearchInput(''); fetchData(1, '') }
   const handleSearch = () => { setSearch(searchInput); fetchData(1, searchInput) }
   const handleSearchKey = (e) => { if (e.key === 'Enter') handleSearch() }
@@ -898,11 +923,24 @@ function KasambahayData() {
                   <th style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '2px solid #e4e4e7', borderRight: '1px solid #f0f0f0', position: 'sticky', top: 0, background: '#fafafa', zIndex: 1, width: 40 }}>
                     <input type="checkbox" checked={data.length > 0 && checkedItems.length === data.length} onChange={e => setCheckedItems(e.target.checked ? data.map(d => d._id) : [])} />
                   </th>
-                  {ALL_COLUMNS.map(col => (
-                    <th key={col.key} style={{ padding: '8px 12px', textAlign: col.center ? 'center' : 'left', fontSize: 11, fontWeight: 600, color: '#555', borderBottom: '2px solid #e4e4e7', borderRight: '1px solid #f0f0f0', minWidth: col.width, maxWidth: col.width, position: 'sticky', top: 0, background: '#fafafa', zIndex: 1 }}>
-                      {col.label}
-                    </th>
-                  ))}
+                  {ALL_COLUMNS.map(col => {
+                    const isSortable = !['#','gender','type','arrangement'].includes(col.key)
+                    const isActive   = sortKey === col.key
+                    return (
+                      <th
+                        key={col.key}
+                        onClick={() => handleSort(col.key)}
+                        style={{ padding: '8px 12px', textAlign: col.center ? 'center' : 'left', fontSize: 11, fontWeight: 600, color: isActive ? '#534AB7' : '#555', borderBottom: '2px solid #e4e4e7', borderRight: '1px solid #f0f0f0', minWidth: col.width, maxWidth: col.width, position: 'sticky', top: 0, background: '#fafafa', zIndex: 1, cursor: isSortable ? 'pointer' : 'default', userSelect: 'none', whiteSpace: 'nowrap' }}
+                      >
+                        {col.label}
+                        {isSortable && (
+                          <span style={{ marginLeft: 4, opacity: isActive ? 1 : 0.3 }}>
+                            {isActive && sortDir === 'desc' ? '↓' : '↑'}
+                          </span>
+                        )}
+                      </th>
+                    )
+                  })}
                 </tr>
               </thead>
               <tbody>
@@ -910,7 +948,7 @@ function KasambahayData() {
                   <tr><td colSpan={ALL_COLUMNS.length + 1} style={{ padding: 40, textAlign: 'center', color: '#aaa', fontSize: 13 }}>Loading...</td></tr>
                 ) : data.length === 0 ? (
                   <tr><td colSpan={ALL_COLUMNS.length + 1} style={{ padding: 40, textAlign: 'center', color: '#aaa', fontSize: 13 }}>No records found.</td></tr>
-                ) : data.map((k, i) => (
+                ) : sortedData.map((k, i) => (
                   <tr key={k._id} style={{ borderBottom: '1px solid #f0f0f0' }}
                     onMouseEnter={e => e.currentTarget.style.background = '#fafff8'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
