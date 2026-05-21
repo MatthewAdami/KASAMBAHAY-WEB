@@ -1,17 +1,30 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer
 } from 'recharts';
 import * as XLSX from 'xlsx';
 
-// ─── Config ───────────────────────────────────────────────────────────────────
 import { API_ENDPOINTS } from '../utils/api'
 const API_URL = API_ENDPOINTS.KASAMBAHAY
 const DISTRICTS = ['District 1','District 2','District 3','District 4','District 5','District 6'];
 const YEARS     = [2024, 2025];
 
-// ─── Aggregate all records into the summary shape ─────────────────────────────
+// ─── Apply filters to raw records ────────────────────────────────────────────
+function applyFilters(records, { year, district, sex, arrangement }) {
+  return records.filter(r => {
+    if (year        && r.year !== Number(year))     return false;
+    if (district    && r.district !== district)     return false;
+    if (sex === 'female' && !r.isFemale)            return false;
+    if (sex === 'male'   && !r.isMale)              return false;
+    if (arrangement === 'livein'  && !r.isLiveIn)   return false;
+    if (arrangement === 'liveout' && !r.isLiveOut)  return false;
+    if (arrangement === 'oncall'  && !r.isOnCall)   return false;
+    return true;
+  });
+}
+
+// ─── Aggregate all records into the summary shape ────────────────────────────
 function buildSummary(records) {
   const blank = () => ({
     subtotal: 0,
@@ -26,52 +39,44 @@ function buildSummary(records) {
     age15below: 0, age1830: 0, age3145: 0, age45above: 0,
   });
 
-  // Map keyed by district name
   const map = {};
   DISTRICTS.forEach(d => { map[d] = { district: d, ...blank() }; });
 
   for (const r of records) {
     const d = map[r.district];
     if (!d) continue;
-
     d.subtotal++;
     if (r.year === 2024) d.enc2024++;
     if (r.year === 2025) d.enc2025++;
-
-    if (r.sss)       d.sss++;
+    if (r.sss)        d.sss++;
     if (r.philhealth) d.philhealth++;
-    if (r.pagIbig)   d.pagibig++;
-    if (r.qcid)      d.qcid++;
-
-    if (r.isFemale)  d.female++;
-    if (r.isMale)    d.male++;
-    if (r.isLiveIn)  d.liveIn++;
-    if (r.isLiveOut) d.liveOut++;
-    if (r.isOnCall)  d.onCall++;
-
-    if (r.isSeniorCitizen)        d.senior++;
-    if (r.isSoloParent)           d.soloParent++;
-    if (r.isExOfw)                d.exOfw++;
-    if (r.isPersonWithDisability) d.pwd++;
-
-    if (r.kasambahayOrientation)      d.orientation++;
-    if (r.kasambahayOrganizing)       d.organizing++;
-    if (r.occupationalSafetyAndHealth) d.osh++;
-    if (r.genderSensitivityTraining)   d.genderSens++;
-    if (r.basicFirstAidTraining)       d.firstAid++;
-    if (r.homeSecurityAwareness)       d.homeSec++;
-
+    if (r.pagIbig)    d.pagibig++;
+    if (r.qcid)       d.qcid++;
+    if (r.isFemale)   d.female++;
+    if (r.isMale)     d.male++;
+    if (r.isLiveIn)   d.liveIn++;
+    if (r.isLiveOut)  d.liveOut++;
+    if (r.isOnCall)   d.onCall++;
+    if (r.isSeniorCitizen)         d.senior++;
+    if (r.isSoloParent)            d.soloParent++;
+    if (r.isExOfw)                 d.exOfw++;
+    if (r.isPersonWithDisability)  d.pwd++;
+    if (r.kasambahayOrientation)        d.orientation++;
+    if (r.kasambahayOrganizing)         d.organizing++;
+    if (r.occupationalSafetyAndHealth)  d.osh++;
+    if (r.genderSensitivityTraining)    d.genderSens++;
+    if (r.basicFirstAidTraining)        d.firstAid++;
+    if (r.homeSecurityAwareness)        d.homeSec++;
     if (r.isGeneralHousehelp) d.genHouse++;
     if (r.isCook)             d.cook++;
     if (r.isLaundryPerson)    d.laundry++;
     if (r.isYaya)             d.yaya++;
     if (r.isGardener)         d.gardener++;
-
     const age = r.age || 0;
-    if (age <= 15)            d.age15below++;
-    else if (age <= 30)       d.age1830++;
-    else if (age <= 45)       d.age3145++;
-    else                      d.age45above++;
+    if (age <= 15)      d.age15below++;
+    else if (age <= 30) d.age1830++;
+    else if (age <= 45) d.age3145++;
+    else                d.age45above++;
   }
 
   return DISTRICTS.map(d => map[d]);
@@ -86,27 +91,22 @@ function buildTotals(rows) {
 
 function buildPct(rows) {
   return rows.map(r => ({
-    district: r.district,
-    sss:        r.subtotal ? +((r.sss       / r.subtotal) * 100).toFixed(2) : 0,
-    philhealth: r.subtotal ? +((r.philhealth/ r.subtotal) * 100).toFixed(2) : 0,
-    pagibig:    r.subtotal ? +((r.pagibig   / r.subtotal) * 100).toFixed(2) : 0,
-    qcid:       r.subtotal ? +((r.qcid      / r.subtotal) * 100).toFixed(2) : 0,
+    district:   r.district,
+    sss:        r.subtotal ? +((r.sss        / r.subtotal) * 100).toFixed(2) : 0,
+    philhealth: r.subtotal ? +((r.philhealth / r.subtotal) * 100).toFixed(2) : 0,
+    pagibig:    r.subtotal ? +((r.pagibig    / r.subtotal) * 100).toFixed(2) : 0,
+    qcid:       r.subtotal ? +((r.qcid       / r.subtotal) * 100).toFixed(2) : 0,
   }));
 }
 
-// ─── Build per-barangay counts grouped by district ───────────────────────────
 function buildBarangay(records) {
-  // { 'District 1': { 'BARANGAY NAME': count, ... }, ... }
   const map = {};
   DISTRICTS.forEach(d => { map[d] = {}; });
-
   for (const r of records) {
     if (!map[r.district]) continue;
     const brgy = (r.barangay || '(Blank)').trim().toUpperCase();
     map[r.district][brgy] = (map[r.district][brgy] || 0) + 1;
   }
-
-  // Convert to sorted arrays: [{ barangay, count }]
   const result = {};
   for (const d of DISTRICTS) {
     result[d] = Object.entries(map[d])
@@ -116,54 +116,39 @@ function buildBarangay(records) {
   return result;
 }
 
-// ─── Export to Excel ──────────────────────────────────────────────────────────
+// ─── Export to Excel ─────────────────────────────────────────────────────────
 function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName) {
   const wb = XLSX.utils.book_new();
-  const C  = { font: { bold: true } };
-  const HDR_STYLE = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '534AB7' } }, alignment: { horizontal: 'center', wrapText: true } };
-  const TOT_STYLE = { font: { bold: true, color: { rgb: '3C3289' } }, fill: { fgColor: { rgb: 'EDEAF9' } } };
-
-  // Helper: auto-fit column widths
   const autoWidth = (data) =>
     data[0]?.map((_, ci) => ({
       wch: Math.max(...data.map(row => String(row[ci] ?? '').length), 8),
     }));
 
-  // ── Sheet 1: Masterlist (Full Data) ──────────────────────────────────────
+  // Masterlist
   const masterHeaders = [
-    'No.', 'Last Name', 'First Name', 'Middle Name', 'District', 'Barangay',
-    'Age', 'Sex', 'Civil Status', 'Home Address', 'Nature of Work',
-    'Employment Arrangement', 'Monthly Salary', 'Remarks'
+    'No.','Last Name','First Name','Middle Name','District','Barangay',
+    'Age','Sex','Civil Status','Home Address','Nature of Work',
+    'Employment Arrangement','Monthly Salary','Remarks'
   ];
   const masterRows = (rawRecords || []).map((item, index) => {
-    let sex = item.isFemale ? 'Female' : item.isMale ? 'Male' : '-';
-    let work = '-';
-    if (item.isGeneralHousehelp) work = 'General Househelp';
-    else if (item.isCook) work = 'Cook';
-    else if (item.isLaundryPerson) work = 'Laundry';
-    else if (item.isYaya) work = 'Yaya';
-    else if (item.isGardener) work = 'Gardener';
-
-    let arr = '-';
-    if (item.isLiveIn) arr = 'Live-in';
-    else if (item.isLiveOut) arr = 'Live-out';
-    else if (item.isOnCall) arr = 'On-call';
-
+    const sex  = item.isFemale ? 'Female' : item.isMale ? 'Male' : '-';
+    const work = item.isGeneralHousehelp ? 'General Househelp'
+               : item.isCook            ? 'Cook'
+               : item.isLaundryPerson   ? 'Laundry'
+               : item.isYaya            ? 'Yaya'
+               : item.isGardener        ? 'Gardener' : '-';
+    const arr  = item.isLiveIn  ? 'Live-in'
+               : item.isLiveOut ? 'Live-out'
+               : item.isOnCall  ? 'On-call' : '-';
     return [
       index + 1,
-      item.lastName?.toUpperCase() || '-',
-      item.firstName?.toUpperCase() || '-',
+      item.lastName?.toUpperCase()   || '-',
+      item.firstName?.toUpperCase()  || '-',
       item.middleName?.toUpperCase() || '-',
-      item.district || '-',
-      item.barangay || '-',
-      item.age || '-',
-      sex,
-      item.civilStatus || '-',
-      item.address || '-',
-      work,
-      arr,
-      item.salary || '-',
-      item.remarks || '-'
+      item.district    || '-', item.barangay  || '-',
+      item.age         || '-', sex,
+      item.civilStatus || '-', item.address   || '-',
+      work, arr, item.salary || '-', item.remarks || '-'
     ];
   });
   const masterData = [masterHeaders, ...masterRows];
@@ -171,107 +156,80 @@ function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName) {
   wsMaster['!cols'] = autoWidth(masterData);
   XLSX.utils.book_append_sheet(wb, wsMaster, 'Masterlist');
 
-  // ── Sheet 1: Summary Overview ────────────────────────────────────────────
-  const ovHeaders1 = [
+  // District Overview
+  const ovHeaders = [
     'District','Encoded 2024','Encoded 2025','Sub Total',
     'SSS','PhilHealth','Pag-IBIG','QCID',
-    'Female','Male',
-    'Live-In','Live-Out','On-Call',
+    'Female','Male','Live-In','Live-Out','On-Call',
     'Senior','Solo Parent','Ex-OFW','PWD',
   ];
-  const ovRows = rows.map(r => [
-    r.district, r.enc2024, r.enc2025, r.subtotal,
-    r.sss, r.philhealth, r.pagibig, r.qcid,
-    r.female, r.male,
-    r.liveIn, r.liveOut, r.onCall,
-    r.senior, r.soloParent, r.exOfw, r.pwd,
-  ]);
-  const totRow = [
-    'TOTAL', totals.enc2024, totals.enc2025, totals.subtotal,
-    totals.sss, totals.philhealth, totals.pagibig, totals.qcid,
-    totals.female, totals.male,
-    totals.liveIn, totals.liveOut, totals.onCall,
-    totals.senior, totals.soloParent, totals.exOfw, totals.pwd,
+  const ovData = [
+    ovHeaders,
+    ...rows.map(r => [r.district,r.enc2024,r.enc2025,r.subtotal,r.sss,r.philhealth,r.pagibig,r.qcid,r.female,r.male,r.liveIn,r.liveOut,r.onCall,r.senior,r.soloParent,r.exOfw,r.pwd]),
+    ['TOTAL',totals.enc2024,totals.enc2025,totals.subtotal,totals.sss,totals.philhealth,totals.pagibig,totals.qcid,totals.female,totals.male,totals.liveIn,totals.liveOut,totals.onCall,totals.senior,totals.soloParent,totals.exOfw,totals.pwd],
   ];
-  const ovData = [ovHeaders1, ...ovRows, totRow];
   const ws1 = XLSX.utils.aoa_to_sheet(ovData);
   ws1['!cols'] = autoWidth(ovData);
   XLSX.utils.book_append_sheet(wb, ws1, 'District Overview');
 
-  // ── Sheet 2: Training & Work Type ────────────────────────────────────────
-  const wkHeaders = [
-    'District',
-    'Kasambahay Orientation','Kasambahay Organizing','Occupational Safety',
-    'Gender Sensitivity','Basic First Aid','Home Security',
-    'General Househelp','Cook','Laundry','Yaya','Gardener',
+  // Training & Work
+  const wkHeaders = ['District','Kasambahay Orientation','Kasambahay Organizing','Occupational Safety','Gender Sensitivity','Basic First Aid','Home Security','General Househelp','Cook','Laundry','Yaya','Gardener'];
+  const wkData = [
+    wkHeaders,
+    ...rows.map(r => [r.district,r.orientation,r.organizing,r.osh,r.genderSens,r.firstAid,r.homeSec,r.genHouse,r.cook,r.laundry,r.yaya,r.gardener]),
+    ['TOTAL',totals.orientation,totals.organizing,totals.osh,totals.genderSens,totals.firstAid,totals.homeSec,totals.genHouse,totals.cook,totals.laundry,totals.yaya,totals.gardener],
   ];
-  const wkRows = rows.map(r => [
-    r.district,
-    r.orientation, r.organizing, r.osh,
-    r.genderSens, r.firstAid, r.homeSec,
-    r.genHouse, r.cook, r.laundry, r.yaya, r.gardener,
-  ]);
-  const wkTot = [
-    'TOTAL',
-    totals.orientation, totals.organizing, totals.osh,
-    totals.genderSens, totals.firstAid, totals.homeSec,
-    totals.genHouse, totals.cook, totals.laundry, totals.yaya, totals.gardener,
-  ];
-  const wkData = [wkHeaders, ...wkRows, wkTot];
   const ws2 = XLSX.utils.aoa_to_sheet(wkData);
   ws2['!cols'] = autoWidth(wkData);
   XLSX.utils.book_append_sheet(wb, ws2, 'Training & Work Type');
 
-  // ── Sheet 3: Age Brackets ────────────────────────────────────────────────
-  const ageHeaders = ['Age Bracket', ...DISTRICTS, 'TOTAL'];
+  // Age Brackets
   const ageBrackets = [
     { label: '15 and below', key: 'age15below' },
     { label: '18–30',        key: 'age1830'    },
     { label: '31–45',        key: 'age3145'    },
     { label: '45 and above', key: 'age45above' },
   ];
-  const ageRows = ageBrackets.map(({ label, key }) => [
-    label,
-    ...rows.map(r => r[key] || 0),
-    rows.reduce((s, r) => s + (r[key] || 0), 0),
-  ]);
-  const ageSubtotal = ['SUBTOTAL', ...rows.map(r => r.subtotal), totals.subtotal];
-  const ageData = [ageHeaders, ...ageRows, ageSubtotal];
+  const ageData = [
+    ['Age Bracket', ...DISTRICTS, 'TOTAL'],
+    ...ageBrackets.map(({ label, key }) => [
+      label,
+      ...rows.map(r => r[key] || 0),
+      rows.reduce((s, r) => s + (r[key] || 0), 0),
+    ]),
+    ['SUBTOTAL', ...rows.map(r => r.subtotal), totals.subtotal],
+  ];
   const ws3 = XLSX.utils.aoa_to_sheet(ageData);
   ws3['!cols'] = autoWidth(ageData);
   XLSX.utils.book_append_sheet(wb, ws3, 'Age Brackets');
 
-  // ── Sheet 4: Benefit Coverage % ─────────────────────────────────────────
-  const pctHeaders = ['District', 'SSS %', 'PhilHealth %', 'Pag-IBIG %', 'QCID %'];
+  // Benefit Coverage %
   const pctData = [
-    pctHeaders,
-    ...pctRows.map(r => [r.district, `${r.sss.toFixed(2)}%`, `${r.philhealth.toFixed(2)}%`, `${r.pagibig.toFixed(2)}%`, `${r.qcid.toFixed(2)}%`]),
+    ['District','SSS %','PhilHealth %','Pag-IBIG %','QCID %'],
+    ...pctRows.map(r => [r.district,`${r.sss.toFixed(2)}%`,`${r.philhealth.toFixed(2)}%`,`${r.pagibig.toFixed(2)}%`,`${r.qcid.toFixed(2)}%`]),
   ];
   const ws4 = XLSX.utils.aoa_to_sheet(pctData);
   ws4['!cols'] = autoWidth(pctData);
   XLSX.utils.book_append_sheet(wb, ws4, 'Benefit Coverage');
 
-  // ── Sheet 5: Per Barangay ────────────────────────────────────────────────
-  const brgyRows = [['District', 'Barangay', 'Count']];
+  // Per Barangay
+  const brgyRows = [['District','Barangay','Count']];
   for (const dist of DISTRICTS) {
     const list = barangay[dist] || [];
     list.forEach(b => brgyRows.push([dist, b.barangay, b.count]));
-    const total = list.reduce((s, b) => s + b.count, 0);
-    brgyRows.push([dist, 'Grand Total', total]);
+    brgyRows.push([dist, 'Grand Total', list.reduce((s, b) => s + b.count, 0)]);
     brgyRows.push([]);
   }
   const ws5 = XLSX.utils.aoa_to_sheet(brgyRows);
   ws5['!cols'] = autoWidth(brgyRows.filter(r => r.length > 0));
   XLSX.utils.book_append_sheet(wb, ws5, 'Per Barangay');
 
-  // Save
   XLSX.writeFile(wb, `${fileName || 'Kasambahay_Summary_Report'}.xlsx`);
 }
 
-// ─── Fetch ALL pages from the API ─────────────────────────────────────────────
+// ─── Fetch ALL pages ──────────────────────────────────────────────────────────
 async function fetchAll(token) {
-  let page = 1;
-  let all  = [];
+  let page = 1, all = [];
   while (true) {
     const res = await fetch(`${API_URL}?limit=500&page=${page}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -289,53 +247,54 @@ async function fetchAll(token) {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const S = {
-  page:   { padding: '24px', fontFamily: "'Segoe UI', Arial, sans-serif", fontSize: '13px', color: '#222', background: '#f8f8fb', minHeight: '100vh' },
-  card:   { background: '#fff', borderRadius: '10px', border: '1px solid #e4e2f5', marginBottom: '20px', overflow: 'hidden' },
-  metric: { background: '#f3f1fd', borderRadius: '8px', padding: '12px 14px', textAlign: 'center' },
+  page:       { padding: '24px', fontFamily: "'Segoe UI', Arial, sans-serif", fontSize: '13px', color: '#222', background: '#f8f8fb', minHeight: '100vh' },
+  card:       { background: '#fff', borderRadius: '10px', border: '1px solid #e4e2f5', marginBottom: '20px', overflow: 'hidden' },
+  metric:     { background: '#f3f1fd', borderRadius: '8px', padding: '12px 14px', textAlign: 'center' },
   metricGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '12px', padding: '16px' },
-  metricLabel: { fontSize: '11px', color: '#7874a7', marginBottom: '4px' },
-  metricVal:   { fontSize: '22px', fontWeight: '700', color: '#534AB7' },
-  tabBar: { display: 'flex', borderBottom: '2px solid #e4e2f5', background: '#fff', padding: '0 16px' },
+  metricLabel:{ fontSize: '11px', color: '#7874a7', marginBottom: '4px' },
+  metricVal:  { fontSize: '22px', fontWeight: '700', color: '#534AB7' },
+  tabBar:     { display: 'flex', borderBottom: '2px solid #e4e2f5', background: '#fff', padding: '0 16px', flexWrap: 'wrap' },
   tab: (a) => ({
     padding: '10px 16px', fontWeight: a ? '700' : '500', fontSize: '13px',
     color: a ? '#534AB7' : '#888', background: 'none', border: 'none',
     borderBottom: `2px solid ${a ? '#534AB7' : 'transparent'}`,
     marginBottom: '-2px', cursor: 'pointer',
   }),
-  tbl:    { width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '860px' },
-  th:     { background: '#f0eefb', color: '#534AB7', fontWeight: '600', padding: '8px 10px', textAlign: 'center', borderBottom: '2px solid #d5d0f0', borderRight: '1px solid #e0dcf5', whiteSpace: 'nowrap', fontSize: '11px' },
-  thL:    { background: '#f0eefb', color: '#534AB7', fontWeight: '600', padding: '8px 10px', textAlign: 'left',   borderBottom: '2px solid #d5d0f0', borderRight: '1px solid #e0dcf5', whiteSpace: 'nowrap', fontSize: '11px' },
-  td:     { padding: '7px 10px', textAlign: 'center', borderBottom: '1px solid #eeeaf8', borderRight: '1px solid #f0ecf9', color: '#333' },
-  tdL:    { padding: '7px 10px', textAlign: 'left',   borderBottom: '1px solid #eeeaf8', borderRight: '1px solid #f0ecf9', color: '#333', fontWeight: '600', whiteSpace: 'nowrap' },
-  tot:    { background: '#edeaf9', fontWeight: '700', color: '#3c3289' },
-  printBtn: { padding: '9px 20px', background: '#534AB7', color: '#fff', border: 'none', borderRadius: '7px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' },
+  tbl:  { width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '860px' },
+  th:   { background: '#f0eefb', color: '#534AB7', fontWeight: '600', padding: '8px 10px', textAlign: 'center', borderBottom: '2px solid #d5d0f0', borderRight: '1px solid #e0dcf5', whiteSpace: 'nowrap', fontSize: '11px' },
+  thL:  { background: '#f0eefb', color: '#534AB7', fontWeight: '600', padding: '8px 10px', textAlign: 'left',   borderBottom: '2px solid #d5d0f0', borderRight: '1px solid #e0dcf5', whiteSpace: 'nowrap', fontSize: '11px' },
+  td:   { padding: '7px 10px', textAlign: 'center', borderBottom: '1px solid #eeeaf8', borderRight: '1px solid #f0ecf9', color: '#333' },
+  tdL:  { padding: '7px 10px', textAlign: 'left',   borderBottom: '1px solid #eeeaf8', borderRight: '1px solid #f0ecf9', color: '#333', fontWeight: '600', whiteSpace: 'nowrap' },
+  tot:  { background: '#edeaf9', fontWeight: '700', color: '#3c3289' },
+  btn:  { padding: '9px 20px', color: '#fff', border: 'none', borderRadius: '7px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' },
+  sel:  { padding: '5px 8px', borderRadius: '6px', border: '1px solid #d5d0f0', fontSize: '12px', color: '#333', background: '#fff', cursor: 'pointer', minWidth: '120px' },
 };
 
-const n = (v) => (v || 0).toLocaleString();
+const n   = (v) => (v || 0).toLocaleString();
 const pct = (v) => `${(v || 0).toFixed(2)}%`;
 
-// ─── Row renderers ─────────────────────────────────────────────────────────────
+// ─── Row renderers ────────────────────────────────────────────────────────────
 const OvRow = ({ r, isT, even }) => {
   const ts = isT ? S.tot : { background: even === false ? '#faf9fe' : '#fff' };
   return (
     <tr style={ts}>
-      <td style={{ ...S.tdL, ...ts, overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.district}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.enc2024)}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.enc2025)}</td>
-      <td style={{ ...S.td, ...ts, fontWeight: '700' }}>{n(r.subtotal)}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.sss)}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.philhealth)}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.pagibig)}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.qcid)}</td>
-      <td style={{ ...S.td, ...ts, color: isT ? '#3c3289' : '#993556' }}>{n(r.female)}</td>
-      <td style={{ ...S.td, ...ts, color: isT ? '#3c3289' : '#185fa5' }}>{n(r.male)}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.liveIn)}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.liveOut)}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.onCall)}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.senior)}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.soloParent)}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.exOfw)}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.pwd)}</td>
+      <td style={{ ...S.tdL, ...ts }}>{r.district}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.enc2024)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.enc2025)}</td>
+      <td style={{ ...S.td,  ...ts, fontWeight: '700' }}>{n(r.subtotal)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.sss)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.philhealth)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.pagibig)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.qcid)}</td>
+      <td style={{ ...S.td,  ...ts, color: isT ? '#3c3289' : '#993556' }}>{n(r.female)}</td>
+      <td style={{ ...S.td,  ...ts, color: isT ? '#3c3289' : '#185fa5' }}>{n(r.male)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.liveIn)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.liveOut)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.onCall)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.senior)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.soloParent)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.exOfw)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.pwd)}</td>
     </tr>
   );
 };
@@ -344,51 +303,41 @@ const WkRow = ({ r, isT, even }) => {
   const ts = isT ? S.tot : { background: even === false ? '#faf9fe' : '#fff' };
   return (
     <tr style={ts}>
-      <td style={{ ...S.tdL, ...ts, overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.district}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.orientation)}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.organizing)}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.osh)}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.genderSens)}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.firstAid)}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.homeSec)}</td>
-      <td style={{ ...S.td, ...ts, fontWeight: '700' }}>{n(r.genHouse)}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.cook)}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.laundry)}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.yaya)}</td>
-      <td style={{ ...S.td, ...ts }}>{n(r.gardener)}</td>
+      <td style={{ ...S.tdL, ...ts }}>{r.district}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.orientation)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.organizing)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.osh)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.genderSens)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.firstAid)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.homeSec)}</td>
+      <td style={{ ...S.td,  ...ts, fontWeight: '700' }}>{n(r.genHouse)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.cook)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.laundry)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.yaya)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.gardener)}</td>
     </tr>
   );
 };
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────────────────────
 const KasambahaySummaryReport = () => {
-  const [rows,     setRows]     = useState([]);
-  const [totals,   setTotals]   = useState(null);
-  const [pctRows,  setPctRows]  = useState([]);
-  const [barangay, setBarangay] = useState({});
   const [rawRecords, setRawRecords] = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState('');
-  const [tab,      setTab]      = useState('overview');
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState('');
+  const [tab,        setTab]        = useState('overview');
+
+  // Filter state
+  const [filterYear,        setFilterYear]        = useState('');
+  const [filterDistrict,    setFilterDistrict]    = useState('');
+  const [filterSex,         setFilterSex]         = useState('');
+  const [filterArrangement, setFilterArrangement] = useState('');
 
   useEffect(() => {
     const load = async () => {
       try {
         const token   = localStorage.getItem('token');
         const records = await fetchAll(token);
-        const summary = buildSummary(records);
-        const tots    = buildTotals(summary);
-        setRows(summary);
-        setTotals(tots);
-        setBarangay(buildBarangay(records));
         setRawRecords(records);
-        setPctRows([...buildPct(summary), {
-          district: 'All Districts',
-          sss:        tots.subtotal ? +((tots.sss       / tots.subtotal) * 100).toFixed(2) : 0,
-          philhealth: tots.subtotal ? +((tots.philhealth/ tots.subtotal) * 100).toFixed(2) : 0,
-          pagibig:    tots.subtotal ? +((tots.pagibig   / tots.subtotal) * 100).toFixed(2) : 0,
-          qcid:       tots.subtotal ? +((tots.qcid      / tots.subtotal) * 100).toFixed(2) : 0,
-        }]);
       } catch (e) {
         setError(e.message);
       } finally {
@@ -398,6 +347,29 @@ const KasambahaySummaryReport = () => {
     load();
   }, []);
 
+  // Derive filtered records
+  const activeFilters  = { year: filterYear, district: filterDistrict, sex: filterSex, arrangement: filterArrangement };
+  const hasFilter      = Object.values(activeFilters).some(Boolean);
+  const displayRecords = hasFilter ? applyFilters(rawRecords, activeFilters) : rawRecords;
+  const resetFilters   = () => { setFilterYear(''); setFilterDistrict(''); setFilterSex(''); setFilterArrangement(''); };
+
+  // Re-aggregate from displayRecords
+  const rows    = buildSummary(displayRecords);
+  const totals  = rows.length ? buildTotals(rows) : null;
+  const tot     = totals || {};
+  const pctRows = totals
+    ? [...buildPct(rows), {
+        district:   'All Districts',
+        sss:        tot.subtotal ? +((tot.sss        / tot.subtotal) * 100).toFixed(2) : 0,
+        philhealth: tot.subtotal ? +((tot.philhealth / tot.subtotal) * 100).toFixed(2) : 0,
+        pagibig:    tot.subtotal ? +((tot.pagibig    / tot.subtotal) * 100).toFixed(2) : 0,
+        qcid:       tot.subtotal ? +((tot.qcid       / tot.subtotal) * 100).toFixed(2) : 0,
+      }]
+    : [];
+  const barangay     = buildBarangay(displayRecords);
+  const encChartData = rows.map(r => ({ name: r.district.replace('District ', 'D'), '2024': r.enc2024, '2025': r.enc2025 }));
+  const ageChartData = rows.map(r => ({ name: r.district.replace('District ', 'D'), '18–30': r.age1830, '31–45': r.age3145, '45+': r.age45above }));
+
   const ageTableRows = [
     { label: '15 and below', key: 'age15below' },
     { label: '18–30',        key: 'age1830'    },
@@ -405,15 +377,12 @@ const KasambahaySummaryReport = () => {
     { label: '45 and above', key: 'age45above' },
   ];
 
-  const encChartData = rows.map(r => ({
-    name: r.district.replace('District ', 'D'),
-    '2024': r.enc2024, '2025': r.enc2025,
-  }));
-
-  const ageChartData = rows.map(r => ({
-    name: r.district.replace('District ', 'D'),
-    '18–30': r.age1830, '31–45': r.age3145, '45+': r.age45above,
-  }));
+  const filterLabel = [
+    filterYear        ? `Y${filterYear}`               : '',
+    filterDistrict    ? filterDistrict.replace(' ','')  : '',
+    filterSex         ? filterSex                       : '',
+    filterArrangement ? filterArrangement               : '',
+  ].filter(Boolean).join('_');
 
   if (loading) return (
     <div style={{ ...S.page, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
@@ -435,11 +404,10 @@ const KasambahaySummaryReport = () => {
     </div>
   );
 
-  const tot = totals || {};
-
   return (
     <div style={S.page}>
-      {/* Header */}
+
+      {/* ── Header ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
         <div>
           <h2 style={{ margin: '0 0 4px', fontSize: '20px', color: '#2d2a6e', fontWeight: '700' }}>
@@ -448,20 +416,44 @@ const KasambahaySummaryReport = () => {
           <p style={{ margin: 0, color: '#888', fontSize: '12px' }}>
             All 6 Districts · Combined 2024 &amp; 2025 ·
             Generated: {new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}
+            {hasFilter && (
+              <span style={{ marginLeft: '8px', color: '#e67e22', fontWeight: '600' }}>
+                ● Filtered view active
+              </span>
+            )}
           </p>
         </div>
-        <div className="hide-on-print" style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={() => exportToExcel(rows, totals, pctRows, barangay, rawRecords, 'Kasambahay_Masterlist_and_Summary')} style={{ ...S.printBtn, background: '#10b981' }}>
+        <div className="hide-on-print" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {/* Full export — always all records */}
+          <button
+            onClick={() => {
+              const allRows = buildSummary(rawRecords);
+              const allTots = buildTotals(allRows);
+              exportToExcel(allRows, allTots, buildPct(allRows), buildBarangay(rawRecords), rawRecords, 'Kasambahay_Masterlist_and_Summary');
+            }}
+            style={{ ...S.btn, background: '#10b981' }}
+          >
             📊 Export to Excel
           </button>
-          <button onClick={() => window.print()} style={S.printBtn}>
+
+          {/* Filtered export — only when a filter is active */}
+          {hasFilter && (
+            <button
+              onClick={() => exportToExcel(rows, totals, pctRows, barangay, displayRecords, `Kasambahay_Filtered_${filterLabel}`)}
+              style={{ ...S.btn, background: '#e67e22' }}
+            >
+              🔽 Export Filtered ({displayRecords.length.toLocaleString()})
+            </button>
+          )}
+
+          <button onClick={() => window.print()} style={{ ...S.btn, background: '#534AB7' }}>
             🖨️ Print / Save as PDF
           </button>
         </div>
       </div>
 
-      {/* Metric cards */}
-      <div style={{ ...S.card }}>
+      {/* ── Metric Cards ── */}
+      <div style={S.card}>
         <div style={S.metricGrid}>
           {[
             { label: 'Total Registered', val: n(tot.subtotal)   },
@@ -482,8 +474,55 @@ const KasambahaySummaryReport = () => {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* ── Tabs Card (Filter Bar + Tabs + Content) ── */}
       <div style={S.card}>
+
+        {/* Filter Bar — lives at the top of the card */}
+        <div
+          className="hide-on-print"
+          style={{
+            display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'flex-end',
+            padding: '12px 16px', background: '#f8f7fd', borderBottom: '1px solid #e4e2f5',
+          }}
+        >
+          <span style={{ fontSize: '12px', fontWeight: '700', color: '#534AB7', alignSelf: 'center' }}>
+            🔍 Filters:
+          </span>
+
+          {[
+            { label: 'Year',        value: filterYear,        setter: setFilterYear,
+              options: [['','All Years'],  ['2024','2024'], ['2025','2025']] },
+            { label: 'District',    value: filterDistrict,    setter: setFilterDistrict,
+              options: [['','All Districts'], ...DISTRICTS.map(d => [d, d])] },
+            { label: 'Sex',         value: filterSex,         setter: setFilterSex,
+              options: [['','All'], ['female','Female'], ['male','Male']] },
+            { label: 'Arrangement', value: filterArrangement, setter: setFilterArrangement,
+              options: [['','All'], ['livein','Live-In'], ['liveout','Live-Out'], ['oncall','On-Call']] },
+          ].map(({ label, value, setter, options }) => (
+            <div key={label}>
+              <div style={{ fontSize: '10px', fontWeight: '700', color: '#7874a7', marginBottom: '3px' }}>{label}</div>
+              <select value={value} onChange={e => setter(e.target.value)} style={S.sel}>
+                {options.map(([val, lbl]) => <option key={val} value={val}>{lbl}</option>)}
+              </select>
+            </div>
+          ))}
+
+          {hasFilter && (
+            <>
+              <button
+                onClick={resetFilters}
+                style={{ padding: '5px 12px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '12px', alignSelf: 'flex-end' }}
+              >
+                ✕ Reset
+              </button>
+              <span style={{ fontSize: '12px', color: '#e67e22', fontWeight: '600', alignSelf: 'center' }}>
+                {displayRecords.length.toLocaleString()} / {rawRecords.length.toLocaleString()} records
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Tab Bar */}
         <div style={S.tabBar}>
           {[
             { key: 'overview',  label: 'District Overview'    },
@@ -499,19 +538,15 @@ const KasambahaySummaryReport = () => {
           ))}
         </div>
 
-        {/* ── Overview ── */}
+        {/* ── District Overview ── */}
         {tab === 'overview' && (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ ...S.tbl, tableLayout: 'fixed', minWidth: '1300px' }}>
               <colgroup>
                 <col style={{ width: '90px' }} />
-                {/* enc2024 enc2025 subtotal sss philhealth pagibig qcid */}
                 {Array(7).fill(0).map((_, i) => <col key={i} style={{ width: '72px' }} />)}
-                {/* female male */}
                 <col style={{ width: '68px' }} /><col style={{ width: '58px' }} />
-                {/* liveIn liveOut onCall */}
                 {Array(3).fill(0).map((_, i) => <col key={`a${i}`} style={{ width: '68px' }} />)}
-                {/* senior soloParent exOfw pwd */}
                 <col style={{ width: '60px' }} /><col style={{ width: '78px' }} />
                 <col style={{ width: '64px' }} /><col style={{ width: '54px' }} />
               </colgroup>
@@ -542,24 +577,20 @@ const KasambahaySummaryReport = () => {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r, i) => (
-                  <OvRow key={r.district} r={r} isT={false} even={i % 2 === 0} />
-                ))}
+                {rows.map((r, i) => <OvRow key={r.district} r={r} isT={false} even={i % 2 === 0} />)}
                 {totals && <OvRow r={totals} isT={true} />}
               </tbody>
             </table>
           </div>
         )}
 
-        {/* ── Training & Work ── */}
+        {/* ── Training & Work Type ── */}
         {tab === 'work' && (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ ...S.tbl, tableLayout: 'fixed', minWidth: '1100px' }}>
               <colgroup>
                 <col style={{ width: '90px' }} />
-                {/* 6 training cols */}
                 {Array(6).fill(0).map((_, i) => <col key={i} style={{ width: '130px' }} />)}
-                {/* 5 work cols */}
                 {Array(5).fill(0).map((_, i) => <col key={`w${i}`} style={{ width: '110px' }} />)}
               </colgroup>
               <thead>
@@ -578,9 +609,7 @@ const KasambahaySummaryReport = () => {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r, i) => (
-                  <WkRow key={r.district} r={r} isT={false} even={i % 2 === 0} />
-                ))}
+                {rows.map((r, i) => <WkRow key={r.district} r={r} isT={false} even={i % 2 === 0} />)}
                 {totals && <WkRow r={totals} isT={true} />}
               </tbody>
             </table>
@@ -651,70 +680,32 @@ const KasambahaySummaryReport = () => {
         {/* ── Per Barangay ── */}
         {tab === 'barangay' && (
           <div style={{ padding: '16px' }}>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: '16px',
-            }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
               {DISTRICTS.map(d => {
-                const brgyList = barangay[d] || [];
+                const brgyList   = barangay[d] || [];
                 const grandTotal = brgyList.reduce((s, b) => s + b.count, 0);
                 return (
-                  <div key={d} style={{
-                    border: '1px solid #e4e2f5',
-                    borderRadius: '8px',
-                    overflow: 'hidden',
-                  }}>
-                    {/* District header */}
-                    <div style={{
-                      background: '#534AB7',
-                      color: '#fff',
-                      padding: '8px 12px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}>
+                  <div key={d} style={{ border: '1px solid #e4e2f5', borderRadius: '8px', overflow: 'hidden' }}>
+                    <div style={{ background: '#534AB7', color: '#fff', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontWeight: '700', fontSize: '12px' }}>{d}</span>
                       <span style={{ fontSize: '11px', opacity: 0.85 }}>COUNTA of KASAMBAHAY</span>
                     </div>
-
-                    {/* Barangay rows */}
                     <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                         <tbody>
-                          {brgyList.length === 0 ? (
-                            <tr>
-                              <td style={{ ...S.td, textAlign: 'center', color: '#aaa', padding: '16px' }}>
-                                No barangay data
-                              </td>
-                            </tr>
-                          ) : (
-                            brgyList.map((b, i) => (
-                              <tr key={b.barangay} style={{ background: i % 2 === 0 ? '#fff' : '#faf9fe' }}>
-                                <td style={{ ...S.tdL, fontWeight: '400', fontSize: '12px', paddingLeft: '12px' }}>
-                                  {b.barangay}
-                                </td>
-                                <td style={{ ...S.td, fontWeight: '600', color: '#534AB7', paddingRight: '12px' }}>
-                                  {n(b.count)}
-                                </td>
-                              </tr>
-                            ))
-                          )}
+                          {brgyList.length === 0
+                            ? <tr><td style={{ ...S.td, textAlign: 'center', color: '#aaa', padding: '16px' }}>No barangay data</td></tr>
+                            : brgyList.map((b, i) => (
+                                <tr key={b.barangay} style={{ background: i % 2 === 0 ? '#fff' : '#faf9fe' }}>
+                                  <td style={{ ...S.tdL, fontWeight: '400', fontSize: '12px', paddingLeft: '12px' }}>{b.barangay}</td>
+                                  <td style={{ ...S.td, fontWeight: '600', color: '#534AB7', paddingRight: '12px' }}>{n(b.count)}</td>
+                                </tr>
+                              ))
+                          }
                         </tbody>
                       </table>
                     </div>
-
-                    {/* Grand Total row */}
-                    <div style={{
-                      background: '#edeaf9',
-                      borderTop: '2px solid #d5d0f0',
-                      padding: '7px 12px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      fontWeight: '700',
-                      fontSize: '12px',
-                      color: '#3c3289',
-                    }}>
+                    <div style={{ background: '#edeaf9', borderTop: '2px solid #d5d0f0', padding: '7px 12px', display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '12px', color: '#3c3289' }}>
                       <span>Grand Total</span>
                       <span>{n(grandTotal)}</span>
                     </div>
@@ -736,8 +727,7 @@ const KasambahaySummaryReport = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: '12px' }} />
+                <Tooltip /><Legend wrapperStyle={{ fontSize: '12px' }} />
                 <Bar dataKey="2024" fill="#534AB7" radius={[4,4,0,0]} />
                 <Bar dataKey="2025" fill="#9FE1CB" radius={[4,4,0,0]} />
               </BarChart>
@@ -751,16 +741,16 @@ const KasambahaySummaryReport = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: '12px' }} />
-                <Bar dataKey="18–30"  stackId="a" fill="#AFA9EC" />
-                <Bar dataKey="31–45"  stackId="a" fill="#7F77DD" />
-                <Bar dataKey="45+"    stackId="a" fill="#534AB7" radius={[4,4,0,0]} />
+                <Tooltip /><Legend wrapperStyle={{ fontSize: '12px' }} />
+                <Bar dataKey="18–30" stackId="a" fill="#AFA9EC" />
+                <Bar dataKey="31–45" stackId="a" fill="#7F77DD" />
+                <Bar dataKey="45+"   stackId="a" fill="#534AB7" radius={[4,4,0,0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         )}
-      </div>
+
+      </div>{/* end tabs card */}
 
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
