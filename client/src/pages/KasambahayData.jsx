@@ -25,7 +25,7 @@ const ALL_COLUMNS = [
   { key: 'employerAddress',         label: 'Employer Address',       render: k => k.employerAddress || '—', width: 170 },
   { key: 'monthlySalary',           label: 'Monthly Salary',         render: k => k.monthlySalary ? `₱${k.monthlySalary.toLocaleString()}` : '—', width: 120 },
   { key: 'mobileNumber',            label: 'Mobile No.',             render: k => k.mobileNumber || '—', width: 120 },
-  { key: 'type',                    label: 'Type',                   render: k => k.isGeneralHousehelp ? 'Househelp' : k.isCook ? 'Cook' : k.isLaundryPerson ? 'Laundry' : k.isYaya ? 'Yaya' : k.isGardener ? 'Gardener' : '—', width: 110 },
+  { key: 'type',                    label: 'Type',                   render: k => k.isGeneralHousehelp ? 'Househelp' : k.isCook ? 'Cook' : k.isLaundryPerson ? 'Laundry' : k.isYaya ? 'Yaya' : k.isGardener ? 'Gardener' : k.isOthers ? `Others${k.othersSpecify ? ` (${k.othersSpecify})` : ''}` : '—', width: 110 },
   { key: 'arrangement',             label: 'Arrangement',            render: k => k.isLiveIn ? 'Live-in' : k.isLiveOut ? 'Live-out' : k.isOnCall ? 'On-call' : '—', width: 110 },
   { key: 'lengthOfService',         label: 'Length of Service',      render: k => k.lengthOfService || '—', width: 140 },
   { key: 'sss',                     label: 'SSS',                    render: k => k.sss || '—', width: 120 },
@@ -60,6 +60,8 @@ const ALL_COLUMNS = [
   { key: 'dateOfKasambahayDay',     label: 'K. Day Date',            render: k => k.dateOfKasambahayDay || '—', width: 120 },
   { key: 'disasterPreparedness',    label: 'Disaster Prep',          render: k => k.disasterPreparedness ? '✓' : '—', width: 100, center: true },
   { key: 'dateOfDisasterPreparedness', label: 'Disaster Prep Date',  render: k => k.dateOfDisasterPreparedness || '—', width: 140 },
+  { key: 'qcCareOrientation', label: 'QC Care Orientation', render: k => k.qcCareOrientation ? '✓' : '—', width: 130, center: true },
+  { key: 'dateOfQcCareOrientation', label: 'QC Care Orientation Date', render: k => k.dateOfQcCareOrientation || '—', width: 160 },
 ]
 
 const BADGE_COLORS = {
@@ -176,6 +178,10 @@ function KasambahayForm({ formData, handleChange, handleGender, handleArrangemen
             <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}><input type="checkbox" name="isLaundryPerson"    checked={formData.isLaundryPerson}    onChange={handleChange} /> Laundry</label>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}><input type="checkbox" name="isYaya"             checked={formData.isYaya}             onChange={handleChange} /> Yaya</label>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}><input type="checkbox" name="isGardener"         checked={formData.isGardener}         onChange={handleChange} /> Gardener</label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}><input type="checkbox" name="isOthers" checked={formData.isOthers} onChange={handleChange} /> Others</label>
+            {formData.isOthers && (
+              <input name="othersSpecify" value={formData.othersSpecify} onChange={handleChange} placeholder="Specify work..." style={{ ...inputStyle, width: 160, height: 32, fontSize: 13 }} />
+            )}
           </div>
         </div>
       </div>
@@ -221,6 +227,7 @@ function KasambahayForm({ formData, handleChange, handleGender, handleArrangemen
           { label: 'Gen. Assembly', check: 'kasambahayGeneralAssembly',   date: 'dateOfGenAssembly' },
           { label: 'K. Day',        check: 'kasambahayDay',               date: 'dateOfKasambahayDay' },
           { label: 'Disaster Prep', check: 'disasterPreparedness',        date: 'dateOfDisasterPreparedness' },
+          { label: 'QC Care Orientation', check: 'qcCareOrientation', date: 'dateOfQcCareOrientation' },
         ].map(t => (
           <div key={t.check} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 150, fontSize: 14 }}>
@@ -345,6 +352,8 @@ const BLANK_FORM = {
   kasambahayGeneralAssembly: false, dateOfGenAssembly: '',
   kasambahayDay: false, dateOfKasambahayDay: '',
   disasterPreparedness: false, dateOfDisasterPreparedness: '',
+  qcCareOrientation: false, dateOfQcCareOrientation: '',
+  isOthers: false, othersSpecify: '',
 }
 
 // ─── Add Modal ────────────────────────────────────────────────────────────────
@@ -758,6 +767,7 @@ function KasambahayData() {
     if (category === 'Laundry')   return k.isLaundryPerson
     if (category === 'Yaya')      return k.isYaya
     if (category === 'Gardener')  return k.isGardener
+    if (category === 'Others')    return k.isOthers
     return true
   })
 
@@ -896,6 +906,7 @@ function KasambahayData() {
             <option value="Laundry">Laundry</option>
             <option value="Yaya">Yaya</option>
             <option value="Gardener">Gardener</option>
+            <option value="Others">Others</option>
           </select>
         </div>
         <button onClick={handleSearch} disabled={loading}

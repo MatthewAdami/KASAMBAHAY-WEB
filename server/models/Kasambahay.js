@@ -44,6 +44,8 @@ const KasambahaySchema = new mongoose.Schema({
   dateOfKasambahayDay: { type: String },
   disasterPreparedness: { type: Boolean, default: false },
   dateOfDisasterPreparedness: { type: String },
+  qcCareOrientation: { type: Boolean, default: false },
+  dateOfQcCareOrientation: { type: String },
 
   // Classification
   isFemale: { type: Boolean, default: false },
@@ -58,6 +60,8 @@ const KasambahaySchema = new mongoose.Schema({
   isLaundryPerson: { type: Boolean, default: false },
   isYaya: { type: Boolean, default: false },
   isGardener: { type: Boolean, default: false },
+  isOthers: { type: Boolean, default: false },
+  othersSpecify: { type: String, trim: true },
 
   // Additional info
   lengthOfService: { type: String },
