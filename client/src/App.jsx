@@ -8,9 +8,9 @@ import ActivityLogs   from './pages/ActivityLogs'
 import LoginPage      from './pages/LoginPage'
 import KasambahaySummaryReport from './pages/KasambahaySummaryReport'
 import ReportsPage    from './pages/ReportsPage'
+import SettingsPage   from './pages/SettingsPage'
 import { can, getRole } from './rbac'
-const SettingsPage = () => <div style={{ padding: 24 }}>Settings page</div>
-const AuditPage    = () => <div style={{ padding: 24 }}>Audit log page</div>
+const AuditPage = () => <div style={{ padding: 24 }}>Audit log page</div>
 
 // ─── Access Denied page ───────────────────────────────────────────────────────
 const AccessDenied = () => (
