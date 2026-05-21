@@ -15,6 +15,7 @@ const ALL_COLUMNS = [
   { key: 'firstName',               label: 'First Name',             render: k => k.firstName || '—', width: 130 },
   { key: 'middleName',              label: 'Middle Name',            render: k => k.middleName || '—', width: 130 },
   { key: 'barangay',                label: 'Barangay',               render: k => k.barangay || '—', width: 140 },
+  { key: 'district',                label: 'District',               render: k => k.district || '—', width: 100, badge: () => 'purple' },
   { key: 'birthday',                label: 'Birthday',               render: k => k.birthday ? new Date(k.birthday).toLocaleDateString() : '—', width: 110 },
   { key: 'age',                     label: 'Age',                    render: k => k.age || '—', width: 60 },
   { key: 'birthPlace',              label: 'Birth Place',            render: k => k.birthPlace || '—', width: 140 },
