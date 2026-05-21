@@ -7,9 +7,8 @@ import KasambahayPage from './pages/KasambahayData'
 import ActivityLogs   from './pages/ActivityLogs'
 import LoginPage      from './pages/LoginPage'
 import KasambahaySummaryReport from './pages/KasambahaySummaryReport'
+import ReportsPage    from './pages/ReportsPage'
 import { can, getRole } from './rbac'
-
-const ReportsPage  = () => <div style={{ padding: 24 }}>Reports page</div>
 const SettingsPage = () => <div style={{ padding: 24 }}>Settings page</div>
 const AuditPage    = () => <div style={{ padding: 24 }}>Audit log page</div>
 
