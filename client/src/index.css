@@ -106,3 +106,96 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+/* ─── Dark mode ────────────────────────────────────────────────────────────── */
+body[data-theme='dark'] {
+  background: #0f0f13 !important;
+  color: #e8e8f0;
+  color-scheme: dark;
+}
+
+body[data-theme='dark'] #root {
+  background: #0f0f13 !important;
+  border-color: #2e2e45;
+}
+
+body[data-theme='dark'] select,
+body[data-theme='dark'] input,
+body[data-theme='dark'] textarea {
+  background: #1e1e2e !important;
+  color: #e8e8f0 !important;
+  border-color: #2e2e45 !important;
+  color-scheme: dark;
+}
+
+body[data-theme='dark'] option {
+  background: #1e1e2e;
+  color: #e8e8f0;
+}
+
+/* Scrollbar */
+body[data-theme='dark'] ::-webkit-scrollbar { width: 6px; height: 6px; }
+body[data-theme='dark'] ::-webkit-scrollbar-track { background: #1a1a24; }
+body[data-theme='dark'] ::-webkit-scrollbar-thumb { background: #3a3a55; border-radius: 3px; }
+body[data-theme='dark'] ::-webkit-scrollbar-thumb:hover { background: #534AB7; }
+
+/* ─── Dark mode component overrides ──────────────────────────────────────────── */
+body[data-theme='dark'] {
+  /* Force all white/light backgrounds to dark equivalents */
+  --dm-bg:       #0f0f13;
+  --dm-card:     #1a1a24;
+  --dm-sidebar:  #14141e;
+  --dm-border:   #2e2e45;
+  --dm-text:     #e8e8f0;
+  --dm-sub:      #a0a0b8;
+  --dm-muted:    #6b6b85;
+  --dm-accent:   #7b72e8;
+  --dm-hover:    #23233a;
+  --dm-active:   #2a2860;
+  --dm-input:    #1e1e2e;
+}
+
+/* Tables */
+body[data-theme='dark'] table {
+  color: #e8e8f0;
+}
+body[data-theme='dark'] th {
+  background: #1e1e2e !important;
+  color: #a0a0b8 !important;
+  border-color: #2e2e45 !important;
+}
+body[data-theme='dark'] td {
+  border-color: #2e2e45 !important;
+  color: #e8e8f0 !important;
+}
+body[data-theme='dark'] tr:hover td {
+  background: #23233a !important;
+}
+
+/* Modals and drawers */
+body[data-theme='dark'] [style*="background: '#fff'"],
+body[data-theme='dark'] [style*='background: rgb(255, 255, 255)'] {
+  background: #1a1a24 !important;
+}
+
+/* Make sure placeholder text is visible */
+body[data-theme='dark'] ::placeholder {
+  color: #6b6b85 !important;
+  opacity: 1;
+}
+
+/* Recharts dark mode */
+body[data-theme='dark'] .recharts-cartesian-grid-horizontal line,
+body[data-theme='dark'] .recharts-cartesian-grid-vertical line {
+  stroke: #2e2e45;
+}
+body[data-theme='dark'] .recharts-text {
+  fill: #a0a0b8 !important;
+}
+body[data-theme='dark'] .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: #1a1a24 !important;
+  border-color: #2e2e45 !important;
+  color: #e8e8f0 !important;
+}
+body[data-theme='dark'] .recharts-legend-item-text {
+  color: #a0a0b8 !important;
+}

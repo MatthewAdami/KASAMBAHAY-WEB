@@ -556,6 +556,14 @@ export default function AdminDashboard() {
   const navigate      = useNavigate()
   const user          = JSON.parse(localStorage.getItem('user') || '{}')
   const initials      = user.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'AD'
+  const firstName     = user.name?.split(' ')[0] || 'there'
+
+  const getGreeting = () => {
+    const hour = new Date().getHours()
+    if (hour < 12) return 'Good morning'
+    if (hour < 18) return 'Good afternoon'
+    return 'Good evening'
+  }
 
   const logout = () => {
     localStorage.clear()
@@ -564,15 +572,14 @@ export default function AdminDashboard() {
 
   return (
       <div style={s.main}>
-        <header style={s.topbar}>
-          <h1 style={s.topbarTitle}>
-            Overview
-          </h1>
-          <div style={s.topbarRight}>
-            <span style={{ fontSize: 12, color: '#9ca3af' }}>
+        <header style={{ ...s.topbar, height: 64 }}>
+          <div>
+            <h1 style={s.topbarTitle}>{getGreeting()}, {firstName}! 👋</h1>
+            <p style={{ fontSize: 11, color: '#9ca3af', margin: 0 }}>
               {new Date().toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-            </span>
+            </p>
           </div>
+          <div style={s.topbarRight} />
         </header>
 
         <div style={s.content}>
@@ -585,14 +592,14 @@ export default function AdminDashboard() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const s = {
   main:        { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: "'DM Sans', sans-serif", background: '#f4f3ef' },
-  topbar:      { height: 56, background: '#fff', borderBottom: '1px solid #e8e5de', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', flexShrink: 0 },
+  topbar:      { height: 56, background: '#fff', borderBottom: '1px solid #e8e5de', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', flexShrink: 0 },
   topbarTitle: { fontSize: 16, fontWeight: 600, color: '#111827' },
   topbarRight: { display: 'flex', alignItems: 'center', gap: 12 },
-  content:     { flex: 1, overflowY: 'auto', padding: '20px 16px' },
+  content:     { flex: 1, overflowY: 'auto', padding: '28px 32px' },
   sectionHead: { marginBottom: 24 },
   sectionTitle: { fontSize: 20, fontWeight: 600, color: '#111827', fontFamily: "'DM Serif Display', serif", marginBottom: 4 },
   sectionSub:  { fontSize: 13, color: '#6b7280' },
-  statGrid:    { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 20 },
+  statGrid:    { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 20 },
   statCard:    { background: '#fff', border: '1px solid #e8e5de', borderRadius: 10, padding: '16px 20px' },
   statLabel:   { fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', fontWeight: 500, marginBottom: 8 },
   statValue:   { fontSize: 26, fontWeight: 700, color: '#111827', fontFamily: "'DM Serif Display', serif", lineHeight: 1, marginBottom: 6 },
@@ -617,7 +624,7 @@ const s = {
   tr:          { borderBottom: '1px solid #f9f8f5' },
   td:          { padding: '10px 12px', fontSize: 12, color: '#374151' },
   overlay:     { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 100 },
-  drawer:      { position: 'fixed', top: 0, right: 0, width: 420, maxWidth: '100%', height: '100vh', background: '#fff', borderLeft: '1px solid #e8e5de', zIndex: 101, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  drawer:      { position: 'fixed', top: 0, right: 0, width: 420, height: '100vh', background: '#fff', borderLeft: '1px solid #e8e5de', zIndex: 101, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
   drawerHead:  { display: 'flex', alignItems: 'flex-start', gap: 14, padding: '20px 22px', borderBottom: '1px solid #f3f4f6', flexShrink: 0 },
   drawerAvatar: { width: 44, height: 44, borderRadius: '50%', background: '#eef0f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 600, color: '#1a2744', flexShrink: 0 },
   drawerName:  { fontSize: 15, fontWeight: 600, color: '#111827', lineHeight: 1.3 },

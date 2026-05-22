@@ -84,9 +84,9 @@ router.get('/stats', auth, async (req, res) => {
 //
 // Response 200: { hasDuplicate: false }
 // Response 200: { hasDuplicate: true, matches: [ ...records ] }
-router.post('/check-duplicate', auth, requireRole('Admin', 'Encoder'), async (req, res) => {
+router.post('/check-duplicate', auth, requireRole('Admin', 'SPES', 'GIP'), async (req, res) => {
   try {
-    const { firstName, lastName, middleName, district, year, excludeId } = req.body
+    const { firstName, lastName, middleName, birthday, district, year, excludeId } = req.body
 
     if (!firstName || !lastName) {
       return res.status(400).json({ message: 'firstName and lastName are required for duplicate check.' })
@@ -162,7 +162,7 @@ router.get('/:id', auth, async (req, res) => {
 })
 
 // ─── POST create — Admin + Encoder ───────────────────────────────────────────
-router.post('/', auth, requireRole('Admin', 'Encoder'), async (req, res) => {
+router.post('/', auth, requireRole('Admin', 'SPES', 'GIP'), async (req, res) => {
   try {
     const record = new Kasambahay(req.body)
     await record.save()
@@ -186,7 +186,7 @@ router.put('/:id/restore', auth, requireRole('Admin'), async (req, res) => {
 })
 
 // ─── PUT update — Admin + Encoder ────────────────────────────────────────────
-router.put('/:id', auth, requireRole('Admin', 'Encoder'), async (req, res) => {
+router.put('/:id', auth, requireRole('Admin', 'SPES', 'GIP'), async (req, res) => {
   try {
     // Fetch old record BEFORE updating so we can diff it
     const old = await Kasambahay.findById(req.params.id).lean()
@@ -232,7 +232,7 @@ router.delete('/:id/permanent', auth, requireRole('Admin'), async (req, res) => 
 })
 
 // ─── DELETE soft — Admin + Encoder ───────────────────────────────────────────
-router.delete('/:id', auth, requireRole('Admin', 'Encoder'), async (req, res) => {
+router.delete('/:id', auth, requireRole('Admin', 'SPES', 'GIP'), async (req, res) => {
   try {
     const deleted = await Kasambahay.findByIdAndUpdate(req.params.id, { isDeleted: true, deletedAt: new Date() })
     if (!deleted) return res.status(404).json({ message: 'Record not found.' })

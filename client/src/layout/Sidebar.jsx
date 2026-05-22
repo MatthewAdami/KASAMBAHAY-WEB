@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { can, getRole } from '../rbac'
+import { useTheme, useColors } from '../ThemeContext.jsx'
 
 // ─── Nav definition with required permission per item ─────────────────────────
 const NAV = [
@@ -28,11 +29,14 @@ const NAV = [
   },
 ]
 
-export default function Sidebar({ stats = {}, onClose }) {
+export default function Sidebar({ stats = {} }) {
   const navigate  = useNavigate()
   const location  = useLocation()
   const user      = JSON.parse(localStorage.getItem('user') || '{}')
   const role      = user.role || ''
+
+  const { dark, toggle } = useTheme()
+  const c = useColors()
 
   const activeKey = NAV.flatMap(s => s.items)
     .slice().reverse()
@@ -42,25 +46,28 @@ export default function Sidebar({ stats = {}, onClose }) {
   // Role badge style
   const rolePill = {
     Admin:   { bg: '#EEEDFE', fg: '#534AB7' },
-    Encoder: { bg: '#EAF3DE', fg: '#3B6D11' },
+    SPES:    { bg: '#EAF3DE', fg: '#3B6D11' },
+    GIP:     { bg: '#E0F0FF', fg: '#1D5FA8' },
     helper:  { bg: '#f3f3f3', fg: '#666' },
   }[role] || { bg: '#f3f3f3', fg: '#666' }
 
   const roleLabel = {
     Admin:   'Administrator',
-    Encoder: 'Encoder',
+    SPES:    'SPES Intern',
+    GIP:     'GIP Intern',
     helper:  'Viewer',
   }[role] || role
 
   const s = {
     sidebar: {
-      width: 220, flexShrink: 0, background: '#fff',
-      borderRight: '1px solid #e4e4e7', display: 'flex',
+      width: 220, flexShrink: 0, background: c.bgSidebar,
+      borderRight: `1px solid ${c.border}`, display: 'flex',
       flexDirection: 'column', height: '100vh', position: 'sticky', top: 0,
+      transition: 'background 0.2s, border-color 0.2s',
     },
     brand: {
-      padding: '14px 16px', borderBottom: '1px solid #e4e4e7',
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '14px 16px', borderBottom: `1px solid ${c.border}`,
+      display: 'flex', alignItems: 'center', gap: 8,
     },
     logo: {
       width: 28, height: 28, borderRadius: 6, background: '#534AB7',
@@ -68,15 +75,15 @@ export default function Sidebar({ stats = {}, onClose }) {
       color: '#fff', fontSize: 14, fontWeight: 600,
     },
     sectionLabel: {
-      fontSize: 11, color: '#aaa', padding: '10px 10px 4px',
+      fontSize: 11, color: c.textMuted, padding: '10px 10px 4px',
       textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0,
     },
     item: (isActive) => ({
       display: 'flex', alignItems: 'center', gap: 10,
       padding: '8px 10px', borderRadius: 8, cursor: 'pointer',
       fontSize: 13, marginBottom: 2,
-      background: isActive ? '#EEEDFE' : 'transparent',
-      color:      isActive ? '#534AB7' : '#666',
+      background: isActive ? c.bgActive : 'transparent',
+      color:      isActive ? c.textActive : c.textSub,
       transition: 'background .12s, color .12s',
     }),
     navContent: {
@@ -84,20 +91,20 @@ export default function Sidebar({ stats = {}, onClose }) {
       display: 'flex', flexDirection: 'column',
     },
     statusSection: {
-      marginTop: 'auto', paddingTop: 10, borderTop: '1px solid #e4e4e7',
+      marginTop: 'auto', paddingTop: 10, borderTop: `1px solid ${c.border}`,
     },
     statusCard: {
-      background: '#f4f4f5', borderRadius: 8, padding: '8px 10px', marginBottom: 6,
+      background: c.bgMuted, borderRadius: 8, padding: '8px 10px', marginBottom: 6,
     },
-    footer: { padding: 8, borderTop: '1px solid #e4e4e7' },
+    footer: { padding: 8, borderTop: `1px solid ${c.border}` },
     userRow: {
       display: 'flex', alignItems: 'center', gap: 8,
       padding: '8px 10px', borderRadius: 8,
     },
     avatar: {
-      width: 28, height: 28, borderRadius: '50%', background: '#EEEDFE',
+      width: 28, height: 28, borderRadius: '50%', background: c.accentLight,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 11, fontWeight: 500, color: '#534AB7', flexShrink: 0,
+      fontSize: 11, fontWeight: 500, color: c.accent, flexShrink: 0,
     },
   }
 
@@ -105,12 +112,9 @@ export default function Sidebar({ stats = {}, onClose }) {
     <div style={s.sidebar}>
 
       {/* Brand */}
-      <div style={s.brand} className="sidebar-brand">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={s.logo}>K</div>
-          <span style={{ fontSize: 13, fontWeight: 500 }}>Kasambahay</span>
-        </div>
-        <button className="sidebar-close-btn" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, color: '#888', cursor: 'pointer', padding: 0 }}>✕</button>
+      <div style={s.brand}>
+        <div style={s.logo}>K</div>
+        <span style={{ fontSize: 13, fontWeight: 500, color: c.text }}>Kasambahay</span>
       </div>
 
       {/* Nav — only show items the current role can access */}
@@ -126,7 +130,7 @@ export default function Sidebar({ stats = {}, onClose }) {
                 <div
                   key={item.key}
                   style={s.item(activeKey === item.key)}
-                  onClick={() => { navigate(item.route); if (onClose) onClose(); }}
+                  onClick={() => navigate(item.route)}
                 >
                   <span>{item.icon}</span>
                   {item.label}
@@ -141,22 +145,22 @@ export default function Sidebar({ stats = {}, onClose }) {
           <div style={s.statusSection}>
             <p style={{ ...s.sectionLabel, paddingTop: 10 }}>System status</p>
             <div style={s.statusCard}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#111', marginBottom: 2 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: c.text, marginBottom: 2 }}>
                 {stats.pendingReview ?? 3} pending review
               </div>
-              <div style={{ fontSize: 11, color: '#888' }}>Kasambahay records</div>
+              <div style={{ fontSize: 11, color: c.textMuted }}>Kasambahay records</div>
             </div>
             <div style={s.statusCard}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#111', marginBottom: 2 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: c.text, marginBottom: 2 }}>
                 {stats.unresolved ?? 1} unresolved
               </div>
-              <div style={{ fontSize: 11, color: '#888' }}>Reports this month</div>
+              <div style={{ fontSize: 11, color: c.textMuted }}>Reports this month</div>
             </div>
             <div style={{ ...s.statusCard, background: '#EEEDFE' }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#534AB7', marginBottom: 2 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: c.accent, marginBottom: 2 }}>
                 {stats.totalUsers ?? 0} total users
               </div>
-              <div style={{ fontSize: 11, color: '#7B72D4' }}>
+              <div style={{ fontSize: 11, color: c.textActive }}>
                 {stats.admins ?? 0} admins · {stats.encoders ?? 0} encoders
               </div>
             </div>
@@ -171,7 +175,7 @@ export default function Sidebar({ stats = {}, onClose }) {
             {(user.name?.charAt(0) || 'A').toUpperCase()}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 500, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ fontSize: 12, fontWeight: 500, color: c.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {user.name || 'Admin'}
             </div>
             <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 20, background: rolePill.bg, color: rolePill.fg, fontWeight: 500 }}>
@@ -180,18 +184,18 @@ export default function Sidebar({ stats = {}, onClose }) {
           </div>
         </div>
         <div
+          style={{ ...s.item(false), color: c.textSub, marginBottom: 4 }}
+          onClick={toggle}
+        >
+          {dark ? '☀️' : '🌙'} {dark ? 'Light mode' : 'Dark mode'}
+        </div>
+        <div
           style={{ ...s.item(false), color: '#ef4444', marginBottom: 0 }}
           onClick={() => { localStorage.clear(); window.location.href = '/login' }}
         >
           🚪 Logout
         </div>
       </div>
-      <style>{`
-        .sidebar-close-btn { display: none; }
-        @media (max-width: 768px) {
-          .sidebar-close-btn { display: block; }
-        }
-      `}</style>
     </div>
   )
 }
