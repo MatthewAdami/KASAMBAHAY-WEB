@@ -1,26 +1,30 @@
 // ─── Role Definitions ─────────────────────────────────────────────────────────
-// Roles: 'Admin' | 'Encoder' | 'helper' (viewer)
+// Roles: 'Admin' | 'SPES' | 'GIP' | 'helper' (viewer)
 
 export const ROLES = {
-  ADMIN:   'Admin',
-  ENCODER: 'Encoder',
-  VIEWER:  'helper',
+  ADMIN:  'Admin',
+  SPES:   'SPES',
+  GIP:    'GIP',
+  VIEWER: 'helper',
 }
+
+// Encoder roles — both SPES and GIP have the same encoding permissions
+const ENCODERS = ['SPES', 'GIP']
 
 // What each role can access
 export const PERMISSIONS = {
   // Pages
-  viewDashboard:    ['Admin', 'Encoder', 'helper'],
-  viewRecords:      ['Admin', 'Encoder', 'helper'],
-  viewKasambahay:   ['Admin', 'Encoder', 'helper'],
-  viewReports:      ['Admin', 'Encoder', 'helper'],
+  viewDashboard:    ['Admin', ...ENCODERS, 'helper'],
+  viewRecords:      ['Admin', ...ENCODERS, 'helper'],
+  viewKasambahay:   ['Admin', ...ENCODERS, 'helper'],
+  viewReports:      ['Admin', ...ENCODERS, 'helper'],
   viewUsers:        ['Admin'],
   viewAuditLog:     ['Admin'],
   viewSettings:     ['Admin'],
 
   // Actions
-  addRecord:        ['Admin', 'Encoder'],
-  editRecord:       ['Admin', 'Encoder'],
+  addRecord:        ['Admin', ...ENCODERS],
+  editRecord:       ['Admin', ...ENCODERS],
   deleteRecord:     ['Admin'],
   createUser:       ['Admin'],
   manageUsers:      ['Admin'],

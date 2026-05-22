@@ -12,8 +12,8 @@ const AVATAR_COLORS = [
 
 const ALL_DISTRICTS = ['District 1','District 2','District 3','District 4','District 5','District 6']
 const ALL_YEARS     = [2023, 2024, 2025, 2026]
-const ALL_ROLES     = ['Admin', 'Encoder', 'helper']
-const ROLE_LABELS   = { Admin: 'Admin', Encoder: 'Encoder', helper: 'Viewer' }
+const ALL_ROLES     = ['Admin', 'SPES', 'GIP', 'helper']
+const ROLE_LABELS   = { Admin: 'Admin', SPES: 'SPES Intern', GIP: 'GIP Intern', helper: 'Viewer' }
 
 function initials(name = '') {
   return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
@@ -34,7 +34,8 @@ const inputStyle = (hasErr = false) => ({
 function rolePill(role) {
   const map = {
     Admin:   { bg: '#EEEDFE', fg: '#534AB7' },
-    Encoder: { bg: '#EAF3DE', fg: '#3B6D11' },
+    SPES:    { bg: '#EAF3DE', fg: '#3B6D11' },
+    GIP:     { bg: '#E0F0FF', fg: '#1D5FA8' },
     helper:  { bg: '#f3f3f3', fg: '#666' },
   }
   return map[role] || map.helper
@@ -43,9 +44,9 @@ function rolePill(role) {
 // ─── Confirm Delete Modal ─────────────────────────────────────────────────────
 function ConfirmDeleteModal({ user, onClose, onConfirm }) {
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: 20 }}
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60 }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: '#fff', borderRadius: 12, width: 360, maxWidth: '100%', border: '1px solid #e4e4e7', boxShadow: '0 8px 32px rgba(0,0,0,.15)', overflow: 'hidden' }}>
+      <div style={{ background: '#fff', borderRadius: 12, width: 360, border: '1px solid #e4e4e7', boxShadow: '0 8px 32px rgba(0,0,0,.15)', overflow: 'hidden' }}>
         <div style={{ padding: '14px 16px', borderBottom: '1px solid #e4e4e7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>Delete account</span>
           <span style={{ cursor: 'pointer', color: '#aaa', fontSize: 18 }} onClick={onClose}>✕</span>
@@ -79,12 +80,12 @@ function AccountModal({ existing, onClose, onSave }) {
   const [name,      setName]      = useState(existing?.name     || '')
   const [email,     setEmail]     = useState(existing?.email    || '')
   const [password,  setPassword]  = useState('')
-  const [role,      setRole]      = useState(existing?.role     || 'Encoder')
+  const [role,      setRole]      = useState(existing?.role     || 'SPES')
   const [districts, setDistricts] = useState(existing?.assignedDistricts || [])
   const [years,     setYears]     = useState(existing?.assignedYears     || [])
   const [errors,    setErrors]    = useState({})
 
-  const needsAssignment = role === 'Encoder' || role === 'helper'
+  const needsAssignment = role === 'SPES' || role === 'GIP' || role === 'helper'
 
   function toggleDistrict(d) {
     setDistricts(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])
@@ -128,7 +129,7 @@ function AccountModal({ existing, onClose, onSave }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 20 }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: '#fff', borderRadius: 12, width: 420, maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', border: '1px solid #e4e4e7', boxShadow: '0 8px 32px rgba(0,0,0,.15)' }}>
+      <div style={{ background: '#fff', borderRadius: 12, width: 420, maxHeight: '90vh', overflowY: 'auto', border: '1px solid #e4e4e7', boxShadow: '0 8px 32px rgba(0,0,0,.15)' }}>
 
         {/* Header */}
         <div style={{ padding: '14px 16px', borderBottom: '1px solid #e4e4e7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: '#fff', zIndex: 1 }}>
@@ -161,7 +162,7 @@ function AccountModal({ existing, onClose, onSave }) {
           {/* Role */}
           <div>
             <p style={{ fontSize: 11, color: '#666', marginBottom: 8 }}>Role</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 6 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
               {ALL_ROLES.map(r => {
                 const active = role === r
                 return (
@@ -172,7 +173,7 @@ function AccountModal({ existing, onClose, onSave }) {
                     color: active ? '#534AB7' : '#555',
                   }}>
                     <span style={{ fontSize: 16, display: 'block', marginBottom: 3 }}>
-                      {r === 'Admin' ? '🛡️' : r === 'Encoder' ? '✏️' : '👁️'}
+                      {r === 'Admin' ? '🛡️' : r === 'SPES' ? '📋' : r === 'GIP' ? '💼' : '👁️'}
                     </span>
                     <span style={{ fontSize: 12 }}>{ROLE_LABELS[r]}</span>
                   </div>
@@ -291,7 +292,7 @@ function UserCard({ user, colorIndex, isSelf, onEdit, onDelete }) {
       </div>
 
       {/* District/Year assignments (only for non-Admin) */}
-      {(user.role === 'Encoder' || user.role === 'helper') && (
+      {(user.role === 'SPES' || user.role === 'GIP' || user.role === 'helper') && (
         <div style={{ background: '#f9f9f9', borderRadius: 8, padding: '8px 10px', fontSize: 11 }}>
           <div style={{ color: '#aaa', marginBottom: 5, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: 10 }}>Data access</div>
           {!hasRestrictions ? (
@@ -359,7 +360,7 @@ export default function UserPage() {
         id:                u._id,
         name:              u.name || 'Unknown',
         email:             u.email,
-        role:              u.role || 'Encoder',
+        role:              u.role || 'SPES',
         assignedDistricts: u.assignedDistricts || [],
         assignedYears:     u.assignedYears     || [],
         joined:            fmtDate(u.createdAt),
@@ -425,7 +426,7 @@ export default function UserPage() {
     ? users
     : users.filter(u => u.role.toLowerCase() === activeTab)
 
-  const tabs = ['all', 'admin', 'encoder', 'helper']
+  const tabs = ['all', 'admin', 'spes', 'gip', 'helper']
 
   return (
     <>
@@ -437,7 +438,7 @@ export default function UserPage() {
       )}
 
       {/* Topbar */}
-      <div style={{ minHeight: 52, padding: '10px 16px', borderBottom: '1px solid #e4e4e7', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, flexShrink: 0 }}>
+      <div style={{ height: 52, padding: '0 20px', borderBottom: '1px solid #e4e4e7', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div>
           <div style={{ fontSize: 15, fontWeight: 500, color: '#111' }}>Users</div>
           <div style={{ fontSize: 11, color: '#aaa' }}>{users.length} total accounts</div>
@@ -450,14 +451,15 @@ export default function UserPage() {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
 
         {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
           {[
             ['Total',    users.length,                                    'all accounts'],
             ['Admins',   users.filter(u => u.role === 'Admin').length,   'admin role'],
-            ['Encoders', users.filter(u => u.role === 'Encoder').length, 'encoder role'],
+            ['SPES',     users.filter(u => u.role === 'SPES').length,    'SPES interns'],
+            ['GIP',      users.filter(u => u.role === 'GIP').length,     'GIP interns'],
             ['Viewers',  users.filter(u => u.role === 'helper').length,  'viewer role'],
           ].map(([label, val, sub]) => (
             <div key={label} style={{ background: '#f5f5f5', borderRadius: 10, padding: 14 }}>
@@ -480,7 +482,7 @@ export default function UserPage() {
                 fontWeight: active ? 500 : 400,
                 boxShadow: active ? '0 0 0 1px #e4e4e7' : 'none',
               }}>
-                {tab === 'helper' ? 'Viewer' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {tab === 'helper' ? 'Viewer' : tab.toUpperCase()}
               </div>
             )
           })}

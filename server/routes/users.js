@@ -33,7 +33,7 @@ router.post('/', auth, requireRole('Admin'), async (req, res) => {
     if (!name || !email || !password)
       return res.status(400).json({ message: 'Name, email, and password are required.' })
 
-    const validRoles = ['Admin', 'Encoder', 'helper']
+    const validRoles = ['Admin', 'SPES', 'GIP', 'helper']
     if (role && !validRoles.includes(role))
       return res.status(400).json({ message: 'Invalid role.' })
 
@@ -44,7 +44,7 @@ router.post('/', auth, requireRole('Admin'), async (req, res) => {
     const hash = await bcrypt.hash(password, 10)
     const newUser = new User({
       name, email: email.toLowerCase(), password: hash,
-      role: role || 'Encoder',
+      role: role || 'SPES',
       assignedDistricts: assignedDistricts || [],
       assignedYears: assignedYears || [],
     })
@@ -70,7 +70,7 @@ router.post('/', auth, requireRole('Admin'), async (req, res) => {
 router.put('/:id', auth, requireRole('Admin'), async (req, res) => {
   try {
     const { name, role, password, assignedDistricts, assignedYears } = req.body
-    const validRoles = ['Admin', 'Encoder', 'helper']
+    const validRoles = ['Admin', 'SPES', 'GIP', 'helper']
     if (role && !validRoles.includes(role))
       return res.status(400).json({ message: 'Invalid role.' })
 
