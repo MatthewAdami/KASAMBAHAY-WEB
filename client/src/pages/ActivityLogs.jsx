@@ -162,7 +162,7 @@ export default function ActivityLogs() {
         .log-row { transition: background 0.1s; }
       `}</style>
 
-      <div style={{ padding: '20px 24px', minHeight: '100vh', background: '#f7f7f8' }}>
+      <div style={{ padding: '16px', minHeight: '100vh', background: '#f7f7f8' }}>
 
         {/* ── Header ── */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>

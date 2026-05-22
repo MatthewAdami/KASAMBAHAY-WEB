@@ -43,9 +43,9 @@ function rolePill(role) {
 // ─── Confirm Delete Modal ─────────────────────────────────────────────────────
 function ConfirmDeleteModal({ user, onClose, onConfirm }) {
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60 }}
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: 20 }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: '#fff', borderRadius: 12, width: 360, border: '1px solid #e4e4e7', boxShadow: '0 8px 32px rgba(0,0,0,.15)', overflow: 'hidden' }}>
+      <div style={{ background: '#fff', borderRadius: 12, width: 360, maxWidth: '100%', border: '1px solid #e4e4e7', boxShadow: '0 8px 32px rgba(0,0,0,.15)', overflow: 'hidden' }}>
         <div style={{ padding: '14px 16px', borderBottom: '1px solid #e4e4e7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>Delete account</span>
           <span style={{ cursor: 'pointer', color: '#aaa', fontSize: 18 }} onClick={onClose}>✕</span>
@@ -128,7 +128,7 @@ function AccountModal({ existing, onClose, onSave }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 20 }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: '#fff', borderRadius: 12, width: 420, maxHeight: '90vh', overflowY: 'auto', border: '1px solid #e4e4e7', boxShadow: '0 8px 32px rgba(0,0,0,.15)' }}>
+      <div style={{ background: '#fff', borderRadius: 12, width: 420, maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', border: '1px solid #e4e4e7', boxShadow: '0 8px 32px rgba(0,0,0,.15)' }}>
 
         {/* Header */}
         <div style={{ padding: '14px 16px', borderBottom: '1px solid #e4e4e7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: '#fff', zIndex: 1 }}>
@@ -161,7 +161,7 @@ function AccountModal({ existing, onClose, onSave }) {
           {/* Role */}
           <div>
             <p style={{ fontSize: 11, color: '#666', marginBottom: 8 }}>Role</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 6 }}>
               {ALL_ROLES.map(r => {
                 const active = role === r
                 return (
@@ -437,7 +437,7 @@ export default function UserPage() {
       )}
 
       {/* Topbar */}
-      <div style={{ height: 52, padding: '0 20px', borderBottom: '1px solid #e4e4e7', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+      <div style={{ minHeight: 52, padding: '10px 16px', borderBottom: '1px solid #e4e4e7', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, flexShrink: 0 }}>
         <div>
           <div style={{ fontSize: 15, fontWeight: 500, color: '#111' }}>Users</div>
           <div style={{ fontSize: 11, color: '#aaa' }}>{users.length} total accounts</div>
@@ -450,10 +450,10 @@ export default function UserPage() {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
 
         {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
           {[
             ['Total',    users.length,                                    'all accounts'],
             ['Admins',   users.filter(u => u.role === 'Admin').length,   'admin role'],

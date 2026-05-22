@@ -101,7 +101,7 @@ function ActiveYearSection({ toast }) {
         This controls the default year pre-filled when adding new Kasambahay records.
         Change this at the start of each encoding year.
       </p>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <select
           value={year}
           onChange={e => setYear(parseInt(e.target.value))}
@@ -196,7 +196,7 @@ function BarangayManagerSection({ toast }) {
       </div>
 
       {/* Add new */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
         <input
           value={newName}
           onChange={e => setNewName(e.target.value)}
@@ -227,7 +227,7 @@ function BarangayManagerSection({ toast }) {
         ))}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
         <span style={{ fontSize: 12, color: '#a09ec0' }}>
           {filtered.length} of {(list[district] || []).length} barangay{(list[district] || []).length !== 1 ? 's' : ''} shown
         </span>
@@ -410,7 +410,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: "'Segoe UI', Arial, sans-serif", fontSize: 13, color: '#222', background: '#f8f8fb', minHeight: '100vh' }}>
+    <div style={{ padding: '20px 16px', fontFamily: "'Segoe UI', Arial, sans-serif", fontSize: 13, color: '#222', background: '#f8f8fb', minHeight: '100vh' }}>
       <div style={{ marginBottom: 24 }}>
         <h2 style={{ margin: '0 0 4px', fontSize: 20, color: '#2d2a6e', fontWeight: 700 }}>Settings</h2>
         <p style={{ margin: 0, color: '#888', fontSize: 12 }}>

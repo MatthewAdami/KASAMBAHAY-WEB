@@ -45,10 +45,10 @@ export default function LoginPage() {
   const onKey = (e) => { if (e.key === 'Enter') handleSubmit() }
 
   return (
-    <div style={styles.page}>
+    <div style={styles.page} className="login-page">
 
       {/* Left panel */}
-      <div style={styles.left}>
+      <div style={styles.left} className="login-left">
         <div style={styles.leftInner}>
           <div style={styles.seal}>
             <div style={styles.sealRing}>
@@ -78,8 +78,8 @@ export default function LoginPage() {
       </div>
 
       {/* Right panel */}
-      <div style={styles.right}>
-        <div style={styles.card}>
+      <div style={styles.right} className="login-right">
+        <div style={styles.card} className="login-card">
 
           <div style={styles.cardHeader}>
             <p style={styles.cardEyebrow}>Authorized access only</p>
@@ -161,6 +161,15 @@ export default function LoginPage() {
         * { box-sizing: border-box; margin: 0; padding: 0; }
         input:focus { outline: none; border-color: #2563a8 !important; box-shadow: 0 0 0 3px rgba(37,99,168,0.12); }
         input::placeholder { color: #bbb; }
+        @media (max-width: 768px) {
+          .login-page { flex-direction: column !important; }
+          .login-left { width: 100% !important; padding: 40px 24px !important; text-align: center; }
+          .login-left p, .login-left h1 { text-align: center; }
+          .login-left .dividerLine { margin: 24px auto !important; }
+          .login-left .stats { justify-content: center; flex-wrap: wrap; }
+          .login-right { padding: 24px 16px !important; }
+          .login-card { padding: 32px 24px !important; }
+        }
       `}</style>
     </div>
   )

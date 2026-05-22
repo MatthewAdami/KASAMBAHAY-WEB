@@ -112,28 +112,28 @@ function KasambahayForm({ formData, handleChange, handleGender, handleArrangemen
   return (
     <form id={formId} onSubmit={onSubmit}>
       <h4 style={secTitleFirst}>Registration Info</h4>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20, marginBottom: 28 }}>
         <div><label style={labelStyle}>Reg. No.</label><input type="number" name="registrationNo" value={formData.registrationNo} onChange={handleChange} style={inputStyle} /></div>
         <div><label style={labelStyle}>Date Registered</label><input type="date" name="dateRegistered" value={formData.dateRegistered} onChange={handleChange} style={inputStyle} /></div>
       </div>
 
       <h4 style={secTitle}>Personal Information</h4>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20, marginBottom: 20 }}>
         <div><label style={labelStyle}>First Name *</label><input required name="firstName" value={formData.firstName} onChange={handleChange} style={inputStyle} /></div>
         <div><label style={labelStyle}>Middle Name</label><input name="middleName" value={formData.middleName} onChange={handleChange} style={inputStyle} /></div>
         <div><label style={labelStyle}>Last Name *</label><input required name="lastName" value={formData.lastName} onChange={handleChange} style={inputStyle} /></div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20, marginBottom: 20 }}>
         <div><label style={labelStyle}>Birthday</label><input type="date" name="birthday" value={formData.birthday} onChange={handleChange} style={inputStyle} /></div>
         <div><label style={labelStyle}>Age</label><input type="number" name="age" value={formData.age} onChange={handleChange} style={inputStyle} /></div>
         <div><label style={labelStyle}>Mobile Number</label><input name="mobileNumber" value={formData.mobileNumber} onChange={handleChange} style={inputStyle} /></div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20, marginBottom: 20 }}>
         <div><label style={labelStyle}>Birth Place</label><input name="birthPlace" value={formData.birthPlace} onChange={handleChange} style={inputStyle} /></div>
         <div><label style={labelStyle}>Current Residence</label><input name="currentResidence" value={formData.currentResidence} onChange={handleChange} style={inputStyle} /></div>
         <div><label style={labelStyle}>Education</label><input name="educationalAttainment" value={formData.educationalAttainment} onChange={handleChange} style={inputStyle} /></div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20, marginBottom: 28 }}>
         <div>
           <label style={labelStyle}>Gender</label>
           <div style={{ display: 'flex', gap: 20, height: 40, alignItems: 'center' }}>
@@ -145,7 +145,7 @@ function KasambahayForm({ formData, handleChange, handleGender, handleArrangemen
       </div>
 
       <h4 style={secTitle}>Location & Meta</h4>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20, marginBottom: 28 }}>
         <div><label style={labelStyle}>Year</label><input type="number" name="year" value={formData.year} onChange={handleChange} style={inputStyle} /></div>
         <div>
           <label style={labelStyle}>District</label>
@@ -157,12 +157,12 @@ function KasambahayForm({ formData, handleChange, handleGender, handleArrangemen
       </div>
 
       <h4 style={secTitle}>Employment Info</h4>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20, marginBottom: 20 }}>
         <div><label style={labelStyle}>Monthly Salary (₱)</label><input type="number" name="monthlySalary" value={formData.monthlySalary} onChange={handleChange} style={inputStyle} /></div>
         <div><label style={labelStyle}>Employer Address</label><input name="employerAddress" value={formData.employerAddress} onChange={handleChange} style={inputStyle} /></div>
         <div><label style={labelStyle}>Length of Service</label><input name="lengthOfService" value={formData.lengthOfService} onChange={handleChange} style={inputStyle} /></div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, marginBottom: 28 }}>
         <div>
           <label style={labelStyle}>Arrangement</label>
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 14, height: 40, alignItems: 'center' }}>
@@ -188,7 +188,7 @@ function KasambahayForm({ formData, handleChange, handleGender, handleArrangemen
       </div>
 
       <h4 style={secTitle}>Government IDs</h4>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 20, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 20, marginBottom: 28 }}>
         {['sss', 'pagIbig', 'philhealth', 'qcid'].map(field => (
           <div key={field}>
             <label style={labelStyle}>{field === 'pagIbig' ? 'Pag-IBIG' : field.toUpperCase()}</label>
@@ -202,7 +202,7 @@ function KasambahayForm({ formData, handleChange, handleGender, handleArrangemen
       </div>
 
       <h4 style={secTitle}>Classifications & Other Info</h4>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 20, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 20, marginBottom: 20 }}>
         <div><label style={labelStyle}>QC Voter?</label><input name="isQcVoter" value={formData.isQcVoter} onChange={handleChange} style={inputStyle} /></div>
         <div><label style={labelStyle}>Family Voters</label><input type="number" name="noOfFamilyVoters" value={formData.noOfFamilyVoters} onChange={handleChange} style={inputStyle} /></div>
         <div><label style={labelStyle}>Kasambahays in Fam</label><input type="number" name="noOfKasambahayInFamily" value={formData.noOfKasambahayInFamily} onChange={handleChange} style={inputStyle} /></div>
@@ -217,7 +217,7 @@ function KasambahayForm({ formData, handleChange, handleGender, handleArrangemen
       </div>
 
       <h4 style={secTitle}>Trainings & Seminars</h4>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 20 }}>
         {[
           { label: 'Orientation',   check: 'kasambahayOrientation',      date: 'dateOfOrientation' },
           { label: 'Organizing',    check: 'kasambahayOrganizing',        date: 'dateOfOrganizing' },
@@ -815,7 +815,7 @@ function KasambahayData() {
   })
 
   return (
-    <div style={{ padding: '28px 28px', minHeight: '100vh', background: '#f9f9f9' }}>
+    <div style={{ padding: '20px', minHeight: '100vh', background: '#f9f9f9' }}>
 
       {/* Modals */}
       {showAddModal && (
@@ -849,17 +849,17 @@ function KasambahayData() {
       )}
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <button onClick={() => navigate('/admin')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: '#888', padding: 0, lineHeight: 1 }}>←</button>
           <div>
-            <h2 style={{ fontSize: 20, fontWeight: 600, color: '#111', margin: 0 }}>
+            <h2 style={{ fontSize: 'clamp(18px, 4vw, 20px)', fontWeight: 600, color: '#111', margin: 0 }}>
               Kasambahay Data {viewDeleted ? '(Deleted)' : ''}
             </h2>
             <p style={{ fontSize: 14, color: '#888', margin: '3px 0 0' }}>Select year and district to view records</p>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {isAdmin && (
             <button
               onClick={() => { const m = !viewDeleted; setViewDeleted(m); fetchData(1, search, null, null, m) }}

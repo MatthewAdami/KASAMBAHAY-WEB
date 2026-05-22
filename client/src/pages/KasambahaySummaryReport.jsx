@@ -247,7 +247,7 @@ async function fetchAll(token) {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const S = {
-  page:       { padding: '24px', fontFamily: "'Segoe UI', Arial, sans-serif", fontSize: '13px', color: '#222', background: '#f8f8fb', minHeight: '100vh' },
+  page:       { padding: '20px 16px', fontFamily: "'Segoe UI', Arial, sans-serif", fontSize: '13px', color: '#222', background: '#f8f8fb', minHeight: '100vh' },
   card:       { background: '#fff', borderRadius: '10px', border: '1px solid #e4e2f5', marginBottom: '20px', overflow: 'hidden' },
   metric:     { background: '#f3f1fd', borderRadius: '8px', padding: '12px 14px', textAlign: 'center' },
   metricGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '12px', padding: '16px' },
@@ -408,7 +408,7 @@ const KasambahaySummaryReport = () => {
     <div style={S.page}>
 
       {/* ── Header ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ margin: '0 0 4px', fontSize: '20px', color: '#2d2a6e', fontWeight: '700' }}>
             Kasambahay Summary Report

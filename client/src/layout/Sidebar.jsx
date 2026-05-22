@@ -28,7 +28,7 @@ const NAV = [
   },
 ]
 
-export default function Sidebar({ stats = {} }) {
+export default function Sidebar({ stats = {}, onClose }) {
   const navigate  = useNavigate()
   const location  = useLocation()
   const user      = JSON.parse(localStorage.getItem('user') || '{}')
@@ -60,7 +60,7 @@ export default function Sidebar({ stats = {} }) {
     },
     brand: {
       padding: '14px 16px', borderBottom: '1px solid #e4e4e7',
-      display: 'flex', alignItems: 'center', gap: 8,
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     },
     logo: {
       width: 28, height: 28, borderRadius: 6, background: '#534AB7',
@@ -105,9 +105,12 @@ export default function Sidebar({ stats = {} }) {
     <div style={s.sidebar}>
 
       {/* Brand */}
-      <div style={s.brand}>
-        <div style={s.logo}>K</div>
-        <span style={{ fontSize: 13, fontWeight: 500 }}>Kasambahay</span>
+      <div style={s.brand} className="sidebar-brand">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={s.logo}>K</div>
+          <span style={{ fontSize: 13, fontWeight: 500 }}>Kasambahay</span>
+        </div>
+        <button className="sidebar-close-btn" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, color: '#888', cursor: 'pointer', padding: 0 }}>✕</button>
       </div>
 
       {/* Nav — only show items the current role can access */}
@@ -123,7 +126,7 @@ export default function Sidebar({ stats = {} }) {
                 <div
                   key={item.key}
                   style={s.item(activeKey === item.key)}
-                  onClick={() => navigate(item.route)}
+                  onClick={() => { navigate(item.route); if (onClose) onClose(); }}
                 >
                   <span>{item.icon}</span>
                   {item.label}
@@ -183,6 +186,12 @@ export default function Sidebar({ stats = {} }) {
           🚪 Logout
         </div>
       </div>
+      <style>{`
+        .sidebar-close-btn { display: none; }
+        @media (max-width: 768px) {
+          .sidebar-close-btn { display: block; }
+        }
+      `}</style>
     </div>
   )
 }
