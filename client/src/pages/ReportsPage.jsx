@@ -6,8 +6,8 @@ import {
 } from 'recharts'
 import * as XLSX from 'xlsx'
 
-const BASE_URL  = import.meta.env?.VITE_API_URL || 'http://localhost:5000/api'
-const API_URL   = `${BASE_URL}/kasambahay`
+import { API_ENDPOINTS } from '../utils/api'
+const API_URL = API_ENDPOINTS.KASAMBAHAY
 const DISTRICTS = ['District 1','District 2','District 3','District 4','District 5','District 6']
 const YEARS     = [2024, 2025]
 const COLORS    = ['#534AB7','#9FE1CB','#F4A261','#E76F51','#6A4C93','#2EC4B6','#A8DADC','#457B9D']
