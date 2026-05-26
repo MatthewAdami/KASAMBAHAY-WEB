@@ -17,9 +17,9 @@ const UserSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['Admin', 'Encoder', 'helper'],
-    default: 'Encoder'
-  },
+    enum: ['Admin', 'Encoder', 'SPES', 'GIP', 'helper'],
+    default: 'SPES'
+},
   // Districts this user can access (empty = all, only enforced for Encoder/helper)
   assignedDistricts: {
     type: [String],
