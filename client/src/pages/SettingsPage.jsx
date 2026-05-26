@@ -245,12 +245,11 @@ function BarangayManagerSection({ toast }) {
 // ─── Change Password ──────────────────────────────────────────────────────────
 function ChangePasswordSection({ toast }) {
   const user = getCurrentUser()
-  const [form, setForm] = useState({ current: '', newPass: '', confirm: '' })
+  const [form, setForm]       = useState({ current: '', newPass: '', confirm: '' })
   const [loading, setLoading] = useState(false)
-  const [show, setShow] = useState({ current: false, newPass: false, confirm: false })
+  const [show, setShow]       = useState({ current: false, newPass: false, confirm: false })
 
   const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
-  const toggleShow = key => setShow(s => ({ ...s, [key]: !s[key] }))
 
   const strength = (pw) => {
     let score = 0
@@ -260,34 +259,27 @@ function ChangePasswordSection({ toast }) {
     if (/[^A-Za-z0-9]/.test(pw)) score++
     return score
   }
-
   const strengthLabel = ['', 'Weak', 'Fair', 'Good', 'Strong']
   const strengthColor = ['', '#e53e3e', '#f6ad55', '#68d391', '#38a169']
-  const s = strength(form.newPass)
 
   const handleSubmit = async () => {
     if (!form.current || !form.newPass || !form.confirm) { toast('Please fill in all fields.', 'error'); return }
     if (form.newPass !== form.confirm) { toast('New passwords do not match.', 'error'); return }
     if (form.newPass.length < 6) { toast('Password must be at least 6 characters.', 'error'); return }
-
     setLoading(true)
     try {
-      // Re-authenticate first by calling login
       const loginRes = await fetch(`${BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: user.email, password: form.current }),
       })
       if (!loginRes.ok) { toast('Current password is incorrect.', 'error'); setLoading(false); return }
-
-      // Then update password via PUT /users/:id
       const res = await fetch(`${BASE_URL}/users/${user.id}`, {
         method: 'PUT',
         headers: authHeader(),
         body: JSON.stringify({ password: form.newPass }),
       })
       if (!res.ok) { const e = await res.json(); toast(e.message || 'Failed to update password.', 'error'); setLoading(false); return }
-
       toast('Password changed successfully!', 'success')
       setForm({ current: '', newPass: '', confirm: '' })
     } catch {
@@ -297,62 +289,58 @@ function ChangePasswordSection({ toast }) {
     }
   }
 
-  const EyeBtn = ({ field }) => (
-    <button type="button" onClick={() => toggleShow(field)}
-      style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#a09ec0', fontSize: 16, padding: 0 }}>
-      {show[field] ? '🙈' : '👁️'}
-    </button>
-  )
-
-  const PwField = ({ label, name, tip }) => (
-    <div style={{ marginBottom: 16 }}>
-      <label style={{ display: 'flex', alignItems: 'center', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 6 }}>
-        {label} <Tip>{tip}</Tip>
-      </label>
-      <div style={{ position: 'relative' }}>
-        <input
-          type={show[name] ? 'text' : 'password'}
-          name={name}
-          value={form[name]}
-          onChange={handleChange}
-          style={{ width: '100%', height: 40, padding: '0 40px 0 12px', fontSize: 14, border: '1px solid #e4e4e7', borderRadius: 6, outline: 'none', boxSizing: 'border-box' }}
-        />
-        <EyeBtn field={name} />
-      </div>
-    </div>
-  )
+  const fields = [
+    { name: 'current', label: 'Current Password',     tip: 'Enter the password you use right now to log in.' },
+    { name: 'newPass', label: 'New Password',          tip: 'At least 8 characters recommended.' },
+    { name: 'confirm', label: 'Confirm New Password',  tip: 'Type your new password again to confirm.' },
+  ]
 
   return (
     <Section
       icon="🔐"
       title="Change Password"
-      tip="You can change your own login password here. You'll need to enter your current password first to confirm it's really you. Choose a strong password with at least 8 characters."
+      tip="You can change your own login password here. You'll need to enter your current password first to confirm it's really you."
     >
       <p style={{ margin: '0 0 16px', fontSize: 13, color: '#666', lineHeight: 1.6 }}>
         Logged in as <strong>{user.name}</strong> ({user.email}) · Role: <strong>{user.role}</strong>
       </p>
       <div style={{ maxWidth: 360 }}>
-        <PwField label="Current Password" name="current" tip="Enter the password you use right now to log in." />
-        <PwField label="New Password" name="newPass" tip="Choose a new password. At least 8 characters is recommended. Mix letters, numbers, and symbols for a stronger password." />
-
-        {/* Strength meter */}
-        {form.newPass.length > 0 && (
-          <div style={{ marginBottom: 16, marginTop: -8 }}>
-            <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
-              {[1,2,3,4].map(i => (
-                <div key={i} style={{ flex: 1, height: 4, borderRadius: 4, background: i <= s ? strengthColor[s] : '#e4e2f5', transition: 'background 0.3s' }} />
-              ))}
+        {fields.map(({ name, label, tip }) => (
+          <div key={name} style={{ marginBottom: 16 }}>
+            <label style={{ display: 'flex', alignItems: 'center', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 6 }}>
+              {label} <Tip>{tip}</Tip>
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={show[name] ? 'text' : 'password'}
+                name={name}
+                value={form[name]}
+                onChange={handleChange}
+                style={{ width: '100%', height: 40, padding: '0 40px 0 12px', fontSize: 14, border: '1px solid #e4e4e7', borderRadius: 6, outline: 'none', boxSizing: 'border-box' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShow(s => ({ ...s, [name]: !s[name] }))}
+                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#a09ec0', fontSize: 16, padding: 0 }}
+              >
+                {show[name] ? '🙈' : '👁️'}
+              </button>
             </div>
-            <span style={{ fontSize: 11, color: strengthColor[s], fontWeight: 600 }}>{strengthLabel[s]}</span>
+            {name === 'newPass' && form.newPass.length > 0 && (
+              <div style={{ marginTop: 6 }}>
+                <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
+                  {[1,2,3,4].map(i => (
+                    <div key={i} style={{ flex: 1, height: 4, borderRadius: 4, background: i <= strength(form.newPass) ? strengthColor[strength(form.newPass)] : '#e4e2f5', transition: 'background 0.3s' }} />
+                  ))}
+                </div>
+                <span style={{ fontSize: 11, color: strengthColor[strength(form.newPass)], fontWeight: 600 }}>{strengthLabel[strength(form.newPass)]}</span>
+              </div>
+            )}
+            {name === 'confirm' && form.confirm.length > 0 && form.newPass !== form.confirm && (
+              <p style={{ fontSize: 12, color: '#e53e3e', margin: '4px 0 0' }}>⚠ Passwords do not match</p>
+            )}
           </div>
-        )}
-
-        <PwField label="Confirm New Password" name="confirm" tip="Type your new password again to make sure there are no typos." />
-
-        {form.confirm.length > 0 && form.newPass !== form.confirm && (
-          <p style={{ fontSize: 12, color: '#e53e3e', margin: '-8px 0 12px' }}>⚠ Passwords do not match</p>
-        )}
-
+        ))}
         <button onClick={handleSubmit} disabled={loading} style={{ ...Btn.primary, opacity: loading ? 0.7 : 1 }}>
           {loading ? 'Saving…' : '🔐 Change Password'}
         </button>
@@ -360,7 +348,6 @@ function ChangePasswordSection({ toast }) {
     </Section>
   )
 }
-
 // ─── My Account Info (read-only) ──────────────────────────────────────────────
 function AccountInfoSection() {
   const user = getCurrentUser()
