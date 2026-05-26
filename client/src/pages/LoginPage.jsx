@@ -54,7 +54,7 @@ export default function LoginPage() {
           <h1 style={styles.leftTitle}>Kasambahay<br />Management System</h1>
           <p style={styles.leftSub}>
             Quezon City Government<br />
-            Department of Labor & Employment
+            Public Employment Service Office
           </p>
           <div style={styles.dividerLine} />
           <p style={styles.leftNote}>
