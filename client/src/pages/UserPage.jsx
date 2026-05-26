@@ -105,7 +105,13 @@ function AccountModal({ existing, onClose, onSave }) {
     if (!name.trim())  e.name  = true
     if (!email.trim()) e.email = true
     if (!isEdit && !password.trim()) e.password = true
-    if (Object.keys(e).length) { setErrors(e); return }
+    if (role === 'helper' && districts.length === 0) { e.districts = true }
+    if (role === 'helper' && years.length === 0) { e.years = true }
+    if (Object.keys(e).length) {
+      setErrors(e)
+      if (e.districts || e.years) alert('Viewers must have at least one district and one year assigned.')
+      return
+    }
 
     onSave({
       name: name.trim(),
@@ -189,13 +195,16 @@ function AccountModal({ existing, onClose, onSave }) {
                 🗂 Data Access Assignment
               </p>
               <p style={{ fontSize: 11, color: '#888', marginBottom: 12 }}>
-                Leave empty to allow access to <strong>all</strong> districts and years.
+                {role === 'helper'
+                  ? <span style={{ color: '#b45309' }}>⚠ Viewers must be assigned specific districts and years — leaving empty gives access to <strong>all</strong> data.</span>
+                  : <>Leave empty to allow access to <strong>all</strong> districts and years.</>
+                }
               </p>
 
               {/* Districts */}
               <div style={{ marginBottom: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <p style={{ fontSize: 11, color: '#666', fontWeight: 500 }}>Districts</p>
+                  <p style={{ fontSize: 11, color: errors.districts ? '#e53e3e' : '#666', fontWeight: 500 }}>Districts {errors.districts && '(required for Viewer)'}</p>
                   <span onClick={toggleAllDistricts} style={{ fontSize: 11, color: '#534AB7', cursor: 'pointer' }}>
                     {districts.length === ALL_DISTRICTS.length ? 'Deselect all' : 'Select all'}
                   </span>
@@ -212,7 +221,7 @@ function AccountModal({ existing, onClose, onSave }) {
               {/* Years */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <p style={{ fontSize: 11, color: '#666', fontWeight: 500 }}>Years</p>
+                  <p style={{ fontSize: 11, color: errors.years ? '#e53e3e' : '#666', fontWeight: 500 }}>Years {errors.years && '(required for Viewer)'}</p>
                   <span onClick={toggleAllYears} style={{ fontSize: 11, color: '#534AB7', cursor: 'pointer' }}>
                     {years.length === ALL_YEARS.length ? 'Deselect all' : 'Select all'}
                   </span>
