@@ -75,15 +75,6 @@ router.get('/stats', auth, async (req, res) => {
 })
 
 // ─── POST /api/kasambahay/check-duplicate ─────────────────────────────────────
-// Checks if a record with the same name already exists.
-// Used before Add and Edit to warn the user before saving.
-//
-// Body: { firstName, lastName, middleName, district, year, excludeId? }
-//   excludeId — pass the current record's _id when checking during an Edit
-//               so the record doesn't flag itself as a duplicate.
-//
-// Response 200: { hasDuplicate: false }
-// Response 200: { hasDuplicate: true, matches: [ ...records ] }
 router.post('/check-duplicate', auth, requireRole('Admin', 'SPES', 'GIP'), async (req, res) => {
   try {
     const { firstName, lastName, middleName, birthday, district, year, excludeId } = req.body
@@ -92,11 +83,6 @@ router.post('/check-duplicate', auth, requireRole('Admin', 'SPES', 'GIP'), async
       return res.status(400).json({ message: 'firstName and lastName are required for duplicate check.' })
     }
 
-    // Build a case-insensitive name match.
-    // We match on firstName + lastName always.
-    // middleName is optional — only included in the filter if provided,
-    // so that "Juan dela Cruz" still flags "Juan C. dela Cruz" as a potential match.
-    // Match if EITHER full name matches OR birthday matches
     const fullNameMatch = {
       firstName:  new RegExp(`^${firstName.trim()}$`, 'i'),
       lastName:   new RegExp(`^${lastName.trim()}$`,  'i'),
@@ -108,7 +94,6 @@ router.post('/check-duplicate', auth, requireRole('Admin', 'SPES', 'GIP'), async
 
     const orConditions = [fullNameMatch]
 
-    // Also flag if birthday matches (and name partially matches)
     if (birthday) {
       const birthdayStart = new Date(birthday)
       birthdayStart.setHours(0, 0, 0, 0)
@@ -126,11 +111,6 @@ router.post('/check-duplicate', auth, requireRole('Admin', 'SPES', 'GIP'), async
       isDeleted: { $ne: true },
     }
 
-    // // Scope to same district+year if provided (tighter match)
-    // if (district) nameFilter.district = `District ${district}`
-    // if (year)     nameFilter.year     = parseInt(year)
-
-    // Exclude the record being edited (so it doesn't flag itself)
     if (excludeId) {
       nameFilter._id = { $ne: excludeId }
     }
@@ -176,7 +156,11 @@ router.post('/', auth, requireRole('Admin', 'SPES', 'GIP'), async (req, res) => 
 // ─── PUT restore — Admin only ─────────────────────────────────────────────────
 router.put('/:id/restore', auth, requireRole('Admin'), async (req, res) => {
   try {
-    const restored = await Kasambahay.findByIdAndUpdate(req.params.id, { isDeleted: false, deletedAt: null })
+    const restored = await Kasambahay.findByIdAndUpdate(
+      req.params.id,
+      { $set: { isDeleted: false, deletedAt: null } },
+      { new: true }
+    )
     if (!restored) return res.status(404).json({ message: 'Record not found.' })
     await logActivity(req.user.id, req.user.name || 'Unknown User', 'Kasambahay', 'RESTORE', `Restored Kasambahay record for ${restored.firstName} ${restored.lastName}`)
     res.json({ message: 'Record restored.' })
@@ -186,13 +170,23 @@ router.put('/:id/restore', auth, requireRole('Admin'), async (req, res) => {
 })
 
 // ─── PUT update — Admin + Encoder ────────────────────────────────────────────
+// FIX: Uses $set so ONLY the fields explicitly sent are updated.
+// Without $set, Mongoose replaces the whole document, wiping fields
+// that weren't included in req.body (e.g. fields not rendered in the form).
 router.put('/:id', auth, requireRole('Admin', 'SPES', 'GIP'), async (req, res) => {
   try {
     // Fetch old record BEFORE updating so we can diff it
     const old = await Kasambahay.findById(req.params.id).lean()
     if (!old) return res.status(404).json({ message: 'Record not found.' })
 
-    const updated = await Kasambahay.findByIdAndUpdate(req.params.id, req.body, { new: true })
+    // ✅ KEY FIX: Use $set — only update fields that were explicitly sent.
+    // This prevents empty-string fields in the payload from wiping out
+    // existing data that wasn't touched in the form.
+    const updated = await Kasambahay.findByIdAndUpdate(
+      req.params.id,
+      { $set: req.body },
+      { new: true, runValidators: false }
+    )
 
     // Build a human-readable diff of what changed
     const skip = ['_id', '__v', 'createdAt', 'updatedAt', 'isDeleted', 'deletedAt']
@@ -234,7 +228,11 @@ router.delete('/:id/permanent', auth, requireRole('Admin'), async (req, res) => 
 // ─── DELETE soft — Admin + Encoder ───────────────────────────────────────────
 router.delete('/:id', auth, requireRole('Admin', 'SPES', 'GIP'), async (req, res) => {
   try {
-    const deleted = await Kasambahay.findByIdAndUpdate(req.params.id, { isDeleted: true, deletedAt: new Date() })
+    const deleted = await Kasambahay.findByIdAndUpdate(
+      req.params.id,
+      { $set: { isDeleted: true, deletedAt: new Date() } },
+      { new: true }
+    )
     if (!deleted) return res.status(404).json({ message: 'Record not found.' })
     await logActivity(req.user.id, req.user.name || 'Unknown User', 'Kasambahay', 'DELETE', `Soft deleted Kasambahay record for ${deleted.firstName} ${deleted.lastName}`)
     res.json({ message: 'Record soft deleted.' })
