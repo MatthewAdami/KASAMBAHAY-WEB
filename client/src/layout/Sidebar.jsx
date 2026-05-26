@@ -69,11 +69,7 @@ export default function Sidebar({ stats = {}, onClose }) {
       padding: '14px 16px', borderBottom: `1px solid ${c.border}`,
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     },
-    logo: {
-      width: 28, height: 28, borderRadius: 6, background: '#534AB7',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      color: '#fff', fontSize: 14, fontWeight: 600,
-    },
+
     sectionLabel: {
       fontSize: 11, color: c.textMuted, padding: '10px 10px 4px',
       textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0,
@@ -114,7 +110,7 @@ export default function Sidebar({ stats = {}, onClose }) {
       {/* Brand */}
       <div style={s.brand}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={s.logo}>K</div>
+          <img src='/PESOLogo.png' alt='PESO Logo' style={{ width: 32, height: 32, objectFit: 'contain', flexShrink: 0 }} />
           <span style={{ fontSize: 13, fontWeight: 500, color: c.text }}>Kasambahay</span>
         </div>
         <button className="sidebar-close-btn" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, color: c.textMuted, cursor: 'pointer', padding: 0 }}>✕</button>

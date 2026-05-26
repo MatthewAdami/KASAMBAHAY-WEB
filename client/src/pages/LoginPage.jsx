@@ -50,11 +50,7 @@ export default function LoginPage() {
       {/* Left panel */}
       <div style={styles.left} className="login-left">
         <div style={styles.leftInner}>
-          <div style={styles.seal}>
-            <div style={styles.sealRing}>
-              <span style={styles.sealLetter}>K</span>
-            </div>
-          </div>
+          <img src='/PESOLogo.png' alt='PESO Logo' style={{ width: 140, height: 140, objectFit: 'contain', marginBottom: 8, filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.25))' }} />
           <h1 style={styles.leftTitle}>Kasambahay<br />Management System</h1>
           <p style={styles.leftSub}>
             Quezon City Government<br />
