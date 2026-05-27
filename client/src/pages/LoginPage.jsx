@@ -50,16 +50,18 @@ export default function LoginPage() {
 
       {/* Left panel */}
       <div style={styles.left} className="login-left">
-        <img
-          src='/Kasambahay-Program-Logo-removebg-preview.png'
-          alt='Kasambahay Program Logo'
-          style={styles.logoKasambahay}
-        />
-        <img
-          src='/PESOLogo.png'
-          alt='PESO Logo'
-          style={styles.logoPeso}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, marginBottom: 24 }}>
+          <img
+            src='/Kasambahay-Program-Logo-removebg-preview.png'
+            alt='Kasambahay Program Logo'
+            style={styles.logoKasambahay}
+          />
+          <img
+            src='/PESOLogo.png'
+            alt='PESO Logo'
+            style={styles.logoPeso}
+          />
+        </div>
         <h1 style={styles.leftTitle}>Kasambahay<br />Management System</h1>
         <p style={styles.leftSub}>
           Quezon City Government<br />
@@ -196,23 +198,22 @@ const styles = {
     background: '#1a2744',
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'flex-start',
-    justifyContent: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'center',
     padding: '40px 48px',
+    textAlign: 'center',
   },
   logoKasambahay: {
-    width: 220,
-    height: 220,
-    objectFit: 'contain',
-    filter: 'brightness(0) invert(1) drop-shadow(0 4px 16px rgba(0,0,0,0.25))',
-    marginBottom: 8,
-  },
-  logoPeso: {
-    width: 80,
-    height: 80,
+    width: 160,
+    height: 160,
     objectFit: 'contain',
     filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.25))',
-    marginBottom: 24,
+  },
+  logoPeso: {
+    width: 100,
+    height: 100,
+    objectFit: 'contain',
+    filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.25))',
   },
   leftTitle: {
     fontSize: 28,
