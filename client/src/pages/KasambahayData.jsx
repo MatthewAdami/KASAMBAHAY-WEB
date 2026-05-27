@@ -970,8 +970,8 @@ function EditKasambahayModal({ item, onClose, onSuccess }) {
 
     if (diff.length === 0) { setError('No changes detected.'); return }
 
-    // Sync compiled addresses back into state
-    setFormData(payload)
+    // Sync compiled addresses back into state, but keep district with prefix for the form
+    setFormData({ ...payload, district: formData.district })
 
     // Check duplicate if name changed
     const nameChanged = diff.some(d => ['firstName', 'lastName'].includes(d.field))
@@ -1001,20 +1001,12 @@ function EditKasambahayModal({ item, onClose, onSuccess }) {
   const handleSubmit = async () => {
     setLoading(true); setError('')
     try {
-      // Build payload with ONLY changed fields + required identifiers
-      const changedKeys = new Set(confirmChanges.map(d => d.field))
-
-      // Always include district/year so backend can log correctly
-      changedKeys.add('district')
-      changedKeys.add('year')
-
-      const payload = {}
-      for (const key of changedKeys) {
-        payload[key] = formData[key] !== undefined ? formData[key] : ''
-      }
-
-      // Ensure district is stored as plain number string (matching schema)
-      payload.district = String(formData.district).replace('District ', '')
+      // Send the full formData so no fields get dropped.
+      // Backend uses $set so only provided fields are updated.
+      const payload = compileAddresses({
+        ...formData,
+        district: String(formData.district).replace('District ', ''),
+      })
 
       const token = localStorage.getItem('token')
       const res   = await fetch(`${API_ENDPOINTS.KASAMBAHAY}/${item._id}`, {
