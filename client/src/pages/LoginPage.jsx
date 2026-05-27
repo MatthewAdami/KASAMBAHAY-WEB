@@ -184,11 +184,12 @@ const styles = {
   page: {
     display: 'flex',
     minHeight: '100vh',
+    width: '100%',
     fontFamily: "'DM Sans', sans-serif",
     background: '#f4f3ef',
   },
   left: {
-    width: '50%',
+    flex: 1,
     minHeight: '100vh',
     background: '#1a2744',
     display: 'flex',
@@ -243,6 +244,8 @@ const styles = {
   stats: {
     display: 'flex',
     gap: 28,
+    justifyContent: 'center',
+    width: '100%',
   },
   statItem: {
     display: 'flex',
@@ -262,7 +265,7 @@ const styles = {
     letterSpacing: '0.06em',
   },
   right: {
-    width: '50%',
+    flex: 1,
     minHeight: '100vh',
     display: 'flex',
     alignItems: 'center',
