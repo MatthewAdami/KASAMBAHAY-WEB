@@ -216,6 +216,9 @@ const styles = {
     width: 100,
     height: 100,
     objectFit: 'contain',
+    background: '#fff',
+    borderRadius: 12,
+    padding: 8,
     filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.25))',
   },
   leftTitle: {
