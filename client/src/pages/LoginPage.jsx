@@ -207,6 +207,9 @@ const styles = {
     width: 160,
     height: 160,
     objectFit: 'contain',
+    background: '#fff',
+    borderRadius: 12,
+    padding: 8,
     filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.25))',
   },
   logoPeso: {
