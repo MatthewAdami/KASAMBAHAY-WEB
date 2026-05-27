@@ -50,36 +50,31 @@ export default function LoginPage() {
 
       {/* Left panel */}
       <div style={styles.left} className="login-left">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, marginBottom: 24 }}>
-          <img
-            src='/Kasambahay-Program-Logo-removebg-preview.png'
-            alt='Kasambahay Program Logo'
-            style={styles.logoKasambahay}
-          />
-          <img
-            src='/PESOLogo.png'
-            alt='PESO Logo'
-            style={styles.logoPeso}
-          />
-        </div>
-        <h1 style={styles.leftTitle}>Kasambahay<br />Management System</h1>
-        <p style={styles.leftSub}>
-          Quezon City Government<br />
-          Public Employment Service Office
-        </p>
-        <div style={styles.dividerLine} />
-        <p style={styles.leftNote}>
-          Centralizing kasambahay registrations,<br />
-          trainings, and employment records<br />
-          across all six districts.
-        </p>
-        <div style={styles.stats}>
-          {[['6', 'Districts'], ['2', 'Years'], ['All', 'Records']].map(([val, lbl]) => (
-            <div key={lbl} style={styles.statItem}>
-              <span style={styles.statVal}>{val}</span>
-              <span style={styles.statLbl}>{lbl}</span>
-            </div>
-          ))}
+        <div style={{ maxWidth: 420, width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, background: '#fff', borderRadius: 16, padding: '16px 24px', marginBottom: 28, boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}>
+            <img src='/Kasambahay-Program-Logo-removebg-preview.png' alt='Kasambahay Program Logo' style={styles.logoKasambahay} />
+            <div style={{ width: 1, height: 80, background: '#e5e7eb' }} />
+            <img src='/PESOLogo.png' alt='PESO Logo' style={styles.logoPeso} />
+          </div>
+          <h1 style={styles.leftTitle}>Kasambahay<br />Management System</h1>
+          <p style={styles.leftSub}>
+            Quezon City Government<br />
+            Public Employment Service Office
+          </p>
+          <div style={styles.dividerLine} />
+          <p style={styles.leftNote}>
+            Centralizing kasambahay registrations,<br />
+            trainings, and employment records<br />
+            across all six districts.
+          </p>
+          <div style={styles.stats}>
+            {[['6', 'Districts'], ['2', 'Years'], ['All', 'Records']].map(([val, lbl]) => (
+              <div key={lbl} style={styles.statItem}>
+                <span style={styles.statVal}>{val}</span>
+                <span style={styles.statLbl}>{lbl}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -200,25 +195,19 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '40px 48px',
+    padding: '40px 64px',
     textAlign: 'center',
   },
   logoKasambahay: {
     width: 160,
     height: 160,
     objectFit: 'contain',
-    background: '#fff',
-    borderRadius: 12,
-    padding: 8,
     filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.25))',
   },
   logoPeso: {
     width: 100,
     height: 100,
     objectFit: 'contain',
-    background: '#fff',
-    borderRadius: 12,
-    padding: 8,
     filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.25))',
   },
   leftTitle: {
