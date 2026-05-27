@@ -1119,26 +1119,212 @@ function DeleteConfirmModal({ item, isPermanent, onClose, onSuccess }) {
 
 // ─── View Modal ───────────────────────────────────────────────────────────────
 function ViewKasambahayModal({ item, onClose }) {
+  const sh = { background: '#2d5293', color: '#fff', padding: '7px 16px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', borderTop: '1px solid #1a3a6b', borderBottom: '1px solid #1a3a6b' }
+  const field = (label, value) => (
+    <div style={{ background: '#fafafa', padding: '10px 14px', borderRadius: 4, border: '1px solid #e0e0e0' }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: '#1a3a6b', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.04em' }}>{label}</div>
+      <div style={{ fontSize: 14, color: '#111', fontWeight: 500 }}>{value || '—'}</div>
+    </div>
+  )
+  const check = (label, val) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+      <span style={{ fontSize: 16 }}>{val ? '✅' : '⬜'}</span> {label}
+    </div>
+  )
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 999, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '20px 16px', overflowY: 'auto' }}>
       <div style={{ background: '#fff', width: '100%', maxWidth: 900, borderRadius: 4, display: 'flex', flexDirection: 'column', boxShadow: '0 12px 40px rgba(0,0,0,0.3)', border: '2px solid #1a3a6b', marginTop: 10, marginBottom: 10 }}>
         <div style={{ padding: '14px 20px', background: '#1a3a6b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.04em' }}>View Kasambahay</h3>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            {item.lastName}, {item.firstName} {item.middleName || ''}
+          </h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#fff', lineHeight: 1 }}>&times;</button>
         </div>
-        <div style={{ padding: '24px', overflowY: 'auto', flex: 1, maxHeight: 'calc(100vh - 160px)' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
-            {ALL_COLUMNS.filter(col => col.key !== '#').map(col => {
-              const value      = col.render(item, 0, 1)
-              const badgeColor = col.badge ? col.badge(item) : null
-              return (
-                <div key={col.key} style={{ background: '#fafafa', padding: '10px 14px', borderRadius: 4, border: '1px solid #e0e0e0' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#1a3a6b', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.04em' }}>{col.label}</div>
-                  <div style={{ fontSize: 14, color: '#111', fontWeight: 500 }}>{badgeColor ? <Badge color={badgeColor}>{value}</Badge> : value}</div>
-                </div>
-              )
-            })}
+
+        <div style={{ overflowY: 'auto', flex: 1, maxHeight: 'calc(100vh - 160px)' }}>
+
+          {/* ── Basic Info ── */}
+          <div style={sh}>Personal na Impormasyon</div>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid #e0e0e0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+              {field('Reg. No.', item.registrationNo)}
+              {field('Date Registered', item.dateRegistered ? new Date(item.dateRegistered).toLocaleDateString('en-PH') : '')}
+              {field('Year', item.year)}
+              {field('District', item.district)}
+              {field('Barangay', item.barangay)}
+              {field('Last Name', item.lastName)}
+              {field('First Name', item.firstName)}
+              {field('Middle Name', item.middleName)}
+              {field('Birthday', item.birthday ? new Date(item.birthday).toLocaleDateString('en-PH') : '')}
+              {field('Age', item.age)}
+              {field('Gender', item.isFemale ? 'Female' : item.isMale ? 'Male' : '')}
+              {field('Civil Status', item.civilStatus)}
+              {field('Religion', item.religion)}
+              {field('Birth Place', item.birthPlace)}
+              {field('Mobile No.', item.mobileNumber)}
+              {field('Emergency Contact', item.emergencyContactName)}
+              {field('Emergency No.', item.emergencyContactNumber)}
+            </div>
+            <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+              {field('Current Residence', item.currentResidence)}
+              {field('Provincial Address', item.provincialAddress)}
+            </div>
+            <div style={{ marginTop: 12, display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+              {check('Ex-OFW', item.isExOfw)}
+              {check('Solo Parent', item.isSoloParent)}
+              {check('PWD', item.isPersonWithDisability)}
+              {check('Senior Citizen', item.isSeniorCitizen)}
+            </div>
           </div>
+
+          {/* ── Gov IDs ── */}
+          <div style={sh}>Government IDs</div>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid #e0e0e0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+              {field('SSS No.', item.sss)}
+              {field('Pag-IBIG No.', item.pagIbig)}
+              {field('PhilHealth No.', item.philhealth)}
+              {field('QC ID No.', item.qcid)}
+            </div>
+          </div>
+
+          {/* ── Employment ── */}
+          <div style={sh}>Impormasyon Tungkol sa Trabaho</div>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid #e0e0e0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginBottom: 12 }}>
+              {field('Employer Name', item.employerName)}
+              {field("Employer's Work", item.workOfEmployer)}
+              {field('Employer Contact', item.employerContactNumber)}
+              {field('Employer Email', item.employerEmailAddress)}
+              {field('Employer Address', item.employerAddress)}
+              {field('Monthly Salary', item.monthlySalary ? `₱${Number(item.monthlySalary).toLocaleString()}` : '')}
+              {field('Length of Service', item.lengthOfService)}
+              {field('Arrangement', item.isLiveIn ? 'Live-in' : item.isLiveOut ? 'Live-out' : item.isOnCall ? 'On-call' : '')}
+              {field('Type of Work', item.isGeneralHousehelp ? 'Househelp' : item.isCook ? 'Cook' : item.isLaundryPerson ? 'Laundry' : item.isYaya ? 'Yaya' : item.isGardener ? 'Gardener' : item.isOthers ? `Others${item.othersSpecify ? ` (${item.othersSpecify})` : ''}` : '')}
+            </div>
+            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+              {check('KAPSA Member', item.isKapsaMember)}
+              {check('BCOOP Member', item.isBcoopMember)}
+            </div>
+          </div>
+
+          {/* ── Education ── */}
+          <div style={sh}>Impormasyon Tungkol sa Edukasyon</div>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid #e0e0e0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+              {field('Educational Attainment', item.educationalAttainment)}
+              {field('Currently Studying?', item.isCurrentlyStudying === true || item.isCurrentlyStudying === 'yes' ? 'Yes' : item.isCurrentlyStudying === false || item.isCurrentlyStudying === 'no' ? 'No' : '')}
+              {field('Grade Level', item.gradeLevel)}
+              {field('School Name', item.schoolName)}
+              {field('Reason for Stopping', item.reasonForStoppingSchool)}
+              {field('Wants to Study?', item.wantsToStudy === true || item.wantsToStudy === 'yes' ? 'Yes' : item.wantsToStudy === false || item.wantsToStudy === 'no' ? 'No' : '')}
+            </div>
+          </div>
+
+          {/* ── Family ── */}
+          <div style={sh}>Impormasyon Tungkol sa Pamilya</div>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid #e0e0e0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+              {field("Father's Name", [item.fatherFirstName, item.fatherMiddleName, item.fatherLastName].filter(Boolean).join(' '))}
+              {field("Father's Contact", item.fatherContactNumber)}
+              {field("Mother's Name", [item.motherFirstName, item.motherMiddleName, item.motherLastName].filter(Boolean).join(' '))}
+              {field("Mother's Contact", item.motherContactNumber)}
+              {field('Family Address', item.familyAddress || [item.familyAddressBlock, item.familyAddressStreet, item.familyAddressBarangay, item.familyAddressCity].filter(Boolean).join(', '))}
+              {field("Spouse's Name", [item.spouseFirstName, item.spouseMiddleName, item.spouseLastName].filter(Boolean).join(' '))}
+              {field("Spouse's Contact", item.spouseContactNumber)}
+              {field('No. of Children', item.numberOfChildren)}
+            </div>
+          </div>
+
+          {/* ── Previous Employers ── */}
+          <div style={sh}>Dating Pinaglilingkuran (Previous Employers)</div>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid #e0e0e0' }}>
+            {[0,1,2,3].some(i => item[`prevEmployer${i}Name`] || item[`prevEmployer${i}Address`]) ? (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: '#eef2fa' }}>
+                    <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#1a3a6b', textTransform: 'uppercase', borderBottom: '2px solid #1a3a6b' }}>#</th>
+                    <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#1a3a6b', textTransform: 'uppercase', borderBottom: '2px solid #1a3a6b' }}>Name</th>
+                    <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#1a3a6b', textTransform: 'uppercase', borderBottom: '2px solid #1a3a6b' }}>Address / Contact</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[0,1,2,3].map(i => (item[`prevEmployer${i}Name`] || item[`prevEmployer${i}Address`]) && (
+                    <tr key={i} style={{ borderBottom: '1px solid #e0e0e0' }}>
+                      <td style={{ padding: '8px 12px', color: '#888' }}>{i+1}</td>
+                      <td style={{ padding: '8px 12px' }}>{item[`prevEmployer${i}Name`] || '—'}</td>
+                      <td style={{ padding: '8px 12px' }}>{item[`prevEmployer${i}Address`] || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : <p style={{ margin: 0, fontSize: 13, color: '#aaa' }}>No previous employers recorded.</p>}
+          </div>
+
+          {/* ── Skills ── */}
+          <div style={sh}>Nakasanayan (Skills)</div>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid #e0e0e0' }}>
+            {[0,1,2,3,4,5].some(i => item[`skill${i}`]) ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {[0,1,2,3,4,5].filter(i => item[`skill${i}`]).map(i => (
+                  <span key={i} style={{ background: '#eef2fa', border: '1px solid #b8c8e8', borderRadius: 20, padding: '4px 14px', fontSize: 13, color: '#1a3a6b', fontWeight: 500 }}>
+                    {item[`skill${i}`]}
+                  </span>
+                ))}
+              </div>
+            ) : <p style={{ margin: 0, fontSize: 13, color: '#aaa' }}>No skills recorded.</p>}
+          </div>
+
+          {/* ── Trainings ── */}
+          <div style={sh}>Pagsasanay (Training)</div>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid #e0e0e0' }}>
+            {[0,1,2,3].some(i => item[`trainingTitle${i}`]) && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#555', textTransform: 'uppercase', marginBottom: 8 }}>Free-form Trainings</div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: '#eef2fa' }}>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#1a3a6b', textTransform: 'uppercase', borderBottom: '2px solid #1a3a6b' }}>Title / Type</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#1a3a6b', textTransform: 'uppercase', borderBottom: '2px solid #1a3a6b', width: 160 }}>Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[0,1,2,3].filter(i => item[`trainingTitle${i}`]).map(i => (
+                      <tr key={i} style={{ borderBottom: '1px solid #e0e0e0' }}>
+                        <td style={{ padding: '8px 12px' }}>{item[`trainingTitle${i}`]}</td>
+                        <td style={{ padding: '8px 12px', color: '#666' }}>{item[`trainingDate${i}`] || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#555', textTransform: 'uppercase', marginBottom: 8 }}>Program Trainings & Activities</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 8 }}>
+              {[
+                { label: 'Kasambahay Orientation',   check: 'kasambahayOrientation',      date: 'dateOfOrientation' },
+                { label: 'Kasambahay Organizing',     check: 'kasambahayOrganizing',        date: 'dateOfOrganizing' },
+                { label: 'OSH Training',              check: 'occupationalSafetyAndHealth', date: 'dateOfOshTraining' },
+                { label: 'Gender Sensitivity (GST)',  check: 'genderSensitivityTraining',   date: 'dateOfGenderSensitivity' },
+                { label: 'Basic First Aid',           check: 'basicFirstAidTraining',       date: 'dateOfBasicFirstAid' },
+                { label: 'Home Security Awareness',   check: 'homeSecurityAwareness',       date: 'dateOfHomeSecurity' },
+                { label: 'General Assembly',          check: 'kasambahayGeneralAssembly',   date: 'dateOfGenAssembly' },
+                { label: 'Kasambahay Day',            check: 'kasambahayDay',               date: 'dateOfKasambahayDay' },
+                { label: 'Disaster Preparedness',     check: 'disasterPreparedness',        date: 'dateOfDisasterPreparedness' },
+                { label: 'QC Care Orientation',       check: 'qcCareOrientation',           date: 'dateOfQcCareOrientation' },
+              ].map(t => (
+                <div key={t.check} style={{ display: 'flex', alignItems: 'center', gap: 10, background: item[t.check] ? '#eef8f0' : '#fafafa', border: `1px solid ${item[t.check] ? '#b6e5c4' : '#e0e0e0'}`, borderRadius: 4, padding: '8px 12px' }}>
+                  <span style={{ fontSize: 16 }}>{item[t.check] ? '✅' : '⬜'}</span>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: item[t.check] ? 600 : 400, color: item[t.check] ? '#1a6b3a' : '#555' }}>{t.label}</div>
+                    {item[t.check] && item[t.date] && <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{item[t.date]}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
         </div>
         <div style={{ padding: '14px 20px', borderTop: '2px solid #1a3a6b', display: 'flex', justifyContent: 'flex-end', background: '#eef2fa' }}>
           <button onClick={onClose} style={{ height: 38, padding: '0 24px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: 3, cursor: 'pointer', fontSize: 13, fontWeight: 700, textTransform: 'uppercase' }}>Close</button>
@@ -1397,7 +1583,7 @@ function KasambahayData() {
                   <tr key={k._id} style={{ borderBottom: '1px solid #eef2fa' }}
                     onMouseEnter={e => e.currentTarget.style.background = '#f5f7fb'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <td style={{ padding: '10px 14px', textAlign: 'center', borderRight: '1px solid #dde3f0', position: 'sticky', left: 0, background: 'inherit', zIndex: 1, boxShadow: '2px 0 4px rgba(0,0,0,0.06)' }}>
+                    <td className='sticky-cb' style={{ padding: '10px 14px', textAlign: 'center', borderRight: '1px solid #dde3f0', position: 'sticky', left: 0, zIndex: 1, boxShadow: '2px 0 4px rgba(0,0,0,0.06)' }}>
                       <input type="checkbox" checked={checkedItems.includes(k._id)} onChange={() => setCheckedItems(prev => prev.includes(k._id) ? prev.filter(id => id !== k._id) : [...prev, k._id])} />
                     </td>
                     {ALL_COLUMNS.map(col => {
@@ -1436,6 +1622,10 @@ function KasambahayData() {
           )}
         </div>
       )}
+    <style>{`
+        tr:hover td.sticky-cb { background: #f5f7fb !important; }
+        tr td.sticky-cb { background: #fff; }
+      `}</style>
     </div>
   )
 }
