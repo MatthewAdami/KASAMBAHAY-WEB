@@ -53,9 +53,6 @@ const ALL_COLUMNS = [
   { key: 'isSoloParent',            label: 'Solo Parent',            render: k => k.isSoloParent ? '✓' : '—', width: 90,  center: true },
   { key: 'isPersonWithDisability',  label: 'PWD',                    render: k => k.isPersonWithDisability ? '✓' : '—', width: 60,  center: true },
   { key: 'isSeniorCitizen',         label: 'Senior',                 render: k => k.isSeniorCitizen ? '✓' : '—', width: 70,  center: true },
-  { key: 'isQcVoter',               label: 'QC Voter',               render: k => k.isQcVoter || '—', width: 90 },
-  { key: 'noOfFamilyVoters',        label: 'Family Voters',          render: k => k.noOfFamilyVoters || '—', width: 110 },
-  { key: 'noOfKasambahayInFamily',  label: 'Kasambahay in Family',   render: k => k.noOfKasambahayInFamily || '—', width: 150 },
   { key: 'workOfEmployer',          label: "Employer's Work",        render: k => k.workOfEmployer || '—', width: 140 },
   { key: 'isKapsaMember',           label: 'KAPSA',                  render: k => k.isKapsaMember ? '✓' : '—', width: 70,  center: true },
   { key: 'isBcoopMember',           label: 'BCOOP',                  render: k => k.isBcoopMember ? '✓' : '—', width: 70,  center: true },
@@ -474,18 +471,6 @@ function KasambahayForm({ formData, handleChange, handleGender, handleArrangemen
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '10px 16px', marginBottom: 10 }}>
-          <FormField label="QC Voter?">
-            <input name="isQcVoter" value={formData.isQcVoter} onChange={handleChange} style={formStyles.fieldInput} />
-          </FormField>
-          <FormField label="No. of Family Voters">
-            <input type="number" name="noOfFamilyVoters" value={formData.noOfFamilyVoters} onChange={handleChange} style={formStyles.fieldInput} />
-          </FormField>
-          <FormField label="Kasambahays in Family">
-            <input type="number" name="noOfKasambahayInFamily" value={formData.noOfKasambahayInFamily} onChange={handleChange} style={formStyles.fieldInput} />
-          </FormField>
-          <div />
-        </div>
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginBottom: 0 }}>
           {[['isKapsaMember','KAPSA Member'],['isBcoopMember','BCOOP Member']].map(([name, lbl]) => (
             <label key={name} style={formStyles.checkRow}>
@@ -762,7 +747,6 @@ function makeBlankForm() {
     isOthers: false, othersSpecify: '',
     sss: '', pagIbig: '', philhealth: '', qcid: '',
     isExOfw: false, isSoloParent: false, isPersonWithDisability: false, isSeniorCitizen: false,
-    isQcVoter: '', noOfFamilyVoters: '', noOfKasambahayInFamily: '',
     isKapsaMember: false, isBcoopMember: false,
     fatherLastName: '', fatherFirstName: '', fatherMiddleName: '', fatherContactNumber: '',
     motherLastName: '', motherFirstName: '', motherMiddleName: '', motherContactNumber: '',
@@ -1390,7 +1374,7 @@ function KasambahayData() {
             <table style={{ borderCollapse: 'collapse', fontSize: 13, whiteSpace: 'nowrap' }}>
               <thead>
                 <tr style={{ background: '#eef2fa' }}>
-                  <th style={{ padding: '10px 14px', textAlign: 'center', borderBottom: '2px solid #1a3a6b', borderRight: '1px solid #dde3f0', position: 'sticky', top: 0, background: '#eef2fa', zIndex: 1, width: 40 }}>
+                  <th style={{ padding: '10px 14px', textAlign: 'center', borderBottom: '2px solid #1a3a6b', borderRight: '1px solid #dde3f0', position: 'sticky', top: 0, left: 0, background: '#eef2fa', zIndex: 3, width: 40 }}>
                     <input type="checkbox" checked={sortedData.length > 0 && checkedItems.length === sortedData.length} onChange={e => setCheckedItems(e.target.checked ? sortedData.map(d => d._id) : [])} />
                   </th>
                   {ALL_COLUMNS.map(col => (
@@ -1413,7 +1397,7 @@ function KasambahayData() {
                   <tr key={k._id} style={{ borderBottom: '1px solid #eef2fa' }}
                     onMouseEnter={e => e.currentTarget.style.background = '#f5f7fb'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <td style={{ padding: '10px 14px', textAlign: 'center', borderRight: '1px solid #f0f0f0' }}>
+                    <td style={{ padding: '10px 14px', textAlign: 'center', borderRight: '1px solid #dde3f0', position: 'sticky', left: 0, background: 'inherit', zIndex: 1, boxShadow: '2px 0 4px rgba(0,0,0,0.06)' }}>
                       <input type="checkbox" checked={checkedItems.includes(k._id)} onChange={() => setCheckedItems(prev => prev.includes(k._id) ? prev.filter(id => id !== k._id) : [...prev, k._id])} />
                     </td>
                     {ALL_COLUMNS.map(col => {
