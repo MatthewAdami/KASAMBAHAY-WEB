@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { API_ENDPOINTS } from '../utils/api';
+
 export default function LoginPage() {
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
@@ -49,27 +50,34 @@ export default function LoginPage() {
 
       {/* Left panel */}
       <div style={styles.left} className="login-left">
-        <div style={styles.leftInner}>
-          <img src='/PESOLogo.png' alt='PESO Logo' style={{ width: 140, height: 140, objectFit: 'contain', marginBottom: 8, filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.25))' }} />
-          <h1 style={styles.leftTitle}>Kasambahay<br />Management System</h1>
-          <p style={styles.leftSub}>
-            Quezon City Government<br />
-            Public Employment Service Office
-          </p>
-          <div style={styles.dividerLine} />
-          <p style={styles.leftNote}>
-            Centralizing kasambahay registrations,<br />
-            trainings, and employment records<br />
-            across all six districts.
-          </p>
-          <div style={styles.stats}>
-            {[['6', 'Districts'], ['2', 'Years'], ['All', 'Records']].map(([val, lbl]) => (
-              <div key={lbl} style={styles.statItem}>
-                <span style={styles.statVal}>{val}</span>
-                <span style={styles.statLbl}>{lbl}</span>
-              </div>
-            ))}
-          </div>
+        <img
+          src='/Kasambahay-Program-Logo-removebg-preview.png'
+          alt='Kasambahay Program Logo'
+          style={styles.logoKasambahay}
+        />
+        <img
+          src='/PESOLogo.png'
+          alt='PESO Logo'
+          style={styles.logoPeso}
+        />
+        <h1 style={styles.leftTitle}>Kasambahay<br />Management System</h1>
+        <p style={styles.leftSub}>
+          Quezon City Government<br />
+          Public Employment Service Office
+        </p>
+        <div style={styles.dividerLine} />
+        <p style={styles.leftNote}>
+          Centralizing kasambahay registrations,<br />
+          trainings, and employment records<br />
+          across all six districts.
+        </p>
+        <div style={styles.stats}>
+          {[['6', 'Districts'], ['2', 'Years'], ['All', 'Records']].map(([val, lbl]) => (
+            <div key={lbl} style={styles.statItem}>
+              <span style={styles.statVal}>{val}</span>
+              <span style={styles.statLbl}>{lbl}</span>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -157,12 +165,16 @@ export default function LoginPage() {
         * { box-sizing: border-box; margin: 0; padding: 0; }
         input:focus { outline: none; border-color: #2563a8 !important; box-shadow: 0 0 0 3px rgba(37,99,168,0.12); }
         input::placeholder { color: #bbb; }
+        @keyframes spin { to { transform: rotate(360deg); } }
         @media (max-width: 768px) {
           .login-page { flex-direction: column !important; }
-          .login-left { width: 100% !important; padding: 40px 24px !important; text-align: center; }
-          .login-left p, .login-left h1 { text-align: center; }
-          .login-left .dividerLine { margin: 24px auto !important; }
-          .login-left .stats { justify-content: center; flex-wrap: wrap; }
+          .login-left {
+            width: 100% !important;
+            padding: 36px 24px !important;
+            align-items: center !important;
+          }
+          .login-left h1,
+          .login-left p { text-align: center; }
           .login-right { padding: 24px 16px !important; }
           .login-card { padding: 32px 24px !important; }
         }
@@ -179,35 +191,28 @@ const styles = {
     background: '#f4f3ef',
   },
   left: {
-    width: 420,
-    flexShrink: 0,
+    width: '50%',
+    minHeight: '100vh',
     background: '#1a2744',
     display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 48,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
+    padding: '40px 48px',
   },
-  leftInner: {
-    maxWidth: 320,
+  logoKasambahay: {
+    width: 220,
+    height: 220,
+    objectFit: 'contain',
+    filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.25))',
+    marginBottom: 8,
   },
-  seal: {
-    marginBottom: 28,
-  },
-  sealRing: {
-    width: 56,
-    height: 56,
-    borderRadius: '50%',
-    border: '2px solid rgba(255,255,255,0.25)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'rgba(255,255,255,0.08)',
-  },
-  sealLetter: {
-    fontSize: 24,
-    fontWeight: 600,
-    color: '#fff',
-    fontFamily: "'DM Serif Display', serif",
+  logoPeso: {
+    width: 80,
+    height: 80,
+    objectFit: 'contain',
+    filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.25))',
+    marginBottom: 24,
   },
   leftTitle: {
     fontSize: 28,
@@ -261,21 +266,24 @@ const styles = {
     letterSpacing: '0.06em',
   },
   right: {
-    flex: 1,
+    width: '50%',
+    minHeight: '100vh',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 40,
     background: '#f4f3ef',
   },
   card: {
     width: '100%',
-    maxWidth: 420,
+    height: '100%',
+    minHeight: '100vh',
     background: '#fff',
-    borderRadius: 16,
     padding: '40px 44px',
     border: '1px solid #e8e5de',
     boxShadow: '0 2px 16px rgba(0,0,0,0.06)',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
   },
   cardHeader: {
     marginBottom: 32,
@@ -360,12 +368,12 @@ const styles = {
   },
   submitBtn: {
     width: '100%',
-    height: 46,
-    background: '#1a2744',
+    height: 48,
+    background: '#ce1126',
     color: '#fff',
     border: 'none',
     borderRadius: 8,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 600,
     cursor: 'pointer',
     display: 'flex',
@@ -379,7 +387,7 @@ const styles = {
     fontFamily: "'DM Sans', sans-serif",
   },
   submitBtnDisabled: {
-    background: '#9ca3af',
+    background: '#fca5a5',
     cursor: 'not-allowed',
   },
   spinner: {
