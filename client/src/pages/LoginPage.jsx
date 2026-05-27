@@ -204,7 +204,7 @@ const styles = {
     width: 220,
     height: 220,
     objectFit: 'contain',
-    filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.25))',
+    filter: 'brightness(0) invert(1) drop-shadow(0 4px 16px rgba(0,0,0,0.25))',
     marginBottom: 8,
   },
   logoPeso: {
