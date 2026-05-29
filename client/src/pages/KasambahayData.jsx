@@ -1,8 +1,9 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { API_ENDPOINTS } from '../utils/api'
+import * as XLSX from 'xlsx'
 
-const YEARS     = [2024, 2025]
+const YEARS     = [2024, 2025, 2026]
 const DISTRICTS = [1, 2, 3, 4, 5, 6]
 const LIMIT     = 100
 
@@ -266,6 +267,7 @@ function KasambahayForm({ formData, handleChange, handleGender, handleArrangemen
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <label style={{ ...formStyles.rowLabel, marginBottom: 0, minWidth: 55 }}>District:</label>
           <select name="district" value={formData.district} onChange={handleChange} style={{ ...formStyles.fieldSelect, width: 130 }}>
+            <option value="">Select</option>
             {[1,2,3,4,5,6].map(d => <option key={d} value={`District ${d}`}>District {d}</option>)}
           </select>
         </div>
@@ -350,7 +352,13 @@ function KasambahayForm({ formData, handleChange, handleGender, handleArrangemen
           <FormField label="Barangay"><input name="currentResidenceBarangay" value={formData.currentResidenceBarangay} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 0.8fr', gap: '10px 16px', marginBottom: 14 }}>
-          <FormField label="District"><input name="currentResidenceDistrict" value={formData.currentResidenceDistrict} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
+          <FormField label="District">
+            <select name="currentResidenceDistrict" value={formData.currentResidenceDistrict} onChange={handleChange} style={formStyles.fieldSelect}>
+              <option value="">Select</option>
+              <option value="N/A">N/A</option>
+              {[1,2,3,4,5,6].map(d => <option key={d} value={`District ${d}`}>District {d}</option>)}
+            </select>
+          </FormField>
           <FormField label="City"><input name="currentResidenceCity" value={formData.currentResidenceCity || 'Quezon City'} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
           <FormField label="ZIP Code"><input name="currentResidenceZip" value={formData.currentResidenceZip} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
         </div>
@@ -367,7 +375,13 @@ function KasambahayForm({ formData, handleChange, handleGender, handleArrangemen
           <FormField label="Barangay"><input name="provincialAddressBarangay" value={formData.provincialAddressBarangay} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 0.8fr', gap: '10px 16px', marginBottom: 14 }}>
-          <FormField label="District"><input name="provincialAddressDistrict" value={formData.provincialAddressDistrict} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
+          <FormField label="District">
+            <select name="provincialAddressDistrict" value={formData.provincialAddressDistrict} onChange={handleChange} style={formStyles.fieldSelect}>
+              <option value="">Select</option>
+              <option value="N/A">N/A</option>
+              {[1,2,3,4,5,6].map(d => <option key={d} value={`District ${d}`}>District {d}</option>)}
+            </select>
+          </FormField>
           <FormField label="City"><input name="provincialAddressCity" value={formData.provincialAddressCity} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
           <FormField label="ZIP Code"><input name="provincialAddressZip" value={formData.provincialAddressZip} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
         </div>
@@ -444,7 +458,13 @@ function KasambahayForm({ formData, handleChange, handleGender, handleArrangemen
           <FormField label="Barangay"><input name="employerAddressBarangay" value={formData.employerAddressBarangay} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 0.8fr', gap: '10px 16px', marginBottom: 8 }}>
-          <FormField label="District"><input name="employerAddressDistrict" value={formData.employerAddressDistrict} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
+          <FormField label="District">
+            <select name="employerAddressDistrict" value={formData.employerAddressDistrict} onChange={handleChange} style={formStyles.fieldSelect}>
+              <option value="">Select</option>
+              <option value="N/A">N/A</option>
+              {[1,2,3,4,5,6].map(d => <option key={d} value={`District ${d}`}>District {d}</option>)}
+            </select>
+          </FormField>
           <FormField label="City"><input name="employerAddressCity" value={formData.employerAddressCity} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
           <FormField label="ZIP Code"><input name="employerAddressZip" value={formData.employerAddressZip} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
         </div>
@@ -543,7 +563,13 @@ function KasambahayForm({ formData, handleChange, handleGender, handleArrangemen
           <FormField label="Barangay"><input name="familyAddressBarangay" value={formData.familyAddressBarangay} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 0.8fr', gap: '10px 16px', marginBottom: 14 }}>
-          <FormField label="District"><input name="familyAddressDistrict" value={formData.familyAddressDistrict} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
+          <FormField label="District">
+            <select name="familyAddressDistrict" value={formData.familyAddressDistrict} onChange={handleChange} style={formStyles.fieldSelect}>
+              <option value="">Select</option>
+              <option value="N/A">N/A</option>
+              {[1,2,3,4,5,6].map(d => <option key={d} value={`District ${d}`}>District {d}</option>)}
+            </select>
+          </FormField>
           <FormField label="City"><input name="familyAddressCity" value={formData.familyAddressCity} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
           <FormField label="ZIP Code"><input name="familyAddressZip" value={formData.familyAddressZip} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
         </div>
@@ -563,7 +589,13 @@ function KasambahayForm({ formData, handleChange, handleGender, handleArrangemen
           <FormField label="Barangay"><input name="spouseAddressBarangay" value={formData.spouseAddressBarangay} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 0.8fr 0.8fr', gap: '10px 16px', marginBottom: 0 }}>
-          <FormField label="District"><input name="spouseAddressDistrict" value={formData.spouseAddressDistrict} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
+          <FormField label="District">
+            <select name="spouseAddressDistrict" value={formData.spouseAddressDistrict} onChange={handleChange} style={formStyles.fieldSelect}>
+              <option value="">Select</option>
+              <option value="N/A">N/A</option>
+              {[1,2,3,4,5,6].map(d => <option key={d} value={`District ${d}`}>District {d}</option>)}
+            </select>
+          </FormField>
           <FormField label="City"><input name="spouseAddressCity" value={formData.spouseAddressCity} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
           <FormField label="ZIP Code"><input name="spouseAddressZip" value={formData.spouseAddressZip} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
           <FormField label="Bilang ng Anak (No. of Children)">
@@ -800,6 +832,45 @@ function compileAddresses(payload) {
   return payload
 }
 
+// ─── Helper: Create test data for 2026 ────────────────────────────────────────
+function create2026TestData() {
+  return {
+    ...makeBlankForm(),
+    year: 2026,
+    registrationNo: '2026-001',
+    dateRegistered: '2026-01-15',
+    lastName: 'Dela Cruz',
+    firstName: 'Juana',
+    middleName: 'Santos',
+    district: 'District 1',
+    barangay: 'Alicia',
+    birthday: '1990-05-20',
+    age: 36,
+    civilStatus: 'Married',
+    isFemale: true,
+    religion: 'Roman Catholic',
+    educationalAttainment: 'High School Graduate',
+    currentResidence: '123 Sample St, Brgy. Alicia, District 1, Quezon City',
+    mobileNumber: '09171234567',
+    employerName: 'Maria Reyes',
+    monthlySalary: 6000,
+    isLiveIn: true,
+    isGeneralHousehelp: true,
+  }
+}
+// ─── Helper: Apply N/A to blank fields ────────────────────────────────────────
+function applyNA(payload) {
+  const numberFields = ['registrationNo', 'year', 'age', 'monthlySalary', 'numberOfChildren']
+  for (const key in payload) {
+    if (typeof payload[key] === 'string' && payload[key].trim() === '') {
+      if (!DATE_FIELDS.includes(key) && !numberFields.includes(key)) {
+        payload[key] = 'N/A'
+      }
+    }
+  }
+  return payload
+}
+
 // ─── Add Modal ────────────────────────────────────────────────────────────────
 function AddKasambahayModal({ onClose, onSuccess }) {
   const [formData, setFormData]     = useState(() => makeBlankForm())
@@ -822,7 +893,7 @@ function AddKasambahayModal({ onClose, onSuccess }) {
       const result = await checkDuplicate({
         firstName: formData.firstName,
         lastName: formData.lastName,
-        district: String(formData.district).replace('District ', ''),
+        district: String(formData.district),
         year: formData.year,
       })
       if (result.hasDuplicate) { setDupMatches(result.matches) } else { await saveRecord() }
@@ -835,8 +906,10 @@ function AddKasambahayModal({ onClose, onSuccess }) {
     try {
       const payload = compileAddresses({
         ...formData,
-        district: String(formData.district).replace('District ', ''),
+        district: String(formData.district),
       })
+      applyNA(payload)
+
       const token = localStorage.getItem('token')
       const res   = await fetch(API_ENDPOINTS.KASAMBAHAY, {
         method: 'POST',
@@ -855,7 +928,13 @@ function AddKasambahayModal({ onClose, onSuccess }) {
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 999, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '20px 16px', overflowY: 'auto' }}>
         <div style={{ background: '#fff', width: '100%', maxWidth: 900, borderRadius: 4, display: 'flex', flexDirection: 'column', boxShadow: '0 12px 40px rgba(0,0,0,0.3)', border: '2px solid #1a3a6b', marginTop: 10, marginBottom: 10 }}>
           <div style={{ padding: '14px 20px', background: '#1a3a6b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Add New Kasambahay</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Add New Kasambahay</h3>
+              <button type="button" onClick={() => setFormData(create2026TestData())}
+                style={{ height: 28, padding: '0 12px', background: '#c8a84b', color: '#1a3a6b', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+                Auto-fill (2026 Test Data)
+              </button>
+            </div>
             <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#fff', lineHeight: 1 }}>&times;</button>
           </div>
           {error && (
@@ -937,8 +1016,9 @@ function EditKasambahayModal({ item, onClose, onSuccess }) {
     // Compile addresses before diffing
     const payload = compileAddresses({
       ...formData,
-      district: String(formData.district).replace('District ', ''),
+      district: String(formData.district),
     })
+    applyNA(payload)
 
     // Compute diff against the original item
     const skip = ['_id', '__v', 'createdAt', 'updatedAt']
@@ -965,7 +1045,7 @@ function EditKasambahayModal({ item, onClose, onSuccess }) {
         const result = await checkDuplicate({
           firstName: payload.firstName,
           lastName: payload.lastName,
-          district: String(payload.district).replace('District ', ''),
+          district: String(payload.district),
           year: payload.year,
           excludeId: item._id,
         })
@@ -989,8 +1069,9 @@ function EditKasambahayModal({ item, onClose, onSuccess }) {
       // Backend uses $set so only provided fields are updated.
       const payload = compileAddresses({
         ...formData,
-        district: String(formData.district).replace('District ', ''),
+        district: String(formData.district),
       })
+      applyNA(payload)
 
       const token = localStorage.getItem('token')
       const res   = await fetch(`${API_ENDPOINTS.KASAMBAHAY}/${item._id}`, {
@@ -1072,7 +1153,7 @@ function EditKasambahayModal({ item, onClose, onSuccess }) {
 }
 
 // ─── Delete Confirm Modal ─────────────────────────────────────────────────────
-function DeleteConfirmModal({ item, isPermanent, onClose, onSuccess }) {
+function DeleteConfirmModal({ items, isPermanent, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
 
@@ -1080,10 +1161,13 @@ function DeleteConfirmModal({ item, isPermanent, onClose, onSuccess }) {
     setLoading(true); setError('')
     try {
       const token = localStorage.getItem('token')
-      const url   = `${API_ENDPOINTS.KASAMBAHAY}/${item._id}${isPermanent ? '/permanent' : ''}`
-      const res   = await fetch(url, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
-      const json  = await res.json()
-      if (!res.ok) throw new Error(json.message || 'Failed to delete record.')
+      const promises = items.map(item => {
+        const url   = `${API_ENDPOINTS.KASAMBAHAY}/${item._id}${isPermanent ? '/permanent' : ''}`
+        return fetch(url, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      })
+      const results = await Promise.all(promises)
+      const failed = results.filter(r => !r.ok)
+      if (failed.length > 0) throw new Error(`Failed to delete ${failed.length} record(s).`)
       onSuccess()
     } catch (err) { setError(err.message) }
     finally { setLoading(false) }
@@ -1093,17 +1177,18 @@ function DeleteConfirmModal({ item, isPermanent, onClose, onSuccess }) {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div style={{ background: '#fff', width: '100%', maxWidth: 420, borderRadius: 14, boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
         <div style={{ padding: '20px 28px', borderBottom: '1px solid #e4e4e7' }}>
-          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 600, color: isPermanent ? '#ef4444' : '#111' }}>
-            {isPermanent ? 'Permanently Delete' : 'Delete'} Record
+          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 600, color: isPermanent ? '#ef4444' : '#111', textTransform: 'capitalize' }}>
+            {isPermanent ? 'Permanently Delete' : 'Delete'} {items.length === 1 ? 'Record' : 'Records'}
           </h3>
         </div>
         <div style={{ padding: '24px 28px' }}>
           {error && <div style={{ marginBottom: 16, color: '#ef4444', fontSize: 14 }}>{error}</div>}
           <p style={{ margin: '0 0 10px', fontSize: 15, color: '#333' }}>
-            Are you sure you want to {isPermanent ? 'permanently delete' : 'delete'} <strong>{item.firstName} {item.lastName}</strong>?
+            Are you sure you want to {isPermanent ? 'permanently delete' : 'delete'}{' '}
+            {items.length === 1 ? <strong style={{ wordBreak: 'break-word' }}>{items[0].firstName} {items[0].lastName}</strong> : <strong>{items.length} records</strong>}?
           </p>
           <p style={{ margin: 0, fontSize: 13, color: '#888' }}>
-            {isPermanent ? 'This action cannot be undone.' : 'This moves the record to deleted. Admins can restore it later.'}
+            {isPermanent ? 'This action cannot be undone.' : 'This moves the records to deleted. Admins can restore them later.'}
           </p>
         </div>
         <div style={{ padding: '18px 28px', borderTop: '1px solid #e4e4e7', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
@@ -1334,6 +1419,105 @@ function ViewKasambahayModal({ item, onClose }) {
   )
 }
 
+// ─── Import Confirmation & Progress Modal ──────────────────────────────────────
+function ImportModal({ records, onClose, onSuccess }) {
+  const [status, setStatus] = useState('confirm') // confirm, importing, done, error
+  const [progress, setProgress] = useState(0)
+  const [results, setResults] = useState({ successful: 0, failed: 0 })
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const startImport = async () => {
+    setStatus('importing')
+    const token = localStorage.getItem('token')
+    const CHUNK_SIZE = 50 // Reduced to 50 to stay well under the default 100kb server payload limit
+    let successCount = 0
+    let failCount = 0
+
+    try {
+      for (let i = 0; i < records.length; i += CHUNK_SIZE) {
+        const chunk = records.slice(i, i + CHUNK_SIZE)
+        const res = await fetch(`${API_ENDPOINTS.KASAMBAHAY}/bulk`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ records: chunk }),
+        })
+        const json = await res.json()
+        
+        if (res.ok) {
+          successCount += json.insertedCount || chunk.length
+        } else if (res.status === 207) {
+          successCount += json.insertedCount || 0
+          failCount += (chunk.length - (json.insertedCount || 0))
+        } else {
+          throw new Error(json.message || 'Bulk import failed on the server.')
+        }
+        
+        setProgress(Math.min(i + CHUNK_SIZE, records.length))
+        setResults({ successful: successCount, failed: failCount })
+      }
+      setStatus('done')
+    } catch (err) {
+      setErrorMsg(err.message)
+      setStatus('error')
+    }
+  }
+
+  const pct = Math.round((progress / records.length) * 100)
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ background: '#fff', width: '100%', maxWidth: 500, borderRadius: 8, overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+        <div style={{ padding: '16px 20px', background: '#1a3a6b', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Bulk Import Data</h3>
+          {status !== 'importing' && <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 24, cursor: 'pointer', lineHeight: 1 }}>&times;</button>}
+        </div>
+        
+        <div style={{ padding: 24 }}>
+          {status === 'confirm' && (
+            <>
+              <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                <div style={{ fontSize: 40, marginBottom: 10 }}>📊</div>
+                <h4 style={{ margin: '0 0 8px', fontSize: 18, color: '#111' }}>Ready to Import</h4>
+                <p style={{ margin: 0, fontSize: 14, color: '#555' }}>Found <strong>{records.length.toLocaleString()}</strong> valid records in the Excel file.</p>
+              </div>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                <button onClick={onClose} style={{ height: 40, padding: '0 24px', background: '#f0f0f0', border: '1px solid #ccc', borderRadius: 6, cursor: 'pointer', fontSize: 14, fontWeight: 600, color: '#333' }}>Cancel</button>
+                <button onClick={startImport} style={{ height: 40, padding: '0 24px', background: '#10b981', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>Start Import</button>
+              </div>
+            </>
+          )}
+          {status === 'importing' && (
+            <div style={{ textAlign: 'center' }}>
+              <h4 style={{ margin: '0 0 16px', fontSize: 16, color: '#111' }}>Importing Records...</h4>
+              <div style={{ background: '#e4e4e7', height: 16, borderRadius: 8, overflow: 'hidden', marginBottom: 12 }}><div style={{ background: '#1a3a6b', height: '100%', width: `${pct}%`, transition: 'width 0.3s' }} /></div>
+              <p style={{ margin: 0, fontSize: 14, color: '#555' }}>Processing {progress.toLocaleString()} of {records.length.toLocaleString()} ({pct}%)</p>
+            </div>
+          )}
+          {status === 'done' && (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 40, marginBottom: 10 }}>✅</div>
+              <h4 style={{ margin: '0 0 12px', fontSize: 18, color: '#111' }}>Import Complete!</h4>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginBottom: 20 }}>
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '10px 16px', borderRadius: 8 }}><div style={{ fontSize: 20, fontWeight: 700, color: '#16a34a' }}>{results.successful.toLocaleString()}</div><div style={{ fontSize: 12, color: '#15803d', textTransform: 'uppercase' }}>Inserted</div></div>
+                {results.failed > 0 && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '10px 16px', borderRadius: 8 }}><div style={{ fontSize: 20, fontWeight: 700, color: '#dc2626' }}>{results.failed.toLocaleString()}</div><div style={{ fontSize: 12, color: '#b91c1c', textTransform: 'uppercase' }}>Skipped (Dupes)</div></div>}
+              </div>
+              <button onClick={() => { onClose(); onSuccess() }} style={{ height: 40, padding: '0 24px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>Finish & Refresh</button>
+            </div>
+          )}
+          {status === 'error' && (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 40, marginBottom: 10 }}>❌</div>
+              <h4 style={{ margin: '0 0 12px', fontSize: 18, color: '#dc2626' }}>Import Failed</h4>
+              <p style={{ margin: '0 0 20px', fontSize: 14, color: '#555', background: '#fef2f2', padding: 10, borderRadius: 6, border: '1px solid #fecaca' }}>{errorMsg}</p>
+              <button onClick={onClose} style={{ height: 40, padding: '0 24px', background: '#f0f0f0', border: '1px solid #ccc', borderRadius: 6, cursor: 'pointer', fontSize: 14, fontWeight: 600, color: '#333' }}>Close</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 function KasambahayData() {
   const [year, setYear]               = useState('')
@@ -1352,11 +1536,13 @@ function KasambahayData() {
   const [viewItem, setViewItem]                       = useState(null)
   const [checkedItems, setCheckedItems]               = useState([])
   const [viewDeleted, setViewDeleted]                 = useState(false)
-  const [deleteItem, setDeleteItem]                   = useState(null)
-  const [permanentDeleteItem, setPermanentDeleteItem] = useState(null)
+  const [deleteItems, setDeleteItems]                 = useState(null)
+  const [permanentDeleteItems, setPermanentDeleteItems] = useState(null)
   const [sortKey, setSortKey]   = useState(null)
   const [sortDir, setSortDir]   = useState('asc')
+  const [importRecords, setImportRecords]             = useState(null)
   const navigate = useNavigate()
+  const importInputRef = useRef(null)
 
   const user    = JSON.parse(localStorage.getItem('user') || '{}')
   const isAdmin = user.role === 'Admin'
@@ -1383,6 +1569,157 @@ function KasambahayData() {
   }, [year, district, viewDeleted])
 
   useEffect(() => { fetchData(1, '') }, [])
+
+  const handleImportClick = () => {
+    if (importInputRef.current) {
+      importInputRef.current.click()
+    }
+  }
+
+  const handleFileImport = async (event) => {
+    const file = event.target.files[0]
+    if (!file) return
+
+    setLoading(true)
+    setError('')
+
+    try {
+      const data = await file.arrayBuffer()
+      const workbook = XLSX.read(data)
+
+      let recordsToImport = []
+      let contextYear = null
+
+      // Seeder regex helpers
+      const getYear = (name) => { const m = name.match(/\b(20\d{2})\b/); return m ? parseInt(m[1], 10) : null }
+      const getDistrict = (name) => { const m = name.match(/DIST(?:RICT)?\.?\s*([1-6])/i); return m ? `District ${m[1]}` : null }
+      const isYearOnlySheet = (name) => /^\s*(20\d{2})\s*$/.test(name)
+
+      for (const sheetName of workbook.SheetNames) {
+        if (sheetName.startsWith('Copy of') || sheetName === 'MASTERLIST') continue
+
+        const sheetYear = getYear(sheetName)
+        const sheetDistrict = getDistrict(sheetName)
+        let currentYear = null
+        let currentDistrict = null
+
+        if (sheetYear && sheetDistrict) {
+          contextYear = sheetYear; currentYear = sheetYear; currentDistrict = sheetDistrict
+        } else if (isYearOnlySheet(sheetName)) {
+          contextYear = getYear(sheetName); continue
+        } else if (!sheetYear && sheetDistrict && contextYear) {
+          currentYear = contextYear; currentDistrict = sheetDistrict
+        }
+
+        const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: null, raw: false })
+        if (rows.length === 0) continue
+
+        const sheetRecords = rows.map(row => {
+          // Normalize keys to uppercase and trim spaces to avoid mismatch errors
+          const normRow = {}
+        for (const key in row) {
+          normRow[key.trim().toUpperCase()] = row[key]
+        }
+
+        const getVal = (...keys) => {
+          for (const k of keys) {
+            if (normRow[k] !== undefined && normRow[k] !== null && normRow[k] !== '') return normRow[k]
+          }
+          return ''
+        }
+
+        const isTruthy = (val) => {
+          if (typeof val === 'boolean') return val
+          return ['1', 'true', 'yes', 'y', 'x'].includes(String(val).trim().toLowerCase())
+        }
+
+        const toDateStr = (val) => {
+          if (val === null || val === undefined || val === '') return ''
+          if (typeof val === 'number') {
+            const excelEpoch = new Date(1899, 11, 30)
+            const date = new Date(excelEpoch.getTime() + val * 86400000)
+            return isNaN(date.getTime()) ? '' : date.toISOString().split('T')[0]
+          }
+          const d = new Date(val)
+          return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0]
+        }
+
+        const nature = String(getVal('NATURE OF WORK')).toLowerCase()
+        const arr    = String(getVal('EMPLOYMENT ARRANGEMENT')).toLowerCase()
+        const sex    = String(getVal('SEX', 'GENDER')).toLowerCase()
+
+        const record = {
+          year: currentYear || getVal('YEAR') || 2026,
+          registrationNo: getVal('REGISTRATION NO', 'UNNAMED: 0', '__EMPTY'),
+          dateRegistered: toDateStr(getVal('DATE REGISTERED')),
+          lastName: getVal('LAST NAME'),
+          firstName: getVal('FIRST NAME'),
+          middleName: getVal('MIDDLE NAME'),
+          district: (() => {
+            let d = currentDistrict || getVal('DISTRICT');
+            if (d && !String(d).toLowerCase().startsWith('district')) return `District ${String(d).trim()}`;
+            return d || 'District 1';
+          })(),
+          barangay: getVal('BARANGAY'),
+          birthday: toDateStr(getVal('BIRTHDAY')),
+          age: getVal('AGE'),
+          civilStatus: getVal('CIVIL STATUS'),
+          educationalAttainment: getVal('EDUCATIONAL INFORMATION', 'EDUCATIONAL ATTAINMENT'),
+          currentResidence: getVal('HOME ADDRESS', 'CURRENT RESIDENCE'),
+          birthPlace: getVal('BIRTH PLACE'),
+          mobileNumber: getVal('MOBILE NUMBER'),
+          employerAddress: getVal('EMPLOYER ADDRESS'),
+          isGeneralHousehelp: nature.includes('general') || isTruthy(getVal('GENERAL HOUSEHELP')),
+          isCook: nature.includes('cook') || isTruthy(getVal('COOK')),
+          isLaundryPerson: nature.includes('laundry') || isTruthy(getVal('LAUNDRY PERSON', 'LAUNDRY')),
+          isYaya: nature.includes('yaya') || isTruthy(getVal('YAYA')),
+          isGardener: nature.includes('gardener') || isTruthy(getVal('GARDENER')),
+          isLiveIn: arr.includes('live-in') || arr.includes('live in') || isTruthy(getVal('LIVE IN')),
+          isLiveOut: arr.includes('live-out') || arr.includes('live out') || isTruthy(getVal('LIVE OUT')),
+          isOnCall: arr.includes('on-call') || arr.includes('on call') || isTruthy(getVal('ON CALL')),
+          monthlySalary: getVal('MONTHLY SALARY'),
+          remarks: getVal('REMARKS'),
+          isFemale: sex.startsWith('f') || isTruthy(getVal('FEMALE')),
+          isMale: sex.startsWith('m') || isTruthy(getVal('MALE')),
+          kasambahayOrientation: isTruthy(getVal('KASAMBAHAY ORIENTATION')),
+          kasambahayOrganizing: isTruthy(getVal('KASAMBAHAY ORGANIZING')),
+          occupationalSafetyAndHealth: isTruthy(getVal('OCCUPATIONAL SAFETY AND HEALTH')),
+          genderSensitivityTraining: isTruthy(getVal('GENDER SENSITIVITY TRAINING')),
+          basicFirstAidTraining: isTruthy(getVal('BASIC FIRST AID TRAINING')),
+          homeSecurityAwareness: isTruthy(getVal('HOME SECURITY AWARENESS')),
+          kasambahayGeneralAssembly: isTruthy(getVal('KASAMBAHAY GENERAL ASSEMBLY')),
+          kasambahayDay: isTruthy(getVal('KASAMBAHAY DAY')),
+          disasterPreparedness: isTruthy(getVal('DESASTER PREPAREDNESS', 'DISASTER PREPAREDNESS')),
+          sss: getVal('SSS'),
+          pagIbig: getVal('PAG-IBIG FUND', 'PAG-IBIG', 'PAG IBIG'),
+          philhealth: getVal('PHILHEALTH'),
+          qcid: getVal('QCID', 'QC ID'),
+          isExOfw: isTruthy(getVal('EX OFW', 'EX  OFW')),
+          isSoloParent: isTruthy(getVal('SOLO PARENT')),
+          isPersonWithDisability: isTruthy(getVal('PERSON WITH DISABILITY', 'PWD')),
+          isSeniorCitizen: isTruthy(getVal('SENIOR CITIZEN')),
+          lengthOfService: getVal('KASAMBAHAY LENGTH OF SERVICE', 'LENGTH OF SERVICE'),
+          workOfEmployer: getVal("WORK OF EMPLOYER'S", "WORK OF EMPLOYER"),
+          isKapsaMember: isTruthy(getVal('KAPSA MEMBER', 'KAPSA  MEMBER')),
+          isBcoopMember: isTruthy(getVal('BCOOP MEMBER')),
+        }
+        return record
+      }).filter(r => r.lastName && r.firstName)
+      
+      recordsToImport = recordsToImport.concat(sheetRecords)
+    }
+
+      if (recordsToImport.length === 0) throw new Error('No valid records with First and Last names were found in the file.')
+
+      setImportRecords(recordsToImport)
+    } catch (err) {
+      setError(`Import Error: ${err.message}`)
+      alert(`Import Error: ${err.message}`)
+    } finally {
+      setLoading(false)
+      if (importInputRef.current) importInputRef.current.value = ''
+    }
+  }
 
   const handleSearch    = () => { setSearch(searchInput); fetchData(1, searchInput) }
   const handleSearchKey = (e) => { if (e.key === 'Enter') handleSearch() }
@@ -1427,10 +1764,21 @@ function KasambahayData() {
       {showAddModal && <AddKasambahayModal onClose={() => setShowAddModal(false)} onSuccess={(y, d) => { setShowAddModal(false); setYear(y); setDistrict(d); fetchData(1, '', y, d) }} />}
       {editItem    && <EditKasambahayModal item={editItem} onClose={() => setEditItem(null)} onSuccess={(y, d) => { setEditItem(null); setYear(y); setDistrict(d); fetchData(1, search, y, d) }} />}
       {viewItem    && <ViewKasambahayModal item={viewItem} onClose={() => setViewItem(null)} />}
-      {(deleteItem || permanentDeleteItem) && (
-        <DeleteConfirmModal item={deleteItem || permanentDeleteItem} isPermanent={!!permanentDeleteItem}
-          onClose={() => { setDeleteItem(null); setPermanentDeleteItem(null) }}
-          onSuccess={() => { setDeleteItem(null); setPermanentDeleteItem(null); fetchData(page, search) }} />
+      {(deleteItems || permanentDeleteItems) && (
+        <DeleteConfirmModal items={deleteItems || permanentDeleteItems} isPermanent={!!permanentDeleteItems}
+          onClose={() => { setDeleteItems(null); setPermanentDeleteItems(null) }}
+          onSuccess={() => { setDeleteItems(null); setPermanentDeleteItems(null); setCheckedItems([]); fetchData(page, search) }} />
+      )}
+      {importRecords && (
+        <ImportModal
+          records={importRecords}
+          onClose={() => setImportRecords(null)}
+          onSuccess={() => {
+            const yearVal = importRecords[0]?.year || year || 2026;
+            setYear(yearVal);
+            fetchData(1, search, yearVal, district);
+          }}
+        />
       )}
 
       {/* Header */}
@@ -1455,10 +1803,17 @@ function KasambahayData() {
             </button>
           )}
           {!viewDeleted && (
-            <button onClick={() => setShowAddModal(true)}
-              style={{ height: 40, padding: '0 18px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              + Add Kasambahay
-            </button>
+            <>
+              <input type="file" ref={importInputRef} onChange={handleFileImport} style={{ display: 'none' }} accept=".xlsx, .xls" />
+              <button onClick={handleImportClick} disabled={loading}
+                style={{ height: 40, padding: '0 18px', background: '#10b981', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                {loading ? '...' : 'Import Data'}
+              </button>
+              <button onClick={() => setShowAddModal(true)}
+                style={{ height: 40, padding: '0 18px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                + Add Kasambahay
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -1533,23 +1888,24 @@ function KasambahayData() {
                   <button onClick={() => { const item = sortedData.find(d => d._id === checkedItems[0]); if (item) setEditItem(item) }}
                     disabled={checkedItems.length !== 1}
                     style={{ height: 34, padding: '0 16px', background: checkedItems.length === 1 ? '#1a3a6b' : '#e4e4e7', color: checkedItems.length === 1 ? '#fff' : '#888', border: 'none', borderRadius: 6, fontSize: 13, cursor: checkedItems.length === 1 ? 'pointer' : 'not-allowed', fontWeight: 600 }}>Edit</button>
-                  <button onClick={() => { const item = sortedData.find(d => d._id === checkedItems[0]); if (item) setDeleteItem(item) }}
-                    disabled={checkedItems.length !== 1}
-                    style={{ height: 34, padding: '0 16px', background: checkedItems.length === 1 ? '#ef4444' : '#e4e4e7', color: checkedItems.length === 1 ? '#fff' : '#888', border: 'none', borderRadius: 6, fontSize: 13, cursor: checkedItems.length === 1 ? 'pointer' : 'not-allowed', fontWeight: 600 }}>Delete</button>
+                  <button onClick={() => { const items = sortedData.filter(d => checkedItems.includes(d._id)); if (items.length) setDeleteItems(items) }}
+                    disabled={checkedItems.length === 0}
+                    style={{ height: 34, padding: '0 16px', background: checkedItems.length > 0 ? '#ef4444' : '#e4e4e7', color: checkedItems.length > 0 ? '#fff' : '#888', border: 'none', borderRadius: 6, fontSize: 13, cursor: checkedItems.length > 0 ? 'pointer' : 'not-allowed', fontWeight: 600 }}>Delete</button>
                 </>
               ) : (
                 <>
                   <button onClick={async () => {
-                    const item = sortedData.find(d => d._id === checkedItems[0])
-                    if (!item || !window.confirm(`Restore ${item.firstName} ${item.lastName}?`)) return
+                    const items = sortedData.filter(d => checkedItems.includes(d._id))
+                    if (!items.length || !window.confirm(`Restore ${items.length} record(s)?`)) return
                     const token = localStorage.getItem('token')
-                    await fetch(`${API_ENDPOINTS.KASAMBAHAY}/${item._id}/restore`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } })
+                    await Promise.all(items.map(item => fetch(`${API_ENDPOINTS.KASAMBAHAY}/${item._id}/restore`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } })))
+                    setCheckedItems([])
                     fetchData(page, search)
-                  }} disabled={checkedItems.length !== 1}
-                    style={{ height: 34, padding: '0 16px', background: checkedItems.length === 1 ? '#10b981' : '#e4e4e7', color: checkedItems.length === 1 ? '#fff' : '#888', border: 'none', borderRadius: 6, fontSize: 13, cursor: checkedItems.length === 1 ? 'pointer' : 'not-allowed', fontWeight: 600 }}>Restore</button>
-                  <button onClick={() => { const item = sortedData.find(d => d._id === checkedItems[0]); if (item) setPermanentDeleteItem(item) }}
-                    disabled={checkedItems.length !== 1}
-                    style={{ height: 34, padding: '0 16px', background: checkedItems.length === 1 ? '#ef4444' : '#e4e4e7', color: checkedItems.length === 1 ? '#fff' : '#888', border: 'none', borderRadius: 6, fontSize: 13, cursor: checkedItems.length === 1 ? 'pointer' : 'not-allowed', fontWeight: 600 }}>Perm. Delete</button>
+                  }} disabled={checkedItems.length === 0}
+                    style={{ height: 34, padding: '0 16px', background: checkedItems.length > 0 ? '#10b981' : '#e4e4e7', color: checkedItems.length > 0 ? '#fff' : '#888', border: 'none', borderRadius: 6, fontSize: 13, cursor: checkedItems.length > 0 ? 'pointer' : 'not-allowed', fontWeight: 600 }}>Restore</button>
+                  <button onClick={() => { const items = sortedData.filter(d => checkedItems.includes(d._id)); if (items.length) setPermanentDeleteItems(items) }}
+                    disabled={checkedItems.length === 0}
+                    style={{ height: 34, padding: '0 16px', background: checkedItems.length > 0 ? '#ef4444' : '#e4e4e7', color: checkedItems.length > 0 ? '#fff' : '#888', border: 'none', borderRadius: 6, fontSize: 13, cursor: checkedItems.length > 0 ? 'pointer' : 'not-allowed', fontWeight: 600 }}>Perm. Delete</button>
                 </>
               )}
             </div>

@@ -130,6 +130,43 @@ router.post('/check-duplicate', auth, requireRole('Admin', 'SPES', 'GIP'), async
   }
 })
 
+// ─── POST /api/kasambahay/bulk — Admin only ───────────────────────────────────
+router.post('/bulk', auth, requireRole('Admin'), async (req, res) => {
+  try {
+    const { records } = req.body
+    if (!Array.isArray(records) || records.length === 0) {
+      return res.status(400).json({ message: 'Request body must be an array of records.' })
+    }
+
+    // Add any additional server-side validation for each record here
+
+    const result = await Kasambahay.insertMany(records, { ordered: false }) // ordered:false continues on validation error
+
+    await logActivity(
+      req.user.id,
+      req.user.name || 'Unknown User',
+      'Kasambahay',
+      'ADD',
+      `Bulk imported ${result.length} Kasambahay records.`
+    )
+
+    res.status(201).json({ message: `Successfully imported ${result.length} of ${records.length} records.`, insertedCount: result.length })
+  } catch (err) {
+    // insertMany with ordered:false will throw a BulkWriteError on validation failures
+    if (err.name === 'BulkWriteError') {
+      const insertedCount = err.result.nInserted
+      const failedCount = err.writeErrors.length
+      await logActivity(req.user.id, req.user.name || 'Unknown User', 'Kasambahay', 'ADD', `Bulk import attempted. ${insertedCount} succeeded, ${failedCount} failed.`)
+      return res.status(207).json({
+        message: `Partial success. Imported ${insertedCount} records. ${failedCount} records failed due to validation errors.`,
+        insertedCount: insertedCount,
+        errors: err.writeErrors.map(e => ({ index: e.index, message: e.errmsg }))
+      })
+    }
+    res.status(500).json({ message: err.message })
+  }
+})
+
 // ─── GET single record ────────────────────────────────────────────────────────
 router.get('/:id', auth, async (req, res) => {
   try {
