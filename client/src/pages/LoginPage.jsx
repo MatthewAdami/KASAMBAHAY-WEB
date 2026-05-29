@@ -150,7 +150,7 @@ export default function LoginPage() {
 
           {/* Stats */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: 32 }}>
-            {[['6','Districts'],['2','Years'],['All','Records']].map(([v,l]) => (
+            {[['6','Districts'],['3','Years'],['All','Records']].map(([v,l]) => (
               <div key={l} style={{ textAlign: 'center' }}>
                 <p style={{ color: '#fff', fontSize: 36, fontWeight: 700, lineHeight: 1, marginBottom: 4 }}>{v}</p>
                 <p style={{ color: 'rgba(219,234,254,0.8)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{l}</p>

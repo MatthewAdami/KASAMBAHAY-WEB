@@ -108,13 +108,26 @@ export default function Sidebar({ stats = {}, onClose }) {
     <div style={s.sidebar}>
 
       {/* Brand */}
-      <div style={s.brand}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <img src='/PESOLogo.png' alt='PESO Logo' style={{ width: 32, height: 32, objectFit: 'contain', flexShrink: 0 }} />
-          <span style={{ fontSize: 13, fontWeight: 500, color: c.text }}>Kasambahay</span>
+      <div style={s.brand}> 
+        <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center" }}> 
+          <img src="/kasambahaylogo.png" alt="Kasambahay Logo" style={{ width: 90, height: 56, objectFit: "contain" }} /> 
         </div>
-        <button className="sidebar-close-btn" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, color: c.textMuted, cursor: 'pointer', padding: 0 }}>✕</button>
+        <button
+          className="sidebar-close-btn"
+          onClick={onClose}
+          style={{
+            background: "none",
+            border: "none",
+            fontSize: 18,
+            color: c.textMuted,
+            cursor: "pointer",
+            padding: 0
+          }}
+        >
+          ✕ {/* Added a close symbol here so users have something to click on mobile */}
+        </button>
       </div>
+
 
       {/* Nav — only show items the current role can access */}
       <div style={s.navContent}>
