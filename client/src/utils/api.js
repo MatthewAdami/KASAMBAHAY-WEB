@@ -2,7 +2,7 @@
 // When working locally, use localhost. When live, use your Render URL.
 
 // Temporarily pointing to localhost for testing the new bulk import route
-const BASE_URL = "http://localhost:5000/api"; 
+const BASE_URL = "https://kasambahay-backend.onrender.com"; 
 
 // Centralized endpoints
 export const API_ENDPOINTS = {
