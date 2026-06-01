@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { API_ENDPOINTS } from '../utils/api'
 import * as XLSX from 'xlsx'
 
-const YEARS     = [2024, 2025, 2026]
+const currentYear = new Date().getFullYear()
+const YEARS = Array.from({ length: currentYear - 2023 }, (_, i) => 2024 + i)
 const DISTRICTS = [1, 2, 3, 4, 5, 6]
 const LIMIT     = 100
 

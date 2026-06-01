@@ -9,7 +9,8 @@ import * as XLSX from 'xlsx'
 import { API_ENDPOINTS } from '../utils/api'
 const API_URL = API_ENDPOINTS.KASAMBAHAY
 const DISTRICTS = ['District 1','District 2','District 3','District 4','District 5','District 6']
-const YEARS     = [2024, 2025]
+const currentYear = new Date().getFullYear()
+const YEARS = Array.from({ length: currentYear - 2023 }, (_, i) => 2024 + i)
 const COLORS    = ['#534AB7','#9FE1CB','#F4A261','#E76F51','#6A4C93','#2EC4B6','#A8DADC','#457B9D']
 
 // ─── Fetch all paginated records ──────────────────────────────────────────────
