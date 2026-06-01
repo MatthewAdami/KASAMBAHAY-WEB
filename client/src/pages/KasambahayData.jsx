@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { API_ENDPOINTS } from '../utils/api'
 import * as XLSX from 'xlsx'
 
-const currentYear = new Date().getFullYear()
-const YEARS = Array.from({ length: currentYear - 2023 }, (_, i) => 2024 + i)
+const YEARS = Array.from({ length: 12 }, (_, i) => 2024 + i) // Generates 2024 up to 2035
 const DISTRICTS = [1, 2, 3, 4, 5, 6]
 const LIMIT     = 100
 
@@ -45,7 +44,7 @@ const ALL_COLUMNS = [
   { key: 'emergencyContactName',    label: 'Emergency Contact',      render: k => k.emergencyContactName || '—', width: 150 },
   { key: 'emergencyContactNumber',  label: 'Emergency No.',          render: k => k.emergencyContactNumber || '—', width: 130 },
   { key: 'type',                    label: 'Type',                   render: k => k.isGeneralHousehelp ? 'Househelp' : k.isCook ? 'Cook' : k.isLaundryPerson ? 'Laundry' : k.isYaya ? 'Yaya' : k.isGardener ? 'Gardener' : k.isOthers ? `Others${k.othersSpecify ? ` (${k.othersSpecify})` : ''}` : '—', width: 110 },
-  { key: 'arrangement',             label: 'Arrangement',            render: k => k.isLiveIn ? 'Live-in' : k.isLiveOut ? 'Live-out' : k.isOnCall ? 'On-call' : '—', width: 110 },
+  { key: 'arrangement',             label: 'Working Arrangements',   render: k => k.arrangement || (k.isLiveIn ? 'Live-in' : k.isLiveOut ? 'Live-out' : k.isOnCall ? 'On-call' : '—'), width: 160 },
   { key: 'lengthOfService',         label: 'Length of Service',      render: k => k.lengthOfService || '—', width: 140 },
   { key: 'sss',                     label: 'SSS',                    render: k => k.sss || '—', width: 120 },
   { key: 'pagIbig',                 label: 'Pag-IBIG',               render: k => k.pagIbig || '—', width: 120 },
@@ -229,7 +228,7 @@ function FormField({ label, children, style }) {
 }
 
 // ─── Shared form fields ───────────────────────────────────────────────────────
-function KasambahayForm({ formData, handleChange, handleGender, handleArrangement, formId, onSubmit }) {
+function KasambahayForm({ formData, handleChange, handleGender, formId, onSubmit }) {
   const barangayList = JSON.parse(localStorage.getItem('kasambahay_barangay_list')) || {}
   const districtKey = typeof formData.district === 'string' && formData.district.startsWith('District') ? formData.district : `District ${formData.district}`
   const districtBarangays = barangayList[districtKey] || []
@@ -262,8 +261,9 @@ function KasambahayForm({ formData, handleChange, handleGender, handleArrangemen
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <label style={{ ...formStyles.rowLabel, marginBottom: 0, minWidth: 40 }}>Year:</label>
-          <input type="number" name="year" value={formData.year} onChange={handleChange}
-            style={{ ...formStyles.fieldInput, width: 90 }} />
+          <select name="year" value={formData.year} onChange={handleChange} style={{ ...formStyles.fieldSelect, width: 90 }}>
+            {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <label style={{ ...formStyles.rowLabel, marginBottom: 0, minWidth: 55 }}>District:</label>
@@ -482,14 +482,9 @@ function KasambahayForm({ formData, handleChange, handleGender, handleArrangemen
           <FormField label="Sahod / Monthly Salary (PHP)">
             <input type="number" name="monthlySalary" value={formData.monthlySalary} onChange={handleChange} style={formStyles.fieldInput} />
           </FormField>
-          <div>
-            <label style={formStyles.rowLabel}>Work Arrangement</label>
-            <div style={{ display: 'flex', gap: 14, height: 34, alignItems: 'center', border: '1px solid #b0b0b0', borderRadius: 2, padding: '0 10px', background: '#fafafa' }}>
-              <label style={formStyles.checkRow}><input type="radio" style={formStyles.checkboxInput} checked={!!formData.isLiveOut} onChange={() => handleArrangement('liveOut')} /> Live-Out</label>
-              <label style={formStyles.checkRow}><input type="radio" style={formStyles.checkboxInput} checked={!!formData.isLiveIn} onChange={() => handleArrangement('liveIn')} /> Live-In</label>
-              <label style={formStyles.checkRow}><input type="radio" style={formStyles.checkboxInput} checked={!!formData.isOnCall} onChange={() => handleArrangement('onCall')} /> On-Call</label>
-            </div>
-          </div>
+          <FormField label="Working Arrangements">
+            <input name="arrangement" value={formData.arrangement || ''} onChange={handleChange} style={formStyles.fieldInput} placeholder="e.g. Live-in, Live-out, On-call" />
+          </FormField>
         </div>
 
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginBottom: 0 }}>
@@ -775,6 +770,7 @@ function makeBlankForm() {
     employerAddress: '', employerAddressBlock: '', employerAddressStreet: '', employerAddressBarangay: '',
     employerAddressDistrict: '', employerAddressCity: '', employerAddressZip: '',
     monthlySalary: '', lengthOfService: '',
+    arrangement: '',
     isLiveIn: false, isLiveOut: false, isOnCall: false,
     isGeneralHousehelp: false, isCook: false, isLaundryPerson: false, isYaya: false, isGardener: false,
     isOthers: false, othersSpecify: '',
@@ -884,7 +880,6 @@ function AddKasambahayModal({ onClose, onSuccess }) {
     setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
   }
   const handleGender      = (g)   => setFormData(prev => ({ ...prev, isMale: g === 'male', isFemale: g === 'female' }))
-  const handleArrangement = (arr) => setFormData(prev => ({ ...prev, isLiveIn: arr === 'liveIn', isLiveOut: arr === 'liveOut', isOnCall: arr === 'onCall' }))
 
   const handleFormSubmit = async (e) => {
     e.preventDefault()
@@ -895,7 +890,7 @@ function AddKasambahayModal({ onClose, onSuccess }) {
         firstName: formData.firstName,
         lastName: formData.lastName,
         district: String(formData.district),
-        year: formData.year,
+        year: Number(formData.year),
       })
       if (result.hasDuplicate) { setDupMatches(result.matches) } else { await saveRecord() }
     } catch { setError('Duplicate check failed. Please try again.') }
@@ -908,6 +903,7 @@ function AddKasambahayModal({ onClose, onSuccess }) {
       const payload = compileAddresses({
         ...formData,
         district: String(formData.district),
+        year: Number(formData.year),
       })
       applyNA(payload)
 
@@ -942,7 +938,7 @@ function AddKasambahayModal({ onClose, onSuccess }) {
             <div style={{ background: '#fef2f2', color: '#ef4444', padding: '10px 16px', fontSize: 13, borderBottom: '1px solid #fecaca' }}>{error}</div>
           )}
           <div style={{ overflowY: 'auto', flex: 1, maxHeight: 'calc(100vh - 160px)' }}>
-            <KasambahayForm formData={formData} handleChange={handleChange} handleGender={handleGender} handleArrangement={handleArrangement} formId="add-kasambahay-form" onSubmit={handleFormSubmit} />
+            <KasambahayForm formData={formData} handleChange={handleChange} handleGender={handleGender} formId="add-kasambahay-form" onSubmit={handleFormSubmit} />
           </div>
           <div style={{ padding: '14px 20px', borderTop: '2px solid #1a3a6b', display: 'flex', justifyContent: 'flex-end', gap: 10, background: '#eef2fa' }}>
             <button onClick={onClose} style={{ height: 38, padding: '0 20px', background: '#fff', border: '1px solid #b0b0b0', borderRadius: 3, cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>Cancel</button>
@@ -1000,7 +996,6 @@ function EditKasambahayModal({ item, onClose, onSuccess }) {
     setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
   }
   const handleGender      = (g)   => setFormData(prev => ({ ...prev, isMale: g === 'male', isFemale: g === 'female' }))
-  const handleArrangement = (arr) => setFormData(prev => ({ ...prev, isLiveIn: arr === 'liveIn', isLiveOut: arr === 'liveOut', isOnCall: arr === 'onCall' }))
 
   // ✅ FIX: Diff against original item values (normalized the same way)
   // so we only detect actual user changes, not format differences.
@@ -1071,6 +1066,7 @@ function EditKasambahayModal({ item, onClose, onSuccess }) {
       const payload = compileAddresses({
         ...formData,
         district: String(formData.district),
+        year: Number(formData.year),
       })
       applyNA(payload)
 
@@ -1137,7 +1133,7 @@ function EditKasambahayModal({ item, onClose, onSuccess }) {
           </div>
           {error && <div style={{ background: '#fef2f2', color: '#ef4444', padding: '10px 16px', fontSize: 13, borderBottom: '1px solid #fecaca' }}>{error}</div>}
           <div style={{ overflowY: 'auto', flex: 1, maxHeight: 'calc(100vh - 160px)' }}>
-            <KasambahayForm formData={formData} handleChange={handleChange} handleGender={handleGender} handleArrangement={handleArrangement} formId="edit-kasambahay-form" onSubmit={handleReview} />
+            <KasambahayForm formData={formData} handleChange={handleChange} handleGender={handleGender} formId="edit-kasambahay-form" onSubmit={handleReview} />
           </div>
           <div style={{ padding: '14px 20px', borderTop: '2px solid #1a3a6b', display: 'flex', justifyContent: 'flex-end', gap: 10, background: '#eef2fa' }}>
             <button onClick={onClose} style={{ height: 38, padding: '0 20px', background: '#fff', border: '1px solid #b0b0b0', borderRadius: 3, cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>Cancel</button>
@@ -1286,7 +1282,7 @@ function ViewKasambahayModal({ item, onClose }) {
               {field('Employer Address', item.employerAddress)}
               {field('Monthly Salary', item.monthlySalary ? `₱${Number(item.monthlySalary).toLocaleString()}` : '')}
               {field('Length of Service', item.lengthOfService)}
-              {field('Arrangement', item.isLiveIn ? 'Live-in' : item.isLiveOut ? 'Live-out' : item.isOnCall ? 'On-call' : '')}
+              {field('Working Arrangements', item.arrangement || (item.isLiveIn ? 'Live-in' : item.isLiveOut ? 'Live-out' : item.isOnCall ? 'On-call' : ''))}
               {field('Type of Work', item.isGeneralHousehelp ? 'Househelp' : item.isCook ? 'Cook' : item.isLaundryPerson ? 'Laundry' : item.isYaya ? 'Yaya' : item.isGardener ? 'Gardener' : item.isOthers ? `Others${item.othersSpecify ? ` (${item.othersSpecify})` : ''}` : '')}
             </div>
             <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
@@ -1675,6 +1671,7 @@ function KasambahayData() {
           isLaundryPerson: nature.includes('laundry') || isTruthy(getVal('LAUNDRY PERSON', 'LAUNDRY')),
           isYaya: nature.includes('yaya') || isTruthy(getVal('YAYA')),
           isGardener: nature.includes('gardener') || isTruthy(getVal('GARDENER')),
+          arrangement: getVal('WORKING ARRANGEMENTS', 'EMPLOYMENT ARRANGEMENT', 'ARRANGEMENT'),
           isLiveIn: arr.includes('live-in') || arr.includes('live in') || isTruthy(getVal('LIVE IN')),
           isLiveOut: arr.includes('live-out') || arr.includes('live out') || isTruthy(getVal('LIVE OUT')),
           isOnCall: arr.includes('on-call') || arr.includes('on call') || isTruthy(getVal('ON CALL')),

@@ -9,8 +9,7 @@ import * as XLSX from 'xlsx'
 import { API_ENDPOINTS } from '../utils/api'
 const API_URL = API_ENDPOINTS.KASAMBAHAY
 const DISTRICTS = ['District 1','District 2','District 3','District 4','District 5','District 6']
-const currentYear = new Date().getFullYear()
-const YEARS = Array.from({ length: currentYear - 2023 }, (_, i) => 2024 + i)
+const YEARS = Array.from({ length: 12 }, (_, i) => 2024 + i) // 2024 to 2035
 const COLORS    = ['#534AB7','#9FE1CB','#F4A261','#E76F51','#6A4C93','#2EC4B6','#A8DADC','#457B9D']
 
 // ─── Fetch all paginated records ──────────────────────────────────────────────
@@ -199,8 +198,39 @@ function buildEducation(records) {
   return { overview, byDistrict }
 }
 
+// ─── Build demographics data ──────────────────────────────────────────────────
+function buildDemographics(records) {
+  let male = 0, female = 0, total = records.length
+  for (const r of records) {
+    if (r.isMale) male++
+    else if (r.isFemale) female++
+  }
+  const pieData = [
+    { name: 'Female', value: female, pct: total ? +((female / total) * 100).toFixed(1) : 0 },
+    { name: 'Male', value: male, pct: total ? +((male / total) * 100).toFixed(1) : 0 },
+  ].filter(x => x.value > 0)
+  return { pieData, male, female, total }
+}
+
+// ─── Build barangay distribution ──────────────────────────────────────────────
+function buildBarangayStats(records) {
+  const counts = {}
+  let total = 0
+  for (const r of records) {
+    if (r.barangay && r.barangay.trim() !== '' && r.barangay.trim().toUpperCase() !== 'N/A') {
+      const b = r.barangay.trim().toUpperCase()
+      counts[b] = (counts[b] || 0) + 1
+      total++
+    }
+  }
+  const list = Object.entries(counts)
+    .map(([barangay, count]) => ({ barangay, count, pct: total ? +((count / total) * 100).toFixed(1) : 0 }))
+    .sort((a, b) => b.count - a.count)
+  return { list, total }
+}
+
 // ─── Export to Excel ──────────────────────────────────────────────────────────
-function exportToExcel(benefits, birthPlace, education) {
+function exportToExcel(benefits, birthPlace, education, demographics, barangayStats) {
   const wb = XLSX.utils.book_new()
   const autoW = data => data[0]?.map((_, ci) => ({ wch: Math.max(...data.map(r => String(r[ci] ?? '').length), 10) }))
 
@@ -238,6 +268,22 @@ function exportToExcel(benefits, birthPlace, education) {
   ]
   const ws4 = XLSX.utils.aoa_to_sheet(b4); ws4['!cols'] = autoW(b4)
   XLSX.utils.book_append_sheet(wb, ws4, 'Educational Attainment')
+
+  // Sheet 5 – Demographics
+  const b5 = [
+    ['Gender', 'Count', 'Percentage'],
+    ...demographics.pieData.map(r => [r.name, r.value, `${r.pct}%`])
+  ]
+  const ws5 = XLSX.utils.aoa_to_sheet(b5); ws5['!cols'] = autoW(b5)
+  XLSX.utils.book_append_sheet(wb, ws5, 'Demographics')
+
+  // Sheet 6 – Barangays
+  const b6 = [
+    ['Barangay', 'Count', 'Percentage'],
+    ...barangayStats.list.map(r => [r.barangay, r.count, `${r.pct}%`])
+  ]
+  const ws6 = XLSX.utils.aoa_to_sheet(b6); ws6['!cols'] = autoW(b6)
+  XLSX.utils.book_append_sheet(wb, ws6, 'Top Barangays')
 
   XLSX.writeFile(wb, 'Kasambahay_Analytics_Report.xlsx')
 }
@@ -279,6 +325,8 @@ export default function ReportsPage() {
   const [benefits,  setBenefits]  = useState(null)
   const [birthPlace, setBirthPlace] = useState(null)
   const [education, setEducation] = useState(null)
+  const [demographics, setDemographics] = useState(null)
+  const [barangayStats, setBarangayStats] = useState(null)
   const [rawCount,  setRawCount]  = useState(0)
 
   useEffect(() => {
@@ -290,6 +338,8 @@ export default function ReportsPage() {
         setBenefits(buildBenefits(records))
         setBirthPlace(buildBirthPlace(records))
         setEducation(buildEducation(records))
+        setDemographics(buildDemographics(records))
+        setBarangayStats(buildBarangayStats(records))
       } catch (e) {
         setError(e.message)
       } finally {
@@ -332,7 +382,7 @@ export default function ReportsPage() {
           </p>
         </div>
         <button
-          onClick={() => exportToExcel(benefits, birthPlace, education)}
+          onClick={() => exportToExcel(benefits, birthPlace, education, demographics, barangayStats)}
           style={{ ...S.btn, background: '#10b981' }}
           className="hide-on-print"
         >
@@ -345,8 +395,10 @@ export default function ReportsPage() {
         <div style={S.tabBar}>
           {[
             { key: 'benefits',  label: '🏥 Benefit Coverage %' },
+            { key: 'demographics', label: '🚻 Demographics' },
             { key: 'birthplace',label: '📍 Birth Place' },
             { key: 'education', label: '🎓 Educational Attainment' },
+            { key: 'barangay',  label: '🏘️ Top Barangays' },
           ].map(t => (
             <button key={t.key} style={S.tab(tab === t.key)} onClick={() => setTab(t.key)}>
               {t.label}
@@ -671,9 +723,120 @@ export default function ReportsPage() {
             </div>
           </div>
         )}
+
+        {/* ── Demographics Tab ── */}
+        {tab === 'demographics' && demographics && (
+          <div style={{ padding: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
+              <div style={S.metric}>
+                <div style={S.mLabel}>Total Kasambahay</div>
+                <div style={{ ...S.mVal, color: '#534AB7' }}>{demographics.total.toLocaleString()}</div>
+              </div>
+              <div style={S.metric}>
+                <div style={S.mLabel}>Female</div>
+                <div style={{ ...S.mVal, color: '#d4537e' }}>{demographics.female.toLocaleString()}</div>
+                <div style={S.mSub}>{demographics.pieData.find(x => x.name === 'Female')?.pct || 0}%</div>
+              </div>
+              <div style={S.metric}>
+                <div style={S.mLabel}>Male</div>
+                <div style={{ ...S.mVal, color: '#3b82f6' }}>{demographics.male.toLocaleString()}</div>
+                <div style={S.mSub}>{demographics.pieData.find(x => x.name === 'Male')?.pct || 0}%</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24 }}>
+              <div>
+                <p style={S.sectionHead}>Sex Distribution</p>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie data={demographics.pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, pct }) => `${name} ${pct}%`} labelLine={true}>
+                      {demographics.pieData.map((entry, i) => (
+                        <Cell key={`cell-${i}`} fill={entry.name === 'Female' ? '#d4537e' : '#3b82f6'} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(v, n) => [v.toLocaleString(), n]} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              
+              {barangayStats && (() => {
+                const top = barangayStats.list.slice(0, 5);
+                const others = barangayStats.list.slice(5).reduce((s, r) => s + r.count, 0);
+                const pieData = [...top];
+                if (others > 0) pieData.push({ barangay: 'Others', count: others, pct: barangayStats.total ? +((others / barangayStats.total) * 100).toFixed(1) : 0 });
+
+                return (
+                  <div>
+                    <p style={S.sectionHead}>Top 5 Barangays Distribution</p>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie 
+                          data={pieData} 
+                          dataKey="count" 
+                          nameKey="barangay" 
+                          cx="50%" cy="50%" 
+                          outerRadius={100} 
+                          label={({ barangay, pct }) => `${barangay.length > 12 ? barangay.slice(0,10)+'…' : barangay} ${pct}%`} 
+                          labelLine={true}
+                        >
+                          {pieData.map((entry, i) => (
+                            <Cell key={`cell-${i}`} fill={entry.barangay === 'Others' ? '#e5e7eb' : COLORS[i % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(v, n) => [v.toLocaleString(), n]} />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* ── Barangays Tab ── */}
+        {tab === 'barangay' && barangayStats && (
+          <div style={{ padding: 20 }}>
+            <p style={S.sectionHead}>Top 20 Barangays with Most Kasambahay</p>
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={barangayStats.list.slice(0, 20)} margin={{ top: 5, right: 20, left: 0, bottom: 80 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
+                <XAxis dataKey="barangay" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(val) => val.toLocaleString()} />
+                <Bar dataKey="count" fill="#2EC4B6" radius={[3, 3, 0, 0]} name="Kasambahay Count" />
+              </BarChart>
+            </ResponsiveContainer>
+
+            <p style={{ ...S.sectionHead, marginTop: 30 }}>All Barangays Breakdown</p>
+            <div style={{ maxHeight: 400, overflowY: 'auto', border: '1px solid #e4e2f5', borderRadius: 8 }}>
+              <table style={S.tbl}>
+                <thead>
+                  <tr>
+                    <th style={{ ...S.thL, position: 'sticky', top: 0 }}>Rank</th>
+                    <th style={{ ...S.thL, position: 'sticky', top: 0 }}>Barangay</th>
+                    <th style={{ ...S.th, position: 'sticky', top: 0 }}>Total Kasambahay</th>
+                    <th style={{ ...S.th, position: 'sticky', top: 0 }}>% of Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {barangayStats.list.map((r, i) => (
+                    <tr key={r.barangay} style={{ background: i % 2 === 0 ? '#fff' : '#faf9fe' }}>
+                      <td style={{ ...S.tdL, color: '#999', fontWeight: 400 }}>{i + 1}</td>
+                      <td style={S.tdL}>{r.barangay}</td>
+                      <td style={S.td}>{r.count.toLocaleString()}</td>
+                      <td style={{ ...S.td, fontWeight: 600, color: '#534AB7' }}>{r.pct}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
-      <style dangerouslySetInnerHTML={{ __html: `@media print { .hide-on-print { display: none !important; } @page { size: landscape; margin: 10mm; } }` }} />
+      <style dangerouslySetInnerHTML={{ __html: `@media print { .hide-on-print { display: none !important; } }` }} />
     </div>
   )
 }

@@ -92,7 +92,7 @@ export default function AdminDashboard() {
   }, [])
 
   const classification = stats ? [
-    { label: 'Total',            count: stats.total },
+    { label: 'Total Active',     count: stats.total },
     { label: 'Female',           count: stats.female },
     { label: 'Male',             count: stats.male },
     { label: 'Live-in',          count: stats.liveIn },
@@ -126,12 +126,28 @@ export default function AdminDashboard() {
           ) : error ? (
             <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#b91c1c' }}>⚠ {error}</div>
           ) : stats && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-              <StatCard label="Total Records"       value={stats.total.toLocaleString()}   sub="All districts, all years" accentColor="#534AB7" c={c} />
-              <StatCard label="Female Kasambahay"   value={stats.female.toLocaleString()}  sub={`${stats.male} male`}     accentColor="#d4537e" c={c} />
-              <StatCard label="Live-in Arrangement" value={stats.liveIn.toLocaleString()}  sub="Residential workers"      accentColor="#1d9e75" c={c} />
-              <StatCard label="Orientation Trained" value={stats.trained.toLocaleString()} sub="Attended orientation"     accentColor="#d97706" c={c} />
-            </div>
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: years.length > 0 ? 10 : 0 }}>
+                <StatCard label="Active Kasambahay"   value={stats.total.toLocaleString()}   sub="All districts, all years" accentColor="#534AB7" c={c} />
+                <StatCard label="Female Kasambahay"   value={stats.female.toLocaleString()}  sub={`${stats.male} male`}     accentColor="#d4537e" c={c} />
+                <StatCard label="Live-in Arrangement" value={stats.liveIn.toLocaleString()}  sub="Residential workers"      accentColor="#1d9e75" c={c} />
+                <StatCard label="Orientation Trained" value={stats.trained.toLocaleString()} sub="Attended orientation"     accentColor="#d97706" c={c} />
+              </div>
+              {years.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                  {years.map(yr => (
+                    <StatCard 
+                      key={yr} 
+                      label={`Active Kasambahay ${yr}`} 
+                      value={stats.byYear[yr].reduce((s, r) => s + r.count, 0).toLocaleString()} 
+                      sub={`Across all districts`} 
+                      accentColor="#3b82f6" 
+                      c={c} 
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -149,7 +165,7 @@ export default function AdminDashboard() {
                   <div key={yr}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 5, borderBottom: `2px solid ${c.border}`, marginBottom: 3 }}>
                       <span style={{ fontSize: 12, fontWeight: 700, color: c.text }}>{yr}</span>
-                      <span style={{ fontSize: 10, fontWeight: 600, color: c.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Count</span>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: c.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active Kasambahay</span>
                     </div>
                     {stats.byYear[yr].map(row => (
                       <div key={row.district} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: `1px solid ${c.border}` }}>
@@ -157,6 +173,10 @@ export default function AdminDashboard() {
                         <span style={{ fontSize: 12, fontWeight: 700, color: c.text }}>{row.count.toLocaleString()}</span>
                       </div>
                     ))}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: `1px solid ${c.border}`, background: 'rgba(0,0,0,0.02)' }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: c.text }}>Total</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: c.text }}>{stats.byYear[yr].reduce((s, r) => s + r.count, 0).toLocaleString()}</span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -169,7 +189,7 @@ export default function AdminDashboard() {
               </p>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 5, borderBottom: `2px solid ${c.border}`, marginBottom: 3 }}>
                 <span style={{ fontSize: 10, fontWeight: 600, color: c.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Classification</span>
-                <span style={{ fontSize: 10, fontWeight: 600, color: c.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Count</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: c.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active Kasambahay</span>
               </div>
               {classification.map(({ label, count }) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: `1px solid ${c.border}` }}>

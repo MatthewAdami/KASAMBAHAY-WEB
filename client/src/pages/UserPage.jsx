@@ -11,7 +11,7 @@ const AVATAR_COLORS = [
 ]
 
 const ALL_DISTRICTS = ['District 1','District 2','District 3','District 4','District 5','District 6']
-const ALL_YEARS     = [2023, 2024, 2025, 2026]
+const ALL_YEARS     = Array.from({ length: 12 }, (_, i) => 2024 + i) // 2024 to 2035
 const ALL_ROLES     = ['Admin', 'SPES', 'GIP', 'helper']
 const ROLE_LABELS   = { Admin: 'Admin', SPES: 'SPES Intern', GIP: 'GIP Intern', helper: 'Viewer' }
 

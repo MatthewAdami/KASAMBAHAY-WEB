@@ -129,6 +129,24 @@ function buildBarangay(records) {
   return result;
 }
 
+// ─── Shared parsers ───────────────────────────────────────────────────────────
+const parseSvc = (val) => {
+  if (!val || String(val).trim().toUpperCase() === 'N/A') return 0;
+  if (typeof val === 'number') return val;
+  const str = String(val).toLowerCase();
+  const match = str.match(/(\d+(\.\d+)?)/);
+  if (!match) return 0;
+  let num = parseFloat(match[0]);
+  if (str.includes('mo') || str.includes('month')) num = num / 12;
+  return num;
+};
+
+const NCR_KEYWORDS = ['manila','quezon city','qc','caloocan','malabon','navotas','valenzuela','makati','pasay','taguig','parañaque','paranaque','las piñas','las pinas','muntinlupa','mandaluyong','marikina','pasig','san juan','pateros','ncr','metro manila','national capital'];
+const isNCR = (val) => {
+  if (!val) return false;
+  return NCR_KEYWORDS.some(k => String(val).trim().toLowerCase().includes(k));
+};
+
 // ════════════════════════════════════════════════════════════════════════════
 // GENERAL ANALYSIS PDF GENERATOR — exact mirror of the QC PESO report format
 // ════════════════════════════════════════════════════════════════════════════
@@ -292,8 +310,12 @@ async function exportGeneralAnalysisPDF(rawRecords) {
 
   // Length of service (from 2024-2025 ODK data — using yearsOfService field if available)
   const svc = (lo, hi) => cnt(r => {
-    const s = r.yearsOfService || r.lengthOfService || 0;
+    const s = parseSvc(r.yearsOfService || r.lengthOfService);
     return s >= lo && s <= hi && (r.year===2024||r.year===2025);
+  });
+  const svc26 = (lo, hi) => cnt(r => {
+    const s = parseSvc(r.yearsOfService || r.lengthOfService);
+    return s >= lo && s <= hi && r.year===2026;
   });
   const svc35   = svc(3, 5);
   const svc510  = svc(5, 9);
@@ -303,6 +325,14 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   const svc4050 = svc(40, 49);
   const svc50p  = svc(50, 999);
   const svcTotal= svc35+svc510+svc1020+svc2030+svc3040+svc4050+svc50p;
+  const svc35_26   = svc26(3, 5);
+  const svc510_26  = svc26(5, 9);
+  const svc1020_26 = svc26(10, 19);
+  const svc2030_26 = svc26(20, 29);
+  const svc3040_26 = svc26(30, 39);
+  const svc4050_26 = svc26(40, 49);
+  const svc50p_26  = svc26(50, 999);
+  const svcTotal_26= svc35_26+svc510_26+svc1020_26+svc2030_26+svc3040_26+svc4050_26+svc50p_26;
 
   // Age brackets — 2024+2025
   const age1830_2425 = cnt(r => (r.age||0)>=18 && (r.age||0)<=30 && (r.year===2024||r.year===2025));
@@ -347,12 +377,12 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   const edTotal26     = edElemGrad26+edElemUnder26+edHSGrad26+edHSUnder26+edColGrad26+edColUnder26+edVoc26;
 
   // Place of origin — 2024+2025
-  const originNCR2425  = cnt(r => (r.placeOfOrigin||r.origin||'').toUpperCase().includes('NCR') && (r.year===2024||r.year===2025));
-  const originProv2425 = cnt(r => !(r.placeOfOrigin||r.origin||'').toUpperCase().includes('NCR') && (r.placeOfOrigin||r.origin||'') !== '' && (r.year===2024||r.year===2025));
+  const originNCR2425  = cnt(r => isNCR(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && (r.year===2024||r.year===2025));
+  const originProv2425 = cnt(r => !isNCR(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && !!(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && (r.year===2024||r.year===2025));
 
   // Place of origin — Jan–Apr 2026
-  const originNCR26   = cnt(r => (r.placeOfOrigin||r.origin||'').toUpperCase().includes('NCR') && r.year===2026);
-  const originProv26  = cnt(r => !(r.placeOfOrigin||r.origin||'').toUpperCase().includes('NCR') && (r.placeOfOrigin||r.origin||'') !== '' && r.year===2026);
+  const originNCR26   = cnt(r => isNCR(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && r.year===2026);
+  const originProv26  = cnt(r => !isNCR(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && !!(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && r.year===2026);
 
   // Social Benefits — 2024+2025
   const sss2425  = cnt(r => r.sss        && (r.year===2024||r.year===2025));
@@ -525,7 +555,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
     [['', '3–5\nyrs', '5–10\nyrs', '10–20\nyrs', '20–30\nyrs', '30–40\nyrs', '40–50\nyrs', '50 yrs\n& above', 'Total']],
     [
       ['2024 and 2025 Data',    n(svc35), n(svc510), n(svc1020), n(svc2030), n(svc3040), n(svc4050), n(svc50p), n(svcTotal)],
-      ['January to April 2026', '—',      '—',       '—',        '—',        '—',        '—',        '—',       '—'],
+      ['January to April 2026', n(svc35_26), n(svc510_26), n(svc1020_26), n(svc2030_26), n(svc3040_26), n(svc4050_26), n(svc50p_26), n(svcTotal_26)],
     ],
     {
       columnStyles: {
@@ -640,8 +670,8 @@ async function exportGeneralAnalysisPDF(rawRecords) {
     }
   );
 
-  // ── Figure 7 (Social Benefits) ──────────────────────────────────────────────
-  drawFigCaption('Figure 7: Social Benefits');
+  // ── Figure 8: Social Benefits ──────────────────────────────────────────────
+  drawFigCaption('Figure 8: Social Benefits');
   autoTable(
     [['', 'SSS', 'PhilHealth', 'Pag-IBIG', 'QC ID', 'Total']],
     [
@@ -665,8 +695,8 @@ async function exportGeneralAnalysisPDF(rawRecords) {
     `registration assistance are still needed to improve coverage.`
   );
 
-  // ── Figure 8: Barangay Compliance ──────────────────────────────────────────
-  drawFigCaption('Figure 8: Based on Submitted Report per Barangays');
+  // ── Figure 9: Barangay Compliance ──────────────────────────────────────────
+  drawFigCaption('Figure 9: Based on Submitted Report per Barangays');
   autoTable(
     [['Compliance Submitted Report per Barangays', '2024–2025', '2026']],
     [
@@ -757,18 +787,16 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   checkNewPage(30);
   drawSectionHeader('DISTRICT SUMMARY – REGISTERED KASAMBAHAYS');
 
-  drawFigCaption('District Overview: Encoded Records & Benefits');
+  drawFigCaption('District Overview: Encoded Records & Demographics');
   autoTable(
-    [['District', 'Enc\n2024', 'Enc\n2025', 'Sub\nTotal', 'SSS', 'PhilHealth', 'Pag-IBIG', 'QCID', 'Female', 'Male', 'Live-In', 'Live-Out', 'On-Call']],
+    [['District', 'Enc\n2024', 'Enc\n2025', 'Sub\nTotal', 'Female', 'Male', 'Live-In', 'Live-Out', 'On-Call']],
     [
       ...rows.map(r => [
         r.district, n(r.enc2024), n(r.enc2025), n(r.subtotal),
-        n(r.sss), n(r.philhealth), n(r.pagibig), n(r.qcid),
         n(r.female), n(r.male), n(r.liveIn), n(r.liveOut), n(r.onCall),
       ]),
       [
         'TOTAL', n(totals.enc2024), n(totals.enc2025), n(totals.subtotal),
-        n(totals.sss), n(totals.philhealth), n(totals.pagibig), n(totals.qcid),
         n(totals.female), n(totals.male), n(totals.liveIn), n(totals.liveOut), n(totals.onCall),
       ],
     ],
@@ -914,14 +942,13 @@ function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName) {
   // District Overview
   const ovHeaders = [
     'District','Encoded 2024','Encoded 2025','Sub Total',
-    'SSS','PhilHealth','Pag-IBIG','QCID',
     'Female','Male','Live-In','Live-Out','On-Call',
     'Senior','Solo Parent','Ex-OFW','PWD',
   ];
   const ovData = [
     ovHeaders,
-    ...rows.map(r => [r.district,r.enc2024,r.enc2025,r.subtotal,r.sss,r.philhealth,r.pagibig,r.qcid,r.female,r.male,r.liveIn,r.liveOut,r.onCall,r.senior,r.soloParent,r.exOfw,r.pwd]),
-    ['TOTAL',totals.enc2024,totals.enc2025,totals.subtotal,totals.sss,totals.philhealth,totals.pagibig,totals.qcid,totals.female,totals.male,totals.liveIn,totals.liveOut,totals.onCall,totals.senior,totals.soloParent,totals.exOfw,totals.pwd],
+    ...rows.map(r => [r.district,r.enc2024,r.enc2025,r.subtotal,r.female,r.male,r.liveIn,r.liveOut,r.onCall,r.senior,r.soloParent,r.exOfw,r.pwd]),
+    ['TOTAL',totals.enc2024,totals.enc2025,totals.subtotal,totals.female,totals.male,totals.liveIn,totals.liveOut,totals.onCall,totals.senior,totals.soloParent,totals.exOfw,totals.pwd],
   ];
   const ws1 = XLSX.utils.aoa_to_sheet(ovData);
   ws1['!cols'] = autoWidth(ovData);
@@ -1037,10 +1064,6 @@ const OvRow = ({ r, isT, even }) => {
       <td style={{ ...S.td,  ...ts }}>{n(r.enc2024)}</td>
       <td style={{ ...S.td,  ...ts }}>{n(r.enc2025)}</td>
       <td style={{ ...S.td,  ...ts, fontWeight: '700' }}>{n(r.subtotal)}</td>
-      <td style={{ ...S.td,  ...ts }}>{n(r.sss)}</td>
-      <td style={{ ...S.td,  ...ts }}>{n(r.philhealth)}</td>
-      <td style={{ ...S.td,  ...ts }}>{n(r.pagibig)}</td>
-      <td style={{ ...S.td,  ...ts }}>{n(r.qcid)}</td>
       <td style={{ ...S.td,  ...ts, color: isT ? '#3c3289' : '#993556' }}>{n(r.female)}</td>
       <td style={{ ...S.td,  ...ts, color: isT ? '#3c3289' : '#185fa5' }}>{n(r.male)}</td>
       <td style={{ ...S.td,  ...ts }}>{n(r.liveIn)}</td>
@@ -1282,7 +1305,7 @@ const KasambahaySummaryReport = () => {
               options: [['','All Districts'], ...DISTRICTS.map(d => [d, d])] },
             { label: 'Sex',         value: filterSex,         setter: setFilterSex,
               options: [['','All'], ['female','Female'], ['male','Male']] },
-            { label: 'Arrangement', value: filterArrangement, setter: setFilterArrangement,
+            { label: 'Working Arrangements', value: filterArrangement, setter: setFilterArrangement,
               options: [['','All'], ['livein','Live-In'], ['liveout','Live-Out'], ['oncall','On-Call']] },
           ].map(({ label, value, setter, options }) => (
             <div key={label}>
@@ -1327,10 +1350,10 @@ const KasambahaySummaryReport = () => {
         {/* ── District Overview ── */}
         {tab === 'overview' && (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ ...S.tbl, tableLayout: 'fixed', minWidth: '1300px' }}>
+            <table style={{ ...S.tbl, tableLayout: 'fixed', minWidth: '1000px' }}>
               <colgroup>
                 <col style={{ width: '90px' }} />
-                {Array(7).fill(0).map((_, i) => <col key={i} style={{ width: '72px' }} />)}
+                {Array(3).fill(0).map((_, i) => <col key={i} style={{ width: '72px' }} />)}
                 <col style={{ width: '68px' }} /><col style={{ width: '58px' }} />
                 {Array(3).fill(0).map((_, i) => <col key={`a${i}`} style={{ width: '68px' }} />)}
                 <col style={{ width: '60px' }} /><col style={{ width: '78px' }} />
@@ -1342,12 +1365,8 @@ const KasambahaySummaryReport = () => {
                   <th style={S.th}  rowSpan={2}>Encoded 2024</th>
                   <th style={S.th}  rowSpan={2}>Encoded 2025</th>
                   <th style={S.th}  rowSpan={2}>Sub Total</th>
-                  <th style={S.th}  rowSpan={2}>SSS</th>
-                  <th style={S.th}  rowSpan={2}>PhilHealth</th>
-                  <th style={S.th}  rowSpan={2}>Pag-IBIG</th>
-                  <th style={S.th}  rowSpan={2}>QCID</th>
                   <th style={{ ...S.th, background: '#fce8f0', color: '#993556' }} colSpan={2}>Gender</th>
-                  <th style={S.th}  colSpan={3}>Arrangement</th>
+                  <th style={S.th}  colSpan={3}>Working Arrangements</th>
                   <th style={S.th}  colSpan={4}>Special Categories</th>
                 </tr>
                 <tr>

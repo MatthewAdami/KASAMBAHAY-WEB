@@ -108,7 +108,7 @@ function ActiveYearSection({ toast }) {
           onChange={e => setYear(parseInt(e.target.value))}
           style={{ height: 40, padding: '0 12px', fontSize: 14, border: '1px solid #e4e4e7', borderRadius: 6, outline: 'none', minWidth: 120 }}
         >
-          {Array.from({ length: new Date().getFullYear() - 2022 }, (_, i) => 2023 + i).map(y => <option key={y} value={y}>{y}</option>)}
+          {Array.from({ length: 12 }, (_, i) => 2024 + i).map(y => <option key={y} value={y}>{y}</option>)}
         </select>
         <button onClick={handleSave} style={Btn.primary}>
           {saved ? '✓ Saved' : 'Save Year'}
