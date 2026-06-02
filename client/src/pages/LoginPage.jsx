@@ -7,8 +7,6 @@ const PHOTOS = [
   '/photo2.jpg',
   '/photo3.jpg',
   '/photo4.jpg',
-  '/photo5.jpg',
-  '/photo1.jpg',
 ]
 
 
@@ -65,17 +63,25 @@ export default function LoginPage() {
         overflow: 'hidden',
       }} className="lp-left">
 
-        {/* 3×3 photo grid background */}
+        {/* Asymmetric grid tailored for 2 Portrait and 2 Landscape photos */}
         <div style={{
           position: 'absolute', inset: 0,
           display: 'grid', 
-          gridTemplateColumns: 'repeat(3, 1fr)',
+          gridTemplateColumns: 'repeat(3, 1fr)', // 3-column system
           gridTemplateRows: 'repeat(2, 1fr)',
+          gap: '0px'
         }}>
-          {PHOTOS.map((src, i) => (
-            <img key={i} src={src} alt=""
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-          ))}
+          {/* Photo 1: Portrait (Spans left column completely) */}
+          <img src={PHOTOS[2]} alt="" style={{ gridRow: '1 / span 2', gridColumn: '1', width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'right center' }} />
+
+          {/* Photo 2: Landscape (Top Middle/Right) */}
+          <img src={PHOTOS[1]} alt="" style={{ gridRow: '1', gridColumn: '2 / span 2', width: '100%', height: '100%', objectFit: 'cover' }} />
+
+          {/* Photo 3: Landscape (Bottom Middle) */}
+          <img src={PHOTOS[3]} alt="" style={{ gridRow: '2', gridColumn: '2', width: '100%', height: '100%', objectFit: 'cover' }} />
+
+          {/* Photo 4: Portrait (Spans bottom-right grid cleanly) */}
+          <img src={PHOTOS[0]} alt="" style={{ gridRow: '2', gridColumn: '3', width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
 
         {/* Light blue gradient overlay */}
