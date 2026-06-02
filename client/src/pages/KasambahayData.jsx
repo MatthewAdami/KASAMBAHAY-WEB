@@ -9,7 +9,7 @@ const LIMIT     = 100
 
 // ─── Date fields that need .split('T')[0] normalization ──────────────────────
 const DATE_FIELDS = [
-  'dateRegistered','birthday',
+  'dateRegistered','birthday', 'dateStartedAsKasambahay',
   'dateOfOrientation','dateOfOrganizing','dateOfOshTraining','dateOfGenderSensitivity',
   'dateOfBasicFirstAid','dateOfHomeSecurity','dateOfGenAssembly','dateOfKasambahayDay',
   'dateOfDisasterPreparedness','dateOfQcCareOrientation',
@@ -29,6 +29,8 @@ const ALL_COLUMNS = [
   { key: 'birthday',                label: 'Birthday',               render: k => k.birthday ? new Date(k.birthday).toLocaleDateString() : '—', width: 110 },
   { key: 'age',                     label: 'Age',                    render: k => k.age || '—', width: 60 },
   { key: 'birthPlace',              label: 'Birth Place',            render: k => k.birthPlace || '—', width: 140 },
+  { key: 'dateStartedAsKasambahay', label: 'Started as Kasambahay',  render: k => k.dateStartedAsKasambahay ? new Date(k.dateStartedAsKasambahay).toLocaleDateString() : '—', width: 150 },
+  { key: 'yearsLivingInQC',         label: 'Years in QC',            render: k => k.yearsLivingInQC || '—', width: 100 },
   { key: 'civilStatus',             label: 'Civil Status',           render: k => k.civilStatus || '—', width: 110 },
   { key: 'gender',                  label: 'Gender',                 render: k => k.isFemale ? 'Female' : k.isMale ? 'Male' : '—', width: 80, badge: k => k.isFemale ? 'blue' : k.isMale ? 'gray' : null },
   { key: 'religion',                label: 'Religion',               render: k => k.religion || '—', width: 120 },
@@ -330,10 +332,19 @@ function KasambahayForm({ formData, handleChange, handleGender, formId, onSubmit
           </FormField>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px 16px', marginBottom: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px 16px', marginBottom: 14, alignItems: 'end' }}>
           <FormField label="Lugar ng Kapanganakan (Birth Place)">
             <input name="birthPlace" value={formData.birthPlace} onChange={handleChange} style={formStyles.fieldInput} />
           </FormField>
+          <FormField label="Kailan naging Kasambahay? (Date Started)">
+            <input type="date" name="dateStartedAsKasambahay" value={formData.dateStartedAsKasambahay} onChange={handleChange} style={formStyles.fieldInput} />
+          </FormField>
+          <FormField label="Ilang taon na naninirahan sa QC? (Years)">
+            <input type="number" name="yearsLivingInQC" value={formData.yearsLivingInQC} onChange={handleChange} style={formStyles.fieldInput} />
+          </FormField>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 16px', marginBottom: 14, alignItems: 'end' }}>
           <FormField label="Mobile Number">
             <input name="mobileNumber" value={formData.mobileNumber} onChange={handleChange} style={formStyles.fieldInput} placeholder="09XX-XXX-XXXX" />
           </FormField>
@@ -757,7 +768,7 @@ function makeBlankForm() {
     year: parseInt(localStorage.getItem('kasambahay_active_year')) || new Date().getFullYear(),
     district: 'District 1', barangay: '',
     birthday: '', age: '', civilStatus: '', mobileNumber: '',
-    birthPlace: '', religion: '',
+    birthPlace: '', dateStartedAsKasambahay: '', yearsLivingInQC: '', religion: '',
     emergencyContactName: '', emergencyContactNumber: '',
     currentResidence: '', currentResidenceBlock: '', currentResidenceStreet: '',
     currentResidenceBarangay: '', currentResidenceDistrict: '', currentResidenceCity: 'Quezon City', currentResidenceZip: '',
@@ -848,6 +859,8 @@ function create2026TestData() {
     religion: 'Roman Catholic',
     educationalAttainment: 'High School Graduate',
     currentResidence: '123 Sample St, Brgy. Alicia, District 1, Quezon City',
+    dateStartedAsKasambahay: '2020-01-01',
+    yearsLivingInQC: 5,
     mobileNumber: '09171234567',
     employerName: 'Maria Reyes',
     monthlySalary: 6000,
@@ -857,7 +870,7 @@ function create2026TestData() {
 }
 // ─── Helper: Apply N/A to blank fields ────────────────────────────────────────
 function applyNA(payload) {
-  const numberFields = ['registrationNo', 'year', 'age', 'monthlySalary', 'numberOfChildren']
+  const numberFields = ['registrationNo', 'year', 'age', 'monthlySalary', 'numberOfChildren', 'yearsLivingInQC']
   for (const key in payload) {
     if (typeof payload[key] === 'string' && payload[key].trim() === '') {
       if (!DATE_FIELDS.includes(key) && !numberFields.includes(key)) {
@@ -1244,6 +1257,8 @@ function ViewKasambahayModal({ item, onClose }) {
               {field('Civil Status', item.civilStatus)}
               {field('Religion', item.religion)}
               {field('Birth Place', item.birthPlace)}
+              {field('Started as Kasambahay', item.dateStartedAsKasambahay ? new Date(item.dateStartedAsKasambahay).toLocaleDateString('en-PH') : '')}
+              {field('Years in QC', item.yearsLivingInQC)}
               {field('Mobile No.', item.mobileNumber)}
               {field('Emergency Contact', item.emergencyContactName)}
               {field('Emergency No.', item.emergencyContactNumber)}
@@ -1664,6 +1679,8 @@ function KasambahayData() {
           educationalAttainment: getVal('EDUCATIONAL INFORMATION', 'EDUCATIONAL ATTAINMENT'),
           currentResidence: getVal('HOME ADDRESS', 'CURRENT RESIDENCE'),
           birthPlace: getVal('BIRTH PLACE'),
+          dateStartedAsKasambahay: toDateStr(getVal('DATE STARTED AS KASAMBAHAY', 'STARTED AS KASAMBAHAY')),
+          yearsLivingInQC: getVal('YEARS LIVING IN QC', 'YEARS IN QC'),
           mobileNumber: getVal('MOBILE NUMBER'),
           employerAddress: getVal('EMPLOYER ADDRESS'),
           isGeneralHousehelp: nature.includes('general') || isTruthy(getVal('GENERAL HOUSEHELP')),

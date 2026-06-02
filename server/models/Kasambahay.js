@@ -177,7 +177,12 @@ const KasambahaySchema = new mongoose.Schema({
   dateOfDisasterPreparedness: { type: String },
   qcCareOrientation: { type: Boolean, default: false },
   dateOfQcCareOrientation: { type: String },
-
+  dateStartedAsKasambahay: { 
+    type: Date 
+  },
+  yearsLivingInQC: { 
+    type: Number 
+  },
   // ── Meta ───────────────────────────────────────────────────────────
   district: { type: String, default: 'District 1' },
   year: { type: Number, default: 2024 },

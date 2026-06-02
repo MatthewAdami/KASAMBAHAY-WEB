@@ -1357,7 +1357,7 @@ const KasambahaySummaryReport = () => {
                   <th style={S.th}  rowSpan={2}>Sub Total</th>
                   <th style={{ ...S.th, background: '#fce8f0', color: '#993556' }} colSpan={2}>Gender</th>
                   <th style={S.th}  colSpan={3}>Working Arrangements</th>
-                  <th style={S.th}  colSpan={4}>Special Categories</th>
+                  <th style={S.th}  colSpan={4}>Margenalized Sectors</th>
                 </tr>
                 <tr>
                   <th style={{ ...S.th, background: '#fce8f0', color: '#993556' }}>Female</th>
