@@ -1344,11 +1344,18 @@ const KasambahaySummaryReport = () => {
             <table style={{ ...S.tbl, tableLayout: 'fixed', minWidth: '1000px' }}>
               <colgroup>
                 <col style={{ width: '90px' }} />
-                {Array(3).fill(0).map((_, i) => <col key={i} style={{ width: '72px' }} />)}
-                <col style={{ width: '68px' }} /><col style={{ width: '58px' }} />
-                {Array(3).fill(0).map((_, i) => <col key={`a${i}`} style={{ width: '68px' }} />)}
-                <col style={{ width: '60px' }} /><col style={{ width: '78px' }} />
-                <col style={{ width: '64px' }} /><col style={{ width: '54px' }} />
+              {YEARS.map(y => <col key={y} style={{ width: '72px' }} />)}
+              <col style={{ width: '70px' }} /> {/* Sub Total */}
+              <col style={{ width: '60px' }} /> {/* Female */}
+              <col style={{ width: '60px' }} /> {/* Male */}
+              <col style={{ width: '65px' }} /> {/* Live-In */}
+              <col style={{ width: '65px' }} /> {/* Live-Out */}
+              <col style={{ width: '65px' }} /> {/* On-Call */}
+              {/* Marginalized Sectors */}
+              <col style={{ width: '75px' }} /> {/* Senior */}
+              <col style={{ width: '75px' }} /> {/* Solo Parent */}
+              <col style={{ width: '75px' }} /> {/* Ex-OFW */}
+              <col style={{ width: '75px' }} /> {/* PWD */}
               </colgroup>
               <thead>
                 <tr>
@@ -1357,7 +1364,7 @@ const KasambahaySummaryReport = () => {
                   <th style={S.th}  rowSpan={2}>Sub Total</th>
                   <th style={{ ...S.th, background: '#fce8f0', color: '#993556' }} colSpan={2}>Gender</th>
                   <th style={S.th}  colSpan={3}>Working Arrangements</th>
-                  <th style={S.th}  colSpan={4}>Margenalized Sectors</th>
+                <th style={S.th}  colSpan={4}>Marginalized Sectors</th>
                 </tr>
                 <tr>
                   <th style={{ ...S.th, background: '#fce8f0', color: '#993556' }}>Female</th>

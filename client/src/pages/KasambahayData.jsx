@@ -1890,7 +1890,7 @@ function KasambahayData() {
               <span style={{ fontSize: 13, fontWeight: 700, color: '#1a3a6b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 {year ? year : 'All Years'} — {district ? `District ${district}` : 'All Districts'}
               </span>
-              {pagination && <Badge color="green">{pagination.total.toLocaleString()} total</Badge>}
+              {pagination && <Badge color="green">{pagination.total.toLocaleString()} {viewDeleted ? 'DELETED' : 'ACTIVE'} KASAMBAHAY</Badge>}
               {category    && <Badge color="amber">Filtered: {category}</Badge>}
               {pagination?.totalPages > 1 && <Badge color="purple">Pg {pagination.page}/{pagination.totalPages}</Badge>}
             </div>
@@ -1976,7 +1976,7 @@ function KasambahayData() {
           {pagination?.totalPages > 1 && (
             <div style={{ padding: '12px 18px', borderTop: '1px solid #e4e4e7', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, background: '#f5f7fb' }}>
               <span style={{ fontSize: 13, color: '#888' }}>
-                Showing {((page - 1) * LIMIT) + 1}–{Math.min(page * LIMIT, pagination.total)} of {pagination.total.toLocaleString()} records
+                Showing {((page - 1) * LIMIT) + 1}–{Math.min(page * LIMIT, pagination.total)} of {pagination.total.toLocaleString()} {viewDeleted ? 'DELETED' : 'ACTIVE'} KASAMBAHAY
               </span>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 <button onClick={() => fetchData(page - 1, search)} disabled={page === 1 || loading} style={{ ...pageBtn(false), opacity: page === 1 ? 0.4 : 1 }}>← Prev</button>
