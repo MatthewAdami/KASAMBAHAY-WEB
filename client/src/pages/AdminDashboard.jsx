@@ -8,28 +8,54 @@ function authHeader() {
   return { Authorization: `Bearer ${localStorage.getItem('token')}` }
 }
 
-function StatCard({ label, value, sub, accentColor, c }) {
+// ─── Stat Card ────────────────────────────────────────────────────────────────
+function StatCard({ label, value, sub, accentColor, c, large }) {
   return (
     <div style={{
       background: c.bgCard,
       border: `1px solid ${c.border}`,
       borderRadius: 10,
-      padding: '12px 16px',
       borderTop: `3px solid ${accentColor}`,
+      padding: large ? '16px 18px' : '12px 14px',
       flex: 1,
-      minWidth: 140,
+      minWidth: 0,
     }}>
-      <p style={{ margin: '0 0 6px', fontSize: 10, fontWeight: 600, color: c.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+      <p style={{
+        margin: '0 0 6px', fontSize: 10, fontWeight: 600,
+        color: c.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em',
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      }}>
         {label}
       </p>
-      <p style={{ margin: '0 0 2px', fontSize: 22, fontWeight: 700, color: c.text, lineHeight: 1 }}>
+      <p style={{
+        margin: '0 0 3px', fontSize: large ? 28 : 22,
+        fontWeight: 700, color: c.text, lineHeight: 1,
+        fontFamily: "'DM Sans', sans-serif",
+      }}>
         {value ?? '—'}
       </p>
-      {sub && <p style={{ margin: 0, fontSize: 11, color: c.textMuted }}>{sub}</p>}
+      {sub && (
+        <p style={{ margin: 0, fontSize: 11, color: c.textMuted }}>{sub}</p>
+      )}
     </div>
   )
 }
 
+// ─── Section Header ───────────────────────────────────────────────────────────
+function SectionHeader({ title, c }) {
+  return (
+    <p style={{
+      margin: '0 0 10px', fontSize: 10, fontWeight: 700,
+      color: c.textMuted, textTransform: 'uppercase',
+      letterSpacing: '0.08em', borderBottom: `1px solid ${c.border}`,
+      paddingBottom: 6,
+    }}>
+      {title}
+    </p>
+  )
+}
+
+// ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const c         = useColors()
   const navigate  = useNavigate()
@@ -48,7 +74,7 @@ export default function AdminDashboard() {
   }
 
   const fmtDate = () => new Date().toLocaleDateString('en-PH', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   })
 
   useEffect(() => {
@@ -71,17 +97,22 @@ export default function AdminDashboard() {
           trained = data.filter(r => r.kasambahayOrientation).length
         }
 
+        // Build byYear: { 2024: { 'District 1': count, ... }, 2025: { ... } }
         const byYear = {}
         breakdown.forEach(b => {
           const yr = b._id.year
-          if (!byYear[yr]) byYear[yr] = []
-          byYear[yr].push({ district: b._id.district, count: b.count })
-        })
-        Object.keys(byYear).forEach(yr => {
-          byYear[yr].sort((a, b) => a.district.localeCompare(b.district))
+          const dist = b._id.district
+          if (!byYear[yr]) byYear[yr] = {}
+          byYear[yr][dist] = b.count
         })
 
-        setStats({ total, byYear, female, male, liveIn, senior, trained })
+        // Total per year
+        const yearTotals = {}
+        Object.keys(byYear).forEach(yr => {
+          yearTotals[yr] = Object.values(byYear[yr]).reduce((s, c) => s + c, 0)
+        })
+
+        setStats({ total, byYear, yearTotals, female, male, liveIn, senior, trained })
       } catch {
         setError('Failed to load. Is the server running?')
       } finally {
@@ -91,115 +122,270 @@ export default function AdminDashboard() {
     load()
   }, [])
 
+  const years     = stats ? Object.keys(stats.byYear).sort() : []
+  const districts = ['District 1','District 2','District 3','District 4','District 5','District 6']
+
   const classification = stats ? [
-    { label: 'Total Active',     count: stats.total },
-    { label: 'Female',           count: stats.female },
-    { label: 'Male',             count: stats.male },
-    { label: 'Live-in',          count: stats.liveIn },
-    { label: 'Senior citizen',   count: stats.senior },
-    { label: 'Orientation done', count: stats.trained },
+    { label: 'Total',            count: stats.total   },
+    { label: 'Female',           count: stats.female  },
+    { label: 'Male',             count: stats.male    },
+    { label: 'Live-in',          count: stats.liveIn  },
+    { label: 'Senior Citizen',   count: stats.senior  },
+    { label: 'Orientation Done', count: stats.trained },
   ] : []
 
-  const years = stats ? Object.keys(stats.byYear).sort() : []
+  // ── Table cell helpers ─────────────────────────────────────────────────────
+  const thStyle = {
+    padding: '7px 10px', fontSize: 11, fontWeight: 700,
+    color: c.textMuted, textTransform: 'uppercase',
+    letterSpacing: '0.05em', borderBottom: `2px solid ${c.border}`,
+    background: c.bgCard, textAlign: 'right',
+    whiteSpace: 'nowrap',
+  }
+  const thLeft = { ...thStyle, textAlign: 'left' }
+  const tdStyle = {
+    padding: '6px 10px', fontSize: 12, color: c.textSub,
+    borderBottom: `1px solid ${c.border}`, textAlign: 'right',
+  }
+  const tdLeft = { ...tdStyle, textAlign: 'left', color: c.text }
+  const tdTotal = {
+    ...tdStyle, fontWeight: 700, color: c.text,
+    background: `${c.border}44`,
+  }
+  const tdTotalLeft = { ...tdTotal, textAlign: 'left' }
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', background: c.bg, fontFamily: "'DM Sans', sans-serif" }}>
+    <div style={{
+      flex: 1, overflowY: 'auto',
+      background: c.bg,
+      fontFamily: "'DM Sans', sans-serif",
+    }}>
 
-      {/* Top bar */}
-      <div style={{ background: c.bgTopbar, borderBottom: `1px solid ${c.border}`, padding: '10px 20px' }}>
-        <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: c.text }}>
-          {getGreeting()}, {firstName}! 👋
-        </h1>
-        <p style={{ margin: 0, fontSize: 11, color: c.textMuted }}>{fmtDate()}</p>
+      {/* ── Top bar ─────────────────────────────────────────────────────────── */}
+      <div style={{
+        background: c.bgTopbar,
+        borderBottom: `1px solid ${c.border}`,
+        padding: '10px 20px',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: c.text }}>
+            {getGreeting()}, {firstName}! 👋
+          </h1>
+          <p style={{ margin: 0, fontSize: 11, color: c.textMuted }}>{fmtDate()}</p>
+        </div>
+        <span style={{
+          fontSize: 10, fontWeight: 600, color: c.textMuted,
+          textTransform: 'uppercase', letterSpacing: '0.07em',
+        }}>
+          Overview
+        </span>
       </div>
 
-      {/* Page content */}
-      <div style={{ padding: '12px 16px' }}>
+      {/* ── Page content ────────────────────────────────────────────────────── */}
+      <div style={{ padding: '14px 16px' }}>
 
-        {/* Stat cards row */}
-        <div style={{ background: c.bgCard, border: `1px solid ${c.border}`, borderRadius: 10, padding: '12px 14px', marginBottom: 10 }}>
-          <p style={{ margin: '0 0 10px', fontSize: 10, fontWeight: 600, color: c.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-            System Overview · Aggregate statistics across all districts and years
-          </p>
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: '20px 0', color: c.textMuted, fontSize: 13 }}>Loading statistics…</div>
-          ) : error ? (
-            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#b91c1c' }}>⚠ {error}</div>
-          ) : stats && (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: years.length > 0 ? 10 : 0 }}>
-                <StatCard label="Active Kasambahay"   value={stats.total.toLocaleString()}   sub="All districts, all years" accentColor="#534AB7" c={c} />
-                <StatCard label="Female Kasambahay"   value={stats.female.toLocaleString()}  sub={`${stats.male} male`}     accentColor="#d4537e" c={c} />
-                <StatCard label="Live-in Arrangement" value={stats.liveIn.toLocaleString()}  sub="Residential workers"      accentColor="#1d9e75" c={c} />
-                <StatCard label="Orientation Trained" value={stats.trained.toLocaleString()} sub="Attended orientation"     accentColor="#d97706" c={c} />
+        {loading && (
+          <div style={{
+            textAlign: 'center', padding: '48px 0',
+            color: c.textMuted, fontSize: 13,
+          }}>
+            Loading statistics…
+          </div>
+        )}
+
+        {error && (
+          <div style={{
+            background: '#fef2f2', border: '1px solid #fecaca',
+            borderRadius: 8, padding: '10px 14px',
+            fontSize: 12, color: '#b91c1c', marginBottom: 12,
+          }}>
+            ⚠ {error}
+          </div>
+        )}
+
+        {stats && (
+          <>
+            {/* ── SECTION 1: Highlight Cards ──────────────────────────────── */}
+            <div style={{
+              background: c.bgCard, border: `1px solid ${c.border}`,
+              borderRadius: 10, padding: '12px 14px', marginBottom: 12,
+            }}>
+              <SectionHeader title="System Overview · Aggregate statistics across all districts and years" c={c} />
+
+              {/* Row 1 — 4 aggregate cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 10 }}>
+                <StatCard
+                  label="Total Kasambahay"
+                  value={stats.total.toLocaleString()}
+                  sub="All districts, all years"
+                  accentColor="#534AB7" c={c} large
+                />
+                <StatCard
+                  label="Female Kasambahay"
+                  value={stats.female.toLocaleString()}
+                  sub={`${stats.male.toLocaleString()} male`}
+                  accentColor="#d4537e" c={c} large
+                />
+                <StatCard
+                  label="Live-in Arrangement"
+                  value={stats.liveIn.toLocaleString()}
+                  sub="Residential workers"
+                  accentColor="#1d9e75" c={c} large
+                />
+                <StatCard
+                  label="Orientation Trained"
+                  value={stats.trained.toLocaleString()}
+                  sub="Attended orientation"
+                  accentColor="#d97706" c={c} large
+                />
               </div>
+
+              {/* Row 2 — one card per year */}
               {years.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(years.length, 4)}, 1fr)`, gap: 10 }}>
                   {years.map(yr => (
-                    <StatCard 
-                      key={yr} 
-                      label={`Active Kasambahay ${yr}`} 
-                      value={stats.byYear[yr].reduce((s, r) => s + r.count, 0).toLocaleString()} 
-                      sub={`Across all districts`} 
-                      accentColor="#3b82f6" 
-                      c={c} 
+                    <StatCard
+                      key={yr}
+                      label={`Active Kasambahay ${yr}`}
+                      value={stats.yearTotals[yr].toLocaleString()}
+                      sub="Across all 6 districts"
+                      accentColor="#3b82f6" c={c}
                     />
                   ))}
                 </div>
               )}
-            </>
-          )}
-        </div>
-
-        {/* Bottom row: Records by year + Classification side by side */}
-        {stats && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-
-            {/* Records by year & district */}
-            <div style={{ background: c.bgCard, border: `1px solid ${c.border}`, borderRadius: 10, padding: '12px 14px' }}>
-              <p style={{ margin: '0 0 8px', fontSize: 10, fontWeight: 600, color: c.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                Records by Year &amp; District
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(years.length, 2)}, 1fr)`, gap: 16 }}>
-                {years.map(yr => (
-                  <div key={yr}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 5, borderBottom: `2px solid ${c.border}`, marginBottom: 3 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: c.text }}>{yr}</span>
-                      <span style={{ fontSize: 10, fontWeight: 600, color: c.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active Kasambahay</span>
-                    </div>
-                    {stats.byYear[yr].map(row => (
-                      <div key={row.district} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: `1px solid ${c.border}` }}>
-                        <span style={{ fontSize: 12, color: c.textSub }}>{row.district}</span>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: c.text }}>{row.count.toLocaleString()}</span>
-                      </div>
-                    ))}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: `1px solid ${c.border}`, background: 'rgba(0,0,0,0.02)' }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: c.text }}>Total</span>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: c.text }}>{stats.byYear[yr].reduce((s, r) => s + r.count, 0).toLocaleString()}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
 
-            {/* Classification breakdown */}
-            <div style={{ background: c.bgCard, border: `1px solid ${c.border}`, borderRadius: 10, padding: '12px 14px' }}>
-              <p style={{ margin: '0 0 8px', fontSize: 10, fontWeight: 600, color: c.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                Classification Breakdown
-              </p>
-              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 5, borderBottom: `2px solid ${c.border}`, marginBottom: 3 }}>
-                <span style={{ fontSize: 10, fontWeight: 600, color: c.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Classification</span>
-                <span style={{ fontSize: 10, fontWeight: 600, color: c.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active Kasambahay</span>
-              </div>
-              {classification.map(({ label, count }) => (
-                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: `1px solid ${c.border}` }}>
-                  <span style={{ fontSize: 12, color: c.textSub }}>{label}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: c.text }}>{count.toLocaleString()}</span>
+            {/* ── SECTION 2 + 3: Summary table + Classification ───────────── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 12 }}>
+
+              {/* ── Active Kasambahay Summary Table ─────────────────────── */}
+              <div style={{
+                background: c.bgCard, border: `1px solid ${c.border}`,
+                borderRadius: 10, padding: '12px 14px', overflow: 'hidden',
+              }}>
+                <SectionHeader title="Active Kasambahay Summary · By District and Year" c={c} />
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr>
+                        <th style={thLeft}>District</th>
+                        {years.map(yr => (
+                          <th key={yr} style={thStyle}>{yr}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {districts.map(dist => (
+                        <tr key={dist}
+                          onMouseEnter={e => e.currentTarget.style.background = `${c.border}44`}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <td style={tdLeft}>{dist}</td>
+                          {years.map(yr => (
+                            <td key={yr} style={tdStyle}>
+                              {(stats.byYear[yr]?.[dist] ?? 0).toLocaleString()}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                      {/* Total row */}
+                      <tr>
+                        <td style={tdTotalLeft}>Total</td>
+                        {years.map(yr => (
+                          <td key={yr} style={tdTotal}>
+                            {stats.yearTotals[yr].toLocaleString()}
+                          </td>
+                        ))}
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
-              ))}
-            </div>
+              </div>
 
-          </div>
+              {/* ── Classification Breakdown ─────────────────────────────── */}
+              <div style={{
+                background: c.bgCard, border: `1px solid ${c.border}`,
+                borderRadius: 10, padding: '12px 14px',
+              }}>
+                <SectionHeader title="Classification Breakdown" c={c} />
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr>
+                      <th style={thLeft}>Classification</th>
+                      <th style={thStyle}>Active Kasambahay</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {classification.map(({ label, count }, i) => (
+                      <tr key={label}
+                        onMouseEnter={e => e.currentTarget.style.background = `${c.border}44`}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        style={{ background: i === 0 ? `${c.border}22` : 'transparent' }}
+                      >
+                        <td style={{
+                          ...tdLeft,
+                          fontWeight: i === 0 ? 700 : 400,
+                          color: i === 0 ? c.text : c.textSub,
+                        }}>
+                          {label}
+                        </td>
+                        <td style={{
+                          ...tdStyle,
+                          fontWeight: i === 0 ? 700 : 400,
+                          color: i === 0 ? c.text : c.textSub,
+                        }}>
+                          {count.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {/* Visual bar indicators */}
+                <div style={{ marginTop: 14 }}>
+                  <p style={{
+                    fontSize: 10, fontWeight: 700, color: c.textMuted,
+                    textTransform: 'uppercase', letterSpacing: '0.07em',
+                    marginBottom: 8,
+                  }}>
+                    Distribution
+                  </p>
+                  {classification.slice(1).map(({ label, count }) => {
+                    const pct = stats.total > 0 ? Math.round((count / stats.total) * 100) : 0
+                    const colors = {
+                      'Female':           '#d4537e',
+                      'Male':             '#3b82f6',
+                      'Live-in':          '#1d9e75',
+                      'Senior Citizen':   '#d97706',
+                      'Orientation Done': '#534AB7',
+                    }
+                    return (
+                      <div key={label} style={{ marginBottom: 7 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                          <span style={{ fontSize: 11, color: c.textSub }}>{label}</span>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: c.text }}>{pct}%</span>
+                        </div>
+                        <div style={{
+                          height: 5, borderRadius: 99,
+                          background: `${c.border}88`, overflow: 'hidden',
+                        }}>
+                          <div style={{
+                            height: '100%', width: `${pct}%`,
+                            background: colors[label] || c.accent,
+                            borderRadius: 99,
+                            transition: 'width 0.6s ease',
+                          }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+            </div>
+          </>
         )}
       </div>
 
