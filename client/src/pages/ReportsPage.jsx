@@ -3,14 +3,13 @@ import { useColors } from '../ThemeContext.jsx'
 import { useState, useEffect } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  PieChart, Pie, Cell, ResponsiveContainer,
+  PieChart, Pie, Cell, ResponsiveContainer, LabelList, 
 } from 'recharts'
 import * as XLSX from 'xlsx'
 
 import { API_ENDPOINTS } from '../utils/api'
 const API_URL = API_ENDPOINTS.KASAMBAHAY
 const DISTRICTS = ['District 1','District 2','District 3','District 4','District 5','District 6']
-// Dynamic: always includes current year, never needs manual updating
 const currentYear = new Date().getFullYear()
 const YEARS = Array.from({ length: currentYear - 2023 }, (_, i) => 2024 + i)
 const COLORS    = ['#534AB7','#9FE1CB','#F4A261','#E76F51','#6A4C93','#2EC4B6','#A8DADC','#457B9D']
@@ -407,14 +406,16 @@ export default function ReportsPage() {
 
             <p style={S.sectionHead}>Benefit Coverage % by District</p>
             <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={benefits.byDistrict} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+              <BarChart data={benefits.byDistrict} margin={{ top: 20, right: 20, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                 <YAxis tickFormatter={v => `${v}%`} domain={[0, 100]} tick={{ fontSize: 11 }} />
                 <Tooltip formatter={(val) => `${val}%`} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 {Object.entries(BENEFIT_COLORS).map(([b, color]) => (
-                  <Bar key={b} dataKey={b} fill={color} radius={[3, 3, 0, 0]} />
+                  <Bar key={b} dataKey={b} fill={color} radius={[3, 3, 0, 0]}>
+                    <LabelList dataKey={b} position="top" formatter={(v) => `${v}%`} style={{ fontSize: 10, fill: '#555', fontWeight: 600 }} />
+                  </Bar>
                 ))}
               </BarChart>
             </ResponsiveContainer>
@@ -555,12 +556,14 @@ export default function ReportsPage() {
               <>
                 <p style={{ ...S.sectionHead, marginTop: 8 }}>Top 10 Birth Places (chart)</p>
                 <ResponsiveContainer width="100%" height={240}>
-                  <BarChart data={birthPlace.topPlaces.slice(0, 10).map(r => ({ name: r.place.length > 16 ? r.place.slice(0, 14) + '…' : r.place, fullName: r.place, count: r.count }))} margin={{ top: 5, right: 20, left: 0, bottom: 40 }}>
+                  <BarChart data={birthPlace.topPlaces.slice(0, 10).map(r => ({ name: r.place.length > 16 ? r.place.slice(0, 14) + '…' : r.place, fullName: r.place, count: r.count }))} margin={{ top: 20, right: 20, left: 0, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
                     <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" interval={0} />
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip formatter={(v, n, p) => [v, p.payload.fullName]} />
-                    <Bar dataKey="count" fill="#534AB7" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="count" fill="#534AB7" radius={[3, 3, 0, 0]}>
+                      <LabelList dataKey="count" position="top" formatter={(v) => v.toLocaleString()} style={{ fontSize: 10, fill: '#333', fontWeight: 600 }} />
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </>
@@ -618,14 +621,17 @@ export default function ReportsPage() {
             </div>
             <p style={{ ...S.sectionHead, marginTop: 8 }}>Educational Attainment by District</p>
             <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={education.byDistrict} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+              <BarChart data={education.byDistrict} margin={{ top: 20, right: 20, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 {EDU_LEVELS.map((l, i) => (
-                  <Bar key={l.key} dataKey={l.key} stackId="a" fill={COLORS[i % COLORS.length]} radius={i === EDU_LEVELS.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]} />
+                  <Bar key={l.key} dataKey={l.key} stackId="a" fill={COLORS[i % COLORS.length]} radius={i === EDU_LEVELS.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]}>
+                    {/* For stacked bar, position center lets it stay visible when numbers fit inside */}
+                    <LabelList dataKey={l.key} position="center" formatter={(v) => v > 0 ? v : ''} style={{ fontSize: 9, fill: '#fff', fontWeight: 600 }} />
+                  </Bar>
                 ))}
               </BarChart>
             </ResponsiveContainer>
@@ -682,12 +688,14 @@ export default function ReportsPage() {
           <div style={{ padding: 20 }}>
             <p style={S.sectionHead}>Top 20 Barangays with Most Kasambahay</p>
             <ResponsiveContainer width="100%" height={320}>
-              <BarChart data={barangayStats.list.slice(0, 20)} margin={{ top: 5, right: 20, left: 0, bottom: 80 }}>
+              <BarChart data={barangayStats.list.slice(0, 20)} margin={{ top: 20, right: 20, left: 0, bottom: 80 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
                 <XAxis dataKey="barangay" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip formatter={(val) => val.toLocaleString()} />
-                <Bar dataKey="count" fill="#2EC4B6" radius={[3, 3, 0, 0]} name="Kasambahay Count" />
+                <Bar dataKey="count" fill="#2EC4B6" radius={[3, 3, 0, 0]} name="Kasambahay Count">
+                  <LabelList dataKey="count" position="top" formatter={(v) => v.toLocaleString()} style={{ fontSize: 9, fill: '#333', fontWeight: 600 }} />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
             <p style={{ ...S.sectionHead, marginTop: 30 }}>All Barangays Breakdown</p>
