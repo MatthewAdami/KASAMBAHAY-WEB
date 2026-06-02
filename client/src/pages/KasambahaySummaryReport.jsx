@@ -7,6 +7,19 @@ const DISTRICTS = ['District 1','District 2','District 3','District 4','District
 const currentYear = new Date().getFullYear()
 const YEARS = Array.from({ length: currentYear - 2023 }, (_, i) => 2024 + i);
 
+// ─── Colors ───────────────────────────────────────────────────────────────────
+const PDF_COLORS = {
+  maroon:    [123, 17,  19],
+  darkBlue:  [26,  58,  107],
+  midBlue:   [37,  99,  168],
+  lightBlue: [214, 228, 247],
+  gold:      [200, 169, 81],
+  rowAlt:    [249, 249, 249],
+  totalRow:  [232, 238, 247],
+  white:     [255, 255, 255],
+  gray:      [102, 102, 102],
+};
+
 // ─── Apply filters to raw records ────────────────────────────────────────────
 function applyFilters(records, { year, district, sex, arrangement }) {
   return records.filter(r => {
@@ -112,6 +125,776 @@ function buildBarangay(records) {
   return result;
 }
 
+// ─── Shared parsers ───────────────────────────────────────────────────────────
+const parseSvc = (val) => {
+  if (!val || String(val).trim().toUpperCase() === 'N/A') return 0;
+  if (typeof val === 'number') return val;
+  const str = String(val).toLowerCase();
+  const match = str.match(/(\d+(\.\d+)?)/);
+  if (!match) return 0;
+  let num = parseFloat(match[0]);
+  if (str.includes('mo') || str.includes('month')) num = num / 12;
+  return num;
+};
+
+const NCR_KEYWORDS = ['manila','quezon city','qc','caloocan','malabon','navotas','valenzuela','makati','pasay','taguig','parañaque','paranaque','las piñas','las pinas','muntinlupa','mandaluyong','marikina','pasig','san juan','pateros','ncr','metro manila','national capital'];
+const isNCR = (val) => {
+  if (!val) return false;
+  return NCR_KEYWORDS.some(k => String(val).trim().toLowerCase().includes(k));
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// GENERAL ANALYSIS PDF GENERATOR — exact mirror of the QC PESO report format
+// ════════════════════════════════════════════════════════════════════════════
+async function exportGeneralAnalysisPDF(rawRecords) {
+  const { default: jsPDF }           = await import('jspdf');
+  const { default: jspdfAutoTable }  = await import('jspdf-autotable');
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const PW = doc.internal.pageSize.getWidth();
+  const PH = doc.internal.pageSize.getHeight();
+  const ML = 14, MR = 14, CT = PW / 2;
+  let y = 0;
+
+  // ── helpers ──────────────────────────────────────────────────────────────────
+  const n   = (v) => (v || 0).toLocaleString();
+  const pct = (a, b) => b ? `${((a / b) * 100).toFixed(1)}%` : '0%';
+  const cnt = (fn) => rawRecords.filter(fn).length;
+
+  const checkNewPage = (needed = 12) => {
+    if (y + needed > PH - 18) { doc.addPage(); y = 14; }
+  };
+
+  const drawSectionHeader = (title) => {
+    checkNewPage(14);
+    doc.setFillColor(...PDF_COLORS.darkBlue);
+    doc.rect(ML, y, PW - ML - MR, 7, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(255, 255, 255);
+    doc.text(title, ML + 3, y + 5);
+    doc.setTextColor(0, 0, 0);
+    y += 10;
+  };
+
+  const drawFigCaption = (text) => {
+    checkNewPage(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...PDF_COLORS.darkBlue);
+    doc.text(text, ML, y);
+    doc.setTextColor(0, 0, 0);
+    y += 5;
+  };
+
+  const drawNote = (text) => {
+    checkNewPage(6);
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 100, 100);
+    doc.text(text, ML, y);
+    doc.setTextColor(0, 0, 0);
+    y += 4;
+  };
+
+  const drawBodyText = (text) => {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(50, 50, 50);
+    const lines = doc.splitTextToSize(text, PW - ML - MR);
+    checkNewPage(lines.length * 4.5 + 3);
+    doc.text(lines, ML, y);
+    y += lines.length * 4.5 + 3;
+    doc.setTextColor(0, 0, 0);
+  };
+
+  const drawBullet = (text) => {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(50, 50, 50);
+    const lines = doc.splitTextToSize(text, PW - ML - MR - 6);
+    checkNewPage(lines.length * 4.5 + 2);
+    doc.text('\u2022', ML + 1, y);
+    doc.text(lines, ML + 6, y);
+    y += lines.length * 4.5 + 2;
+    doc.setTextColor(0, 0, 0);
+  };
+
+  const drawSubBullet = (text) => {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(50, 50, 50);
+    const lines = doc.splitTextToSize(text, PW - ML - MR - 12);
+    checkNewPage(lines.length * 4.5 + 1);
+    doc.text('\u2013', ML + 7, y);
+    doc.text(lines, ML + 12, y);
+    y += lines.length * 4.5 + 1;
+    doc.setTextColor(0, 0, 0);
+  };
+
+  // autoTable wrapper — calls jspdfAutoTable(doc, opts) directly (no prototype patch needed)
+  const autoTable = (head, body, opts = {}) => {
+    checkNewPage(20);
+    const result = jspdfAutoTable(doc, {
+      startY: y,
+      head,
+      body,
+      margin: { left: ML, right: MR },
+      styles: {
+        fontSize: 7.5,
+        cellPadding: { top: 2.5, bottom: 2.5, left: 3, right: 3 },
+        valign: 'middle',
+        lineColor: [200, 200, 200],
+        lineWidth: 0.2,
+        overflow: 'linebreak',
+      },
+      headStyles: {
+        fillColor: PDF_COLORS.darkBlue,
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        halign: 'center',
+        fontSize: 7.5,
+      },
+      alternateRowStyles: { fillColor: PDF_COLORS.rowAlt },
+      ...opts,
+    });
+    y = (result?.finalY ?? doc.lastAutoTable?.finalY ?? y) + 4;
+  };
+
+  // ── Total row style helper ────────────────────────────────────────────────────
+  const totalRowCb = (rowCount) => ({
+    didParseCell: (data) => {
+      if (data.row.index === rowCount) {
+        data.cell.styles.fillColor = PDF_COLORS.totalRow;
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.textColor = PDF_COLORS.darkBlue;
+      }
+    },
+  });
+
+  // ── Pre-compute all counts from rawRecords ────────────────────────────────────
+  const rec2425 = rawRecords.filter(r => r.year === 2024 || r.year === 2025);
+
+  // Employment arrangements — 2024+2025 combined
+  const liveIn2425  = cnt(r => r.isLiveIn  && YEARS.includes(r.year));
+  const liveOut2425 = cnt(r => r.isLiveOut && YEARS.includes(r.year));
+  const onCall2425  = cnt(r => r.isOnCall  && YEARS.includes(r.year));
+  const total2425   = rec2425.length;
+
+  // Employment arrangements — Jan–Apr 2026
+  const rec2026    = rawRecords.filter(r => r.year === 2026);
+  const liveIn26   = cnt(r => r.isLiveIn  && r.year === 2026);
+  const liveOut26  = cnt(r => r.isLiveOut && r.year === 2026);
+  const onCall26   = cnt(r => r.isOnCall  && r.year === 2026);
+  const total26    = rec2026.length;
+
+  // Job categorizations — 2024+2025
+  const genHouse2425 = cnt(r => r.isGeneralHousehelp && YEARS.includes(r.year));
+  const yaya2425     = cnt(r => r.isYaya          && YEARS.includes(r.year));
+  const cook2425     = cnt(r => r.isCook          && YEARS.includes(r.year));
+  const laun2425     = cnt(r => r.isLaundryPerson && YEARS.includes(r.year));
+  const gard2425     = cnt(r => r.isGardener      && YEARS.includes(r.year));
+  const jobTotal2425 = yaya2425 + cook2425 + laun2425 + gard2425;
+
+  // Job categorizations — Jan–Apr 2026
+  const genHouse26  = cnt(r => r.isGeneralHousehelp && r.year===2026);
+  const yaya26      = cnt(r => r.isYaya          && r.year===2026);
+  const cook26      = cnt(r => r.isCook          && r.year===2026);
+  const laun26      = cnt(r => r.isLaundryPerson && r.year===2026);
+  const gard26      = cnt(r => r.isGardener      && r.year===2026);
+  const jobTotal26  = yaya26 + cook26 + laun26 + gard26;
+
+  // Length of service (from 2024-2025 ODK data — using yearsOfService field if available)
+  const svc = (lo, hi) => cnt(r => {
+    const s = parseSvc(r.yearsOfService || r.lengthOfService);
+    return s >= lo && s <= hi && YEARS.includes(r.year);
+  });
+  const svc26 = (lo, hi) => cnt(r => {
+    const s = parseSvc(r.yearsOfService || r.lengthOfService);
+    return s >= lo && s <= hi && r.year===2026;
+  });
+  const svc35   = svc(3, 5);
+  const svc510  = svc(5, 9);
+  const svc1020 = svc(10, 19);
+  const svc2030 = svc(20, 29);
+  const svc3040 = svc(30, 39);
+  const svc4050 = svc(40, 49);
+  const svc50p  = svc(50, 999);
+  const svcTotal= svc35+svc510+svc1020+svc2030+svc3040+svc4050+svc50p;
+  const svc35_26   = svc26(3, 5);
+  const svc510_26  = svc26(5, 9);
+  const svc1020_26 = svc26(10, 19);
+  const svc2030_26 = svc26(20, 29);
+  const svc3040_26 = svc26(30, 39);
+  const svc4050_26 = svc26(40, 49);
+  const svc50p_26  = svc26(50, 999);
+  const svcTotal_26= svc35_26+svc510_26+svc1020_26+svc2030_26+svc3040_26+svc4050_26+svc50p_26;
+
+  // Age brackets — 2024+2025
+  const age1830_2425 = cnt(r => (r.age||0)>=18 && (r.age||0)<=30 && YEARS.includes(r.year));
+  const age3145_2425 = cnt(r => (r.age||0)>=31 && (r.age||0)<=45 && YEARS.includes(r.year));
+  const age41up_2425 = cnt(r => (r.age||0)> 41                   && YEARS.includes(r.year));
+  const ageTotal2425 = age1830_2425 + age3145_2425 + age41up_2425;
+
+  // Age brackets — Jan–Apr 2026
+  const age1830_26 = cnt(r => (r.age||0)>=18 && (r.age||0)<=30 && r.year===2026);
+  const age3145_26 = cnt(r => (r.age||0)>=31 && (r.age||0)<=45 && r.year===2026);
+  const age41up_26 = cnt(r => (r.age||0)> 41                   && r.year===2026);
+  const ageTotal26 = age1830_26 + age3145_26 + age41up_26;
+
+  // Sex — 2024+2025
+  const female2425 = cnt(r => r.isFemale && YEARS.includes(r.year));
+  const male2425   = cnt(r => r.isMale   && YEARS.includes(r.year));
+
+  // Sex — Jan–Apr 2026
+  const female26 = cnt(r => r.isFemale && r.year===2026);
+  const male26   = cnt(r => r.isMale   && r.year===2026);
+
+  // Educational Attainment — 2024+2025
+  const edKey = (r) => (r.educationalAttainment || r.education || '').toLowerCase();
+  const ed = (kw) => cnt(r => edKey(r).includes(kw) && YEARS.includes(r.year));
+  const edElemGrad    = ed('elem') && cnt(r => edKey(r).includes('elem') && !edKey(r).includes('under') && YEARS.includes(r.year));
+  const edElemUnder   = cnt(r => edKey(r).includes('elem') && edKey(r).includes('under') && YEARS.includes(r.year));
+  const edHSGrad      = cnt(r => (edKey(r).includes('high school') || edKey(r).includes('hs')) && !edKey(r).includes('under') && YEARS.includes(r.year));
+  const edHSUnder     = cnt(r => (edKey(r).includes('high school') || edKey(r).includes('hs')) && edKey(r).includes('under') && YEARS.includes(r.year));
+  const edColGrad     = cnt(r => edKey(r).includes('college') && !edKey(r).includes('under') && YEARS.includes(r.year));
+  const edColUnder    = cnt(r => edKey(r).includes('college') && edKey(r).includes('under') && YEARS.includes(r.year));
+  const edVoc         = cnt(r => edKey(r).includes('voc') && YEARS.includes(r.year));
+  const edTotal2425   = edElemGrad+edElemUnder+edHSGrad+edHSUnder+edColGrad+edColUnder+edVoc;
+
+  // Educational Attainment — Jan–Apr 2026
+  const edElemGrad26  = cnt(r => edKey(r).includes('elem') && !edKey(r).includes('under') && r.year===2026);
+  const edElemUnder26 = cnt(r => edKey(r).includes('elem') && edKey(r).includes('under') && r.year===2026);
+  const edHSGrad26    = cnt(r => (edKey(r).includes('high school')||edKey(r).includes('hs')) && !edKey(r).includes('under') && r.year===2026);
+  const edHSUnder26   = cnt(r => (edKey(r).includes('high school')||edKey(r).includes('hs')) && edKey(r).includes('under') && r.year===2026);
+  const edColGrad26   = cnt(r => edKey(r).includes('college') && !edKey(r).includes('under') && r.year===2026);
+  const edColUnder26  = cnt(r => edKey(r).includes('college') && edKey(r).includes('under') && r.year===2026);
+  const edVoc26       = cnt(r => edKey(r).includes('voc') && r.year===2026);
+  const edTotal26     = edElemGrad26+edElemUnder26+edHSGrad26+edHSUnder26+edColGrad26+edColUnder26+edVoc26;
+
+  // Place of origin — 2024+2025
+  const originNCR2425  = cnt(r => isNCR(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && YEARS.includes(r.year));
+  const originProv2425 = cnt(r => !isNCR(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && !!(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && YEARS.includes(r.year));
+
+  // Place of origin — Jan–Apr 2026
+  const originNCR26   = cnt(r => isNCR(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && r.year===2026);
+  const originProv26  = cnt(r => !isNCR(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && !!(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && r.year===2026);
+
+  // Social Benefits — 2024+2025
+  const sss2425  = cnt(r => r.sss        && YEARS.includes(r.year));
+  const phi2425  = cnt(r => r.philhealth && YEARS.includes(r.year));
+  const pag2425  = cnt(r => r.pagIbig    && YEARS.includes(r.year));
+  const qcid2425 = cnt(r => r.qcid       && YEARS.includes(r.year));
+  const benTotal2425 = sss2425 + phi2425 + pag2425 + qcid2425;
+
+  // Social Benefits — Jan–Apr 2026
+  const sss26   = cnt(r => r.sss        && r.year===2026);
+  const phi26   = cnt(r => r.philhealth && r.year===2026);
+  const pag26   = cnt(r => r.pagIbig    && r.year===2026);
+  const qcid26  = cnt(r => r.qcid       && r.year===2026);
+  const benTotal26 = sss26 + phi26 + pag26 + qcid26;
+
+  // Barangay compliance (from actual data)
+  const barangayData   = buildBarangay(rawRecords);
+  const brgyCompliance = DISTRICTS.map(d => ({
+    district:  d,
+    barangays: (barangayData[d] || []).map(b => b.barangay),
+    total:     (barangayData[d] || []).length,
+  }));
+  const totalBrgy = brgyCompliance.reduce((s, d) => s + d.total, 0);
+
+  // Program activity counts
+  const ori24  = cnt(r => r.kasambahayOrientation);
+  const org24  = cnt(r => r.kasambahayOrganizing);
+  const fgd24  = cnt(r => r.focusGroupDiscussion);
+  const ga24   = cnt(r => r.generalAssembly);
+  const osh24  = cnt(r => r.occupationalSafetyAndHealth);
+  const gen24  = cnt(r => r.genderSensitivityTraining);
+  const fa24   = cnt(r => r.basicFirstAidTraining);
+  const hs24   = cnt(r => r.homeSecurityAwareness);
+
+  // District summary
+  const rows   = buildSummary(rawRecords);
+  const totals = buildTotals(rows);
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // HEADER
+  // ════════════════════════════════════════════════════════════════════════════
+  y = 12;
+
+  // Top maroon rule
+  doc.setFillColor(...PDF_COLORS.maroon);
+  doc.rect(0, 0, PW, 2.5, 'F');
+
+  // Agency text
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(...PDF_COLORS.darkBlue);
+  doc.text('Republic of the Philippines', CT, y, { align: 'center' }); y += 4;
+  doc.text('Local Government of Quezon City', CT, y, { align: 'center' }); y += 4;
+  doc.setFontSize(12.5);
+  doc.text('PUBLIC EMPLOYMENT SERVICE OFFICE', CT, y, { align: 'center' }); y += 5.5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.setTextColor(80, 80, 80);
+  doc.text(
+    '6th Floor Civic Center Building A, Quezon City Hall, Quezon City, Philippines  |  Tel: 8988-42-42 loc. 8436/8437/8439  |  peso@quezoncity.gov.ph',
+    CT, y, { align: 'center' }
+  );
+  y += 3;
+
+  // Double rule
+  doc.setDrawColor(...PDF_COLORS.maroon);
+  doc.setLineWidth(1.5);
+  doc.line(ML, y, PW - MR, y); y += 1.5;
+  doc.setDrawColor(...PDF_COLORS.darkBlue);
+  doc.setLineWidth(0.4);
+  doc.line(ML, y, PW - MR, y); y += 7;
+
+  // Report title
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(...PDF_COLORS.maroon);
+  doc.text('GENERAL ANALYSIS FOR KASAMBAHAY PROGRAM', CT, y, { align: 'center' }); y += 5.5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...PDF_COLORS.darkBlue);
+  doc.text(
+    `Special Projects Division – Kasambahay Section  |  Generated: ${new Date().toLocaleDateString('en-PH', { year:'numeric', month:'long', day:'numeric' })}`,
+    CT, y, { align: 'center' }
+  ); y += 4;
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.3);
+  doc.line(ML, y, PW - MR, y); y += 7;
+  doc.setTextColor(0, 0, 0);
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // I. OVERVIEW
+  // ════════════════════════════════════════════════════════════════════════════
+  drawSectionHeader('I.  OVERVIEW');
+  drawBodyText(
+    'The Special Projects Division – Kasambahay Section continues to implement various orientations, ' +
+    'activities, and programs in line with the enforcement of Republic Act No. 10361 or the Batas Kasambahay. ' +
+    'These initiatives aim to promote awareness of rights and benefits, strengthen organization among ' +
+    'Kasambahays, and improve access to social protection and government services.'
+  );
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // II. DEMOGRAPHIC PROFILE
+  // ════════════════════════════════════════════════════════════════════════════
+  drawSectionHeader('II.  DEMOGRAPHIC PROFILE');
+
+  // ── Figure 1: Employment Arrangements ──────────────────────────────────────
+  drawFigCaption('Figure 1: Employment Arrangements');
+  autoTable(
+    [['', 'Live-In', 'Live-Out', 'On-Call', 'Total']],
+    [
+      [`${YEARS.join(' and ')} Data`,    n(liveIn2425),  n(liveOut2425),  n(onCall2425),  n(total2425)],
+      ['January to April 2026', n(liveIn26),    n(liveOut26),    n(onCall26),    n(total26)],
+    ],
+    {
+      columnStyles: {
+        0: { halign: 'left', fontStyle: 'bold', cellWidth: 55 },
+        4: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
+      },
+    }
+  );
+  drawBodyText(
+    `The consolidated data on Kasambahay employment arrangements for ${YEARS.join(' and ')} recorded a total of ` +
+    `${n(total2425)} domestic workers, consisting of ${n(liveIn2425)} live-in, ${n(liveOut2425)} live-out, and ` +
+    `${n(onCall2425)} on-call workers. The data shows that live-out kasambahays had the highest number, ` +
+    `indicating a growing preference for non-residential work arrangements.`
+  );
+  drawBodyText(
+    `From January to April 2026, a total of ${n(total26)} kasambahays were recorded, including ` +
+    `${n(liveIn26)} live-in, ${n(liveOut26)} live-out, and ${n(onCall26)} on-call workers. Live-out ` +
+    `workers remained the highest in number, while the increase in on-call workers reflects a growing ` +
+    `demand for flexible domestic work services.`
+  );
+
+  // ── Figure 2: Job Categorizations ──────────────────────────────────────────
+  drawFigCaption('Figure 2: Job Categorizations');
+  autoTable(
+    [['', 'Yaya', 'Cook', 'Laundry', 'Gardener', 'Total']],
+    [
+      [`${YEARS.join(' and ')} Data`,    n(yaya2425), n(cook2425), n(laun2425), n(gard2425), n(jobTotal2425)],
+      ['January to April 2026', n(yaya26),   n(cook26),   n(laun26),   n(gard26),   n(jobTotal26)],
+    ],
+    {
+      columnStyles: {
+        0: { halign: 'left', fontStyle: 'bold', cellWidth: 55 },
+        5: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
+      },
+    }
+  );
+  drawBodyText(
+    `The data on kasambahay job categorizations for ${YEARS.join(' and ')} recorded a total of ${n(jobTotal2425)} ` +
+    `domestic workers. Cooks had the highest number with ${n(cook2425)} workers, followed by laundry ` +
+    `workers with ${n(laun2425)}, yayas with ${n(yaya2425)}, and gardeners with ${n(gard2425)}. This shows ` +
+    `that cooking, childcare, and laundry services are the most needed household roles.`
+  );
+  drawBodyText(
+    `From January to April 2026, a total of ${n(jobTotal26)} kasambahays were recorded. Cooks remained ` +
+    `the highest with ${n(cook26)} workers, followed by yayas with ${n(yaya26)}, laundry workers with ` +
+    `${n(laun26)}, and gardeners with ${n(gard26)}. The increase in gardeners indicates a growing demand ` +
+    `for household maintenance services.`
+  );
+  drawBodyText(
+    'Overall, the data reflects the continuing demand for cooking and childcare services and highlights ' +
+    'the need for skills training and support programs for kasambahays.'
+  );
+
+  // ── Figure 3: Length of Service ────────────────────────────────────────────
+  drawFigCaption('Figure 3: Length of Service');
+  drawNote('Source: Open Data Kit (ODK) LMIS DATABASE 2024–2025');
+  autoTable(
+    [['', '3–5\nyrs', '5–10\nyrs', '10–20\nyrs', '20–30\nyrs', '30–40\nyrs', '40–50\nyrs', '50 yrs\n& above', 'Total']],
+    [
+      [`${YEARS.join(' and ')} Data`,    n(svc35), n(svc510), n(svc1020), n(svc2030), n(svc3040), n(svc4050), n(svc50p), n(svcTotal)],
+      ['January to April 2026', n(svc35_26), n(svc510_26), n(svc1020_26), n(svc2030_26), n(svc3040_26), n(svc4050_26), n(svc50p_26), n(svcTotal_26)],
+    ],
+    {
+      columnStyles: {
+        0: { halign: 'left', fontStyle: 'bold', cellWidth: 45 },
+        8: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
+      },
+      styles: { fontSize: 7 },
+    }
+  );
+  drawNote('Based on Open Data Kit (ODK) YEAR ${YEARS[0]} TO ${YEARS[YEARS.length-1]} NOVEMBER');
+
+  // ── Figure 4: Age Brackets ──────────────────────────────────────────────────
+  drawFigCaption('Figure 4: Age Brackets');
+  autoTable(
+    [['', 'Age 18–30', 'Age 31–45', 'Age 41 Above', 'Total']],
+    [
+      [`${YEARS.join(' and ')} Data`,    n(age1830_2425), n(age3145_2425), n(age41up_2425), n(ageTotal2425)],
+      ['January to April 2026', n(age1830_26),   n(age3145_26),   n(age41up_26),   n(ageTotal26)],
+    ],
+    {
+      columnStyles: {
+        0: { halign: 'left', fontStyle: 'bold', cellWidth: 55 },
+        4: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
+      },
+    }
+  );
+  drawBodyText(
+    `The table shows the age brackets of kasambahays for ${YEARS.join(' and ')}, recording a total of ` +
+    `${n(ageTotal2425)} domestic workers. The majority belonged to the age group 41 and above with ` +
+    `${n(age41up_2425)} domestic workers, followed by ages 31–45 with ${n(age3145_2425)}, and ages 18–30 with ${n(age1830_2425)}.`
+  );
+  drawBodyText(
+    `From January to April 2026, a total of ${n(ageTotal26)} kasambahays were recorded, with ` +
+    `${n(age41up_26)} domestic workers aged 41 and above, ${n(age3145_26)} aged 31–45, and ${n(age1830_26)} aged 18–30.`
+  );
+  drawBodyText(
+    'Overall, the data shows that most kasambahays belong to the older age group, indicating that ' +
+    'domestic work is largely sustained by experienced adult workers rather than younger individuals.'
+  );
+
+  // ── Figure 5: Sex ───────────────────────────────────────────────────────────
+  drawFigCaption('Figure 5: Sex');
+  autoTable(
+    [['', 'Female', 'Male', 'Total']],
+    [
+      [`${YEARS.join(' and ')} Data`,    n(female2425), n(male2425), n(female2425+male2425)],
+      ['January to April 2026', n(female26),   n(male26),   n(female26+male26)],
+    ],
+    {
+      columnStyles: {
+        0: { halign: 'left', fontStyle: 'bold', cellWidth: 55 },
+        3: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
+      },
+    }
+  );
+  drawBodyText(
+    `The data on the sex distribution of kasambahays for ${YEARS.join(' and ')} recorded a total of ` +
+    `${n(female2425+male2425)} workers, of which ${n(female2425)} were female and ${n(male2425)} were male. ` +
+    `This indicates that the kasambahay sector remains predominantly female-dominated.`
+  );
+  drawBodyText(
+    `From January to April 2026, a total of ${n(female26+male26)} kasambahays were recorded, including ` +
+    `${n(female26)} females and ${n(male26)} males. The data continues to show a significantly higher ` +
+    `number of female workers compared to males.`
+  );
+  drawBodyText(
+    'Overall, the figures highlight that domestic work is still primarily carried out by women, emphasizing ' +
+    'the importance of gender-responsive programs, protection, and welfare support for female kasambahays.'
+  );
+
+  // ── Figure 6: Educational Attainment ───────────────────────────────────────
+  drawFigCaption('Figure 6: Educational Attainment');
+  autoTable(
+    [['', 'Elem.\nGrad.', 'Elem.\nUndergrad', 'HS\nGrad', 'HS\nUndergrad', 'College\nGrad', 'Col.\nUndergrad', 'Voc.', 'Total']],
+    [
+      [`${YEARS.join(' and ')} Data`,    n(edElemGrad),   n(edElemUnder),   n(edHSGrad),   n(edHSUnder),   n(edColGrad),   n(edColUnder),   n(edVoc),   n(edTotal2425)],
+      ['January to April 2026', n(edElemGrad26), n(edElemUnder26), n(edHSGrad26), n(edHSUnder26), n(edColGrad26), n(edColUnder26), n(edVoc26), n(edTotal26)],
+    ],
+    {
+      columnStyles: {
+        0: { halign: 'left', fontStyle: 'bold', cellWidth: 40 },
+        8: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
+      },
+      styles: { fontSize: 7 },
+    }
+  );
+  drawBodyText(
+    'The data shows that most kasambahays are high school graduates and high school undergraduates. ' +
+    `In ${YEARS[0]}–${YEARS[YEARS.length-1]}, High School Graduates recorded the highest number (${n(edHSGrad)}), followed by ` +
+    `High School Undergraduates (${n(edHSUnder)}). Elementary-level workers also make up a large ` +
+    'portion of the sector, while college graduates and vocational graduates recorded the lowest numbers. ' +
+    'This indicates that most kasambahays have basic to secondary education only.'
+  );
+  drawBodyText(
+    'The findings highlight the need for continuous skills training, education support, and livelihood ' +
+    'programs to improve employment opportunities and career growth for kasambahays.'
+  );
+
+  // ── Figure 7: Place of Origin ───────────────────────────────────────────────
+  drawFigCaption('Figure 7: Place of Origin');
+  drawNote('Based on Kasambahay Masterlist database.');
+  autoTable(
+    [['', 'NCR', 'Provinces']],
+    [
+      [`${YEARS.join(' and ')} Data`,    n(originNCR2425), n(originProv2425)],
+      ['January to April 2026', n(originNCR26),   n(originProv26)],
+    ],
+    {
+      columnStyles: {
+        0: { halign: 'left', fontStyle: 'bold', cellWidth: 55 },
+      },
+    }
+  );
+
+  // ── Figure 8: Social Benefits ──────────────────────────────────────────────
+  drawFigCaption('Figure 8: Social Benefits');
+  autoTable(
+    [['', 'SSS', 'PhilHealth', 'Pag-IBIG', 'QC ID', 'Total']],
+    [
+      [`${YEARS.join(' and ')} Data`,    n(sss2425), n(phi2425), n(pag2425), n(qcid2425), n(benTotal2425)],
+      ['January to April 2026', n(sss26),   n(phi26),   n(pag26),   n(qcid26),   n(benTotal26)],
+    ],
+    {
+      columnStyles: {
+        0: { halign: 'left', fontStyle: 'bold', cellWidth: 55 },
+        5: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
+      },
+    }
+  );
+  drawBodyText(
+    `The data shows that many kasambahays are enrolled in social protection programs, with QC ID having ` +
+    `the highest number of beneficiaries (${n(qcid2425)}), followed by PhilHealth (${n(phi2425)}) and ` +
+    `SSS (${n(sss2425)}). In ${YEARS[0]}–${YEARS[YEARS.length-1]}, Pag-IBIG recorded the lowest number (${n(pag2425)}), indicating ` +
+    `lower participation in housing and savings programs. From January to April 2026, QC ID remained the ` +
+    `most accessed benefit, while Pag-IBIG participation showed improvement. Overall, the figures reflect ` +
+    `increasing awareness and access to social benefits among kasambahays, but continued information and ` +
+    `registration assistance are still needed to improve coverage.`
+  );
+
+  // ── Figure 9: Barangay Compliance ──────────────────────────────────────────
+  drawFigCaption('Figure 9: Based on Submitted Report per Barangays');
+  autoTable(
+    [['Compliance Submitted Report per Barangays', `${YEARS[0]}–${YEARS[YEARS.length-1]}`, '2026']],
+    [
+      ['', `${totalBrgy} Barangays`, `${brgyCompliance.reduce((s,d)=> s + (d.barangays.filter(b => b).length), 0)}`],
+    ],
+    {
+      columnStyles: {
+        0: { halign: 'left', fontStyle: 'bold', cellWidth: 100 },
+        1: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
+        2: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
+      },
+    }
+  );
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // OTHER KEY OUTPUTS (ENGAGEMENTS)
+  // ════════════════════════════════════════════════════════════════════════════
+  checkNewPage(30);
+  drawSectionHeader('OTHER KEY OUTPUTS (ENGAGEMENTS)');
+  drawBullet('Kasambahays enrolled in Savings Program');
+  drawBullet('Groups with ongoing DOLE Accreditation:');
+  drawSubBullet('WONDER KASAMBAHAY Q2A (6/24/25)');
+  drawSubBullet('MADISKARTENG KASAMBAHAY NG ESCOPA 1 (7/14/25)');
+  y += 2;
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // PROGRAM ACTIVITIES
+  // ════════════════════════════════════════════════════════════════════════════
+  checkNewPage(30);
+  drawSectionHeader('SUMMARY OF KASAMBAHAY PROGRAM ACTIVITIES');
+  drawBodyText('Below are the breakdowns of the various activities/programs conducted:');
+  drawFigCaption('Figure 1. Summary of Kasambahay Program Activities');
+  autoTable(
+    [['Program Category', 'Number of Attendees']],
+    [
+      ['Orientation of Batas Kasambahay',             n(ori24)],
+      ['Organizing of Kasambahay Groups',              n(org24)],
+      ['Focus Group Discussion',                       n(fgd24)],
+      ['Kasambahay General Assembly',                  n(ga24)],
+      ['Kasambahay OSH Training and GAD',              n(osh24 + gen24)],
+      ['Basic First Aid Training and Home Security Awareness', n(fa24 + hs24)],
+    ],
+    {
+      columnStyles: {
+        0: { halign: 'left', cellWidth: 130 },
+        1: { halign: 'center', fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
+      },
+    }
+  );
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // BARANGAY COMPLIANCE TABLE
+  // ════════════════════════════════════════════════════════════════════════════
+  checkNewPage(30);
+  drawSectionHeader('BARANGAYS COMPLIANCE – SUBMITTED REPORTS');
+  drawFigCaption('Figure 2: Barangays Compliance Submitted Reports');
+
+  // One row per district listing all barangays
+  const brgyBody = brgyCompliance.map(d => [
+    `${d.district}\n(Total: ${d.total})`,
+    d.barangays.length > 0
+      ? d.barangays.join('\n')
+      : 'None recorded',
+  ]);
+
+  autoTable(
+    [['District', 'Barangays']],
+    brgyBody,
+    {
+      columnStyles: {
+        0: { halign: 'left', fontStyle: 'bold', cellWidth: 40, textColor: PDF_COLORS.darkBlue },
+        1: { halign: 'left', cellWidth: PW - ML - MR - 40 },
+      },
+      styles: { fontSize: 7.5, cellPadding: { top: 3, bottom: 3, left: 3, right: 3 } },
+    }
+  );
+  y += 2;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(...PDF_COLORS.darkBlue);
+  doc.text(`Total: ${n(totalBrgy)} Barangays`, ML, y);
+  y += 6;
+  doc.setTextColor(0, 0, 0);
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // DISTRICT SUMMARY (appended at end for reference)
+  // ════════════════════════════════════════════════════════════════════════════
+  checkNewPage(30);
+  drawSectionHeader('DISTRICT SUMMARY – REGISTERED KASAMBAHAYS');
+
+  drawFigCaption('District Overview: Encoded Records & Demographics');
+  autoTable(
+    [[`District`, ...YEARS.map(y => `Enc\n${y}`), 'Sub\nTotal', 'Female', 'Male', 'Live-In', 'Live-Out', 'On-Call']],
+    [
+      ...rows.map(r => [
+        r.district, ...YEARS.map(y => n(r[`enc${y}`] || 0)), n(r.subtotal),
+        n(r.female), n(r.male), n(r.liveIn), n(r.liveOut), n(r.onCall),
+      ]),
+      [
+        'TOTAL', ...YEARS.map(y => n(totals[`enc${y}`] || 0)), n(totals.subtotal),
+        n(totals.female), n(totals.male), n(totals.liveIn), n(totals.liveOut), n(totals.onCall),
+      ],
+    ],
+    {
+      columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 28 }, 3: { fontStyle: 'bold' } },
+      styles: { fontSize: 7 },
+      ...totalRowCb(rows.length),
+    }
+  );
+
+  drawFigCaption('District Training & Work Type');
+  autoTable(
+    [['District', 'Orientation', 'Organizing', 'OSH', 'Gender\nSens.', 'First Aid', 'Home\nSec.', 'Gen.\nHousehelp', 'Cook', 'Laundry', 'Yaya', 'Gardener']],
+    [
+      ...rows.map(r => [
+        r.district, n(r.orientation), n(r.organizing), n(r.osh),
+        n(r.genderSens), n(r.firstAid), n(r.homeSec),
+        n(r.genHouse), n(r.cook), n(r.laundry), n(r.yaya), n(r.gardener),
+      ]),
+      [
+        'TOTAL', n(totals.orientation), n(totals.organizing), n(totals.osh),
+        n(totals.genderSens), n(totals.firstAid), n(totals.homeSec),
+        n(totals.genHouse), n(totals.cook), n(totals.laundry), n(totals.yaya), n(totals.gardener),
+      ],
+    ],
+    {
+      columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 28 } },
+      styles: { fontSize: 7 },
+      ...totalRowCb(rows.length),
+    }
+  );
+
+  drawFigCaption('Age Brackets per District');
+  const ageBracketsDist = [
+    { label: '15 and below', key: 'age15below' },
+    { label: '18–30',        key: 'age1830'    },
+    { label: '31–45',        key: 'age3145'    },
+    { label: '45 and above', key: 'age45above' },
+  ];
+  autoTable(
+    [['Age Bracket', ...DISTRICTS, 'TOTAL']],
+    [
+      ...ageBracketsDist.map(({ label, key }) => [
+        label,
+        ...rows.map(r => n(r[key])),
+        n(rows.reduce((s, r) => s + (r[key] || 0), 0)),
+      ]),
+      ['SUBTOTAL', ...rows.map(r => n(r.subtotal)), n(totals.subtotal)],
+    ],
+    {
+      columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 30 } },
+      styles: { fontSize: 7 },
+      ...totalRowCb(ageBracketsDist.length),
+    }
+  );
+
+  drawFigCaption('Benefit Coverage % per District');
+  const pctRows = buildPct(rows);
+  autoTable(
+    [['District', 'SSS %', 'PhilHealth %', 'Pag-IBIG %', 'QCID %']],
+    [
+      ...pctRows.map(r => [
+        r.district,
+        `${r.sss.toFixed(2)}%`, `${r.philhealth.toFixed(2)}%`,
+        `${r.pagibig.toFixed(2)}%`, `${r.qcid.toFixed(2)}%`,
+      ]),
+      [
+        'All Districts',
+        `${totals.subtotal ? ((totals.sss/totals.subtotal)*100).toFixed(2) : 0}%`,
+        `${totals.subtotal ? ((totals.philhealth/totals.subtotal)*100).toFixed(2) : 0}%`,
+        `${totals.subtotal ? ((totals.pagibig/totals.subtotal)*100).toFixed(2) : 0}%`,
+        `${totals.subtotal ? ((totals.qcid/totals.subtotal)*100).toFixed(2) : 0}%`,
+      ],
+    ],
+    {
+      columnStyles: { 0: { halign: 'left', fontStyle: 'bold' } },
+      ...totalRowCb(pctRows.length),
+    }
+  );
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // FOOTER — every page
+  // ════════════════════════════════════════════════════════════════════════════
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFillColor(...PDF_COLORS.maroon);
+    doc.rect(0, PH - 9, PW, 9, 'F');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text(
+      'Quezon City Public Employment Service Office (QC PESO)  |  Special Projects Division – Kasambahay Section',
+      CT, PH - 4.5, { align: 'center' }
+    );
+    doc.text(`Page ${i} of ${totalPages}`, PW - MR, PH - 4.5, { align: 'right' });
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  doc.save(`General_Analysis_Kasambahay_${today}.pdf`);
+}
+
 // ─── Export to Excel ─────────────────────────────────────────────────────────
 function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName) {
   const wb = XLSX.utils.book_new();
@@ -155,14 +938,13 @@ function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName) {
   // District Overview
   const ovHeaders = [
     'District',...YEARS.map(y => `Encoded ${y}`),'Sub Total',
-    'SSS','PhilHealth','Pag-IBIG','QCID',
     'Female','Male','Live-In','Live-Out','On-Call',
     'Senior','Solo Parent','Ex-OFW','PWD',
   ];
   const ovData = [
     ovHeaders,
-    ...rows.map(r => [r.district,...YEARS.map(y => r[`enc${y}`]),r.subtotal,r.sss,r.philhealth,r.pagibig,r.qcid,r.female,r.male,r.liveIn,r.liveOut,r.onCall,r.senior,r.soloParent,r.exOfw,r.pwd]),
-    ['TOTAL',...YEARS.map(y => totals[`enc${y}`]),totals.subtotal,totals.sss,totals.philhealth,totals.pagibig,totals.qcid,totals.female,totals.male,totals.liveIn,totals.liveOut,totals.onCall,totals.senior,totals.soloParent,totals.exOfw,totals.pwd],
+    ...rows.map(r => [r.district,...YEARS.map(y => r[`enc${y}`] || 0),r.subtotal,r.female,r.male,r.liveIn,r.liveOut,r.onCall,r.senior,r.soloParent,r.exOfw,r.pwd]),
+    ['TOTAL',...YEARS.map(y => totals[`enc${y}`] || 0),totals.subtotal,totals.female,totals.male,totals.liveIn,totals.liveOut,totals.onCall,totals.senior,totals.soloParent,totals.exOfw,totals.pwd],
   ];
   const ws1 = XLSX.utils.aoa_to_sheet(ovData);
   ws1['!cols'] = autoWidth(ovData);
@@ -275,13 +1057,8 @@ const OvRow = ({ r, isT, even }) => {
   return (
     <tr style={ts}>
       <td style={{ ...S.tdL, ...ts }}>{r.district}</td>
-      <td style={{ ...S.td,  ...ts }}>{n(r.enc2024)}</td>
-      <td style={{ ...S.td,  ...ts }}>{n(r.enc2025)}</td>
+      {YEARS.map(y => <td key={y} style={{ ...S.td, ...ts }}>{n(r[`enc${y}`] || 0)}</td>)}
       <td style={{ ...S.td,  ...ts, fontWeight: '700' }}>{n(r.subtotal)}</td>
-      <td style={{ ...S.td,  ...ts }}>{n(r.sss)}</td>
-      <td style={{ ...S.td,  ...ts }}>{n(r.philhealth)}</td>
-      <td style={{ ...S.td,  ...ts }}>{n(r.pagibig)}</td>
-      <td style={{ ...S.td,  ...ts }}>{n(r.qcid)}</td>
       <td style={{ ...S.td,  ...ts, color: isT ? '#3c3289' : '#993556' }}>{n(r.female)}</td>
       <td style={{ ...S.td,  ...ts, color: isT ? '#3c3289' : '#185fa5' }}>{n(r.male)}</td>
       <td style={{ ...S.td,  ...ts }}>{n(r.liveIn)}</td>
@@ -321,6 +1098,7 @@ const KasambahaySummaryReport = () => {
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState('');
   const [tab,        setTab]        = useState('overview');
+  const [genPdfLoading, setGenPdfLoading] = useState(false); // ← NEW
 
   // Filter state
   const [filterYear,        setFilterYear]        = useState('');
@@ -342,6 +1120,18 @@ const KasambahaySummaryReport = () => {
     };
     load();
   }, []);
+
+  // ── NEW: General Analysis PDF handler ────────────────────────────────────────
+  const handleGeneralAnalysisPDF = async () => {
+    setGenPdfLoading(true);
+    try {
+      await exportGeneralAnalysisPDF(rawRecords);
+    } catch (e) {
+      alert('Failed to generate General Analysis PDF: ' + e.message);
+    } finally {
+      setGenPdfLoading(false);
+    }
+  };
 
   // Derive filtered records
   const activeFilters  = { year: filterYear, district: filterDistrict, sex: filterSex, arrangement: filterArrangement };
@@ -417,8 +1207,26 @@ const KasambahaySummaryReport = () => {
             )}
           </p>
         </div>
+
+        {/* ── ACTION BUTTONS ── */}
         <div className="hide-on-print" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          {/* Full export — always all records */}
+
+          {/* ── NEW: General Analysis PDF Button ── */}
+          <button
+            onClick={handleGeneralAnalysisPDF}
+            disabled={genPdfLoading}
+            style={{
+              ...S.btn,
+              background: genPdfLoading ? '#999' : '#7B1113',
+              cursor: genPdfLoading ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', gap: '6px',
+            }}
+            title="Export General Analysis Report as PDF (QC PESO format)"
+          >
+            {genPdfLoading ? '⏳ Generating…' : '📋 General Analysis PDF'}
+          </button>
+
+          {/* Full Excel export */}
           <button
             onClick={() => {
               const allRows = buildSummary(rawRecords);
@@ -430,7 +1238,7 @@ const KasambahaySummaryReport = () => {
             📊 Export to Excel
           </button>
 
-          {/* Filtered export — only when a filter is active */}
+          {/* Filtered Excel export */}
           {hasFilter && (
             <button
               onClick={() => exportToExcel(rows, totals, pctRows, barangay, displayRecords, `Kasambahay_Filtered_${filterLabel}`)}
@@ -470,7 +1278,7 @@ const KasambahaySummaryReport = () => {
       {/* ── Tabs Card (Filter Bar + Tabs + Content) ── */}
       <div style={S.card}>
 
-        {/* Filter Bar — lives at the top of the card */}
+        {/* Filter Bar */}
         <div
           className="hide-on-print"
           style={{
@@ -489,7 +1297,7 @@ const KasambahaySummaryReport = () => {
               options: [['','All Districts'], ...DISTRICTS.map(d => [d, d])] },
             { label: 'Sex',         value: filterSex,         setter: setFilterSex,
               options: [['','All'], ['female','Female'], ['male','Male']] },
-            { label: 'Arrangement', value: filterArrangement, setter: setFilterArrangement,
+            { label: 'Working Arrangements', value: filterArrangement, setter: setFilterArrangement,
               options: [['','All'], ['livein','Live-In'], ['liveout','Live-Out'], ['oncall','On-Call']] },
           ].map(({ label, value, setter, options }) => (
             <div key={label}>
@@ -533,10 +1341,10 @@ const KasambahaySummaryReport = () => {
         {/* ── District Overview ── */}
         {tab === 'overview' && (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ ...S.tbl, tableLayout: 'fixed', minWidth: '1300px' }}>
+            <table style={{ ...S.tbl, tableLayout: 'fixed', minWidth: '1000px' }}>
               <colgroup>
                 <col style={{ width: '90px' }} />
-                {Array(7).fill(0).map((_, i) => <col key={i} style={{ width: '72px' }} />)}
+                {Array(3).fill(0).map((_, i) => <col key={i} style={{ width: '72px' }} />)}
                 <col style={{ width: '68px' }} /><col style={{ width: '58px' }} />
                 {Array(3).fill(0).map((_, i) => <col key={`a${i}`} style={{ width: '68px' }} />)}
                 <col style={{ width: '60px' }} /><col style={{ width: '78px' }} />
@@ -547,12 +1355,8 @@ const KasambahaySummaryReport = () => {
                   <th style={S.thL} rowSpan={2}>District</th>
                   {YEARS.map(y => <th key={y} style={S.th} rowSpan={2}>Encoded {y}</th>)}
                   <th style={S.th}  rowSpan={2}>Sub Total</th>
-                  <th style={S.th}  rowSpan={2}>SSS</th>
-                  <th style={S.th}  rowSpan={2}>PhilHealth</th>
-                  <th style={S.th}  rowSpan={2}>Pag-IBIG</th>
-                  <th style={S.th}  rowSpan={2}>QCID</th>
                   <th style={{ ...S.th, background: '#fce8f0', color: '#993556' }} colSpan={2}>Gender</th>
-                  <th style={S.th}  colSpan={3}>Arrangement</th>
+                  <th style={S.th}  colSpan={3}>Working Arrangements</th>
                   <th style={S.th}  colSpan={4}>Special Categories</th>
                 </tr>
                 <tr>
@@ -707,41 +1511,7 @@ const KasambahaySummaryReport = () => {
           </div>
         )}
 
-        {/* ── Charts ── */}
-        {tab === 'charts' && (
-          <div style={{ padding: '16px' }}>
-            <p style={{ fontSize: '11px', fontWeight: '700', color: '#7874a7', letterSpacing: '.07em', textTransform: 'uppercase', marginBottom: '8px' }}>
-              Kasambahays per District — 2024 vs 2025
-            </p>
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={encChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip /><Legend wrapperStyle={{ fontSize: '12px' }} />
-                <Bar dataKey="2024" fill="#534AB7" radius={[4,4,0,0]} />
-                <Bar dataKey="2025" fill="#9FE1CB" radius={[4,4,0,0]} />
-              </BarChart>
-            </ResponsiveContainer>
-
-            <p style={{ fontSize: '11px', fontWeight: '700', color: '#7874a7', letterSpacing: '.07em', textTransform: 'uppercase', margin: '24px 0 8px' }}>
-              Age Bracket Distribution per District
-            </p>
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={ageChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip /><Legend wrapperStyle={{ fontSize: '12px' }} />
-                <Bar dataKey="18–30" stackId="a" fill="#AFA9EC" />
-                <Bar dataKey="31–45" stackId="a" fill="#7F77DD" />
-                <Bar dataKey="45+"   stackId="a" fill="#534AB7" radius={[4,4,0,0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-      </div>{/* end tabs card */}
+        </div>{/* end tabs card */}
 
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {

@@ -1,3 +1,4 @@
+import React from 'react'
 import { useColors } from '../ThemeContext.jsx'
 import { useState, useEffect } from 'react'
 import {
@@ -9,6 +10,7 @@ import * as XLSX from 'xlsx'
 import { API_ENDPOINTS } from '../utils/api'
 const API_URL = API_ENDPOINTS.KASAMBAHAY
 const DISTRICTS = ['District 1','District 2','District 3','District 4','District 5','District 6']
+// Dynamic: always includes current year, never needs manual updating
 const currentYear = new Date().getFullYear()
 const YEARS = Array.from({ length: currentYear - 2023 }, (_, i) => 2024 + i)
 const COLORS    = ['#534AB7','#9FE1CB','#F4A261','#E76F51','#6A4C93','#2EC4B6','#A8DADC','#457B9D']
@@ -46,14 +48,14 @@ function classifyBirthPlace(raw) {
 
 // ─── Build benefit % data by district and by year ────────────────────────────
 function buildBenefits(records) {
-  // per district
   const distMap = {}
   DISTRICTS.forEach(d => { distMap[d] = { total: 0, sss: 0, pagibig: 0, philhealth: 0, qcid: 0 } })
-  // per year
   const yearMap = {}
   YEARS.forEach(y => { yearMap[y] = { total: 0, sss: 0, pagibig: 0, philhealth: 0, qcid: 0 } })
 
+  // Also track any years in the data beyond our YEARS array
   for (const r of records) {
+    if (r.year && !yearMap[r.year]) yearMap[r.year] = { total: 0, sss: 0, pagibig: 0, philhealth: 0, qcid: 0 }
     const d = distMap[r.district]
     const y = yearMap[r.year]
     const hasSss        = r.sss        && r.sss        !== 'No'
@@ -93,27 +95,26 @@ function buildBenefits(records) {
     }
   })
 
-  const byYear = YEARS.map(y => {
-    const v = yearMap[y]
-    return {
-      name: String(y),
+  // Only show years that actually have records
+  const byYear = Object.entries(yearMap)
+    .filter(([, v]) => v.total > 0)
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .map(([yr, v]) => ({
+      name: String(yr),
       total: v.total,
       'SSS':        pct(v.sss, v.total),
       'Pag-IBIG':   pct(v.pagibig, v.total),
       'PhilHealth': pct(v.philhealth, v.total),
       'QCID':       pct(v.qcid, v.total),
       rawSss: v.sss, rawPagibig: v.pagibig, rawPhilhealth: v.philhealth, rawQcid: v.qcid,
-    }
-  })
+    }))
 
   return { byDistrict, byYear }
 }
 
 // ─── Build birth place data ───────────────────────────────────────────────────
 function buildBirthPlace(records) {
-  // Overall NCR vs Province
   let ncr = 0, province = 0, unknown = 0
-  // Breakdown by actual place (province-level)
   const placeCount = {}
 
   for (const r of records) {
@@ -155,7 +156,6 @@ const EDU_LEVELS = [
 function classifyEdu(raw) {
   if (!raw) return 'Not Specified'
   const v = raw.trim().toLowerCase()
-  // Check from most specific to least
   for (const lvl of [...EDU_LEVELS].reverse()) {
     if (lvl.match.some(m => v.includes(m))) return lvl.key
   }
@@ -167,7 +167,6 @@ function buildEducation(records) {
   EDU_LEVELS.forEach(l => { totals[l.key] = 0 })
   totals['Not Specified'] = 0
 
-  // Per district breakdown
   const distMap = {}
   DISTRICTS.forEach(d => {
     distMap[d] = {}
@@ -183,10 +182,7 @@ function buildEducation(records) {
 
   const total = records.length
   const overview = Object.entries(totals)
-    .map(([level, count]) => ({
-      level, count,
-      pct: total ? +((count / total) * 100).toFixed(1) : 0,
-    }))
+    .map(([level, count]) => ({ level, count, pct: total ? +((count / total) * 100).toFixed(1) : 0 }))
     .filter(x => x.count > 0)
     .sort((a, b) => b.count - a.count)
 
@@ -199,12 +195,42 @@ function buildEducation(records) {
   return { overview, byDistrict }
 }
 
+// ─── Build demographics data ──────────────────────────────────────────────────
+function buildDemographics(records) {
+  let male = 0, female = 0, total = records.length
+  for (const r of records) {
+    if (r.isMale) male++
+    else if (r.isFemale) female++
+  }
+  const pieData = [
+    { name: 'Female', value: female, pct: total ? +((female / total) * 100).toFixed(1) : 0 },
+    { name: 'Male', value: male, pct: total ? +((male / total) * 100).toFixed(1) : 0 },
+  ].filter(x => x.value > 0)
+  return { pieData, male, female, total }
+}
+
+// ─── Build barangay distribution ──────────────────────────────────────────────
+function buildBarangayStats(records) {
+  const counts = {}
+  let total = 0
+  for (const r of records) {
+    if (r.barangay && r.barangay.trim() !== '' && r.barangay.trim().toUpperCase() !== 'N/A') {
+      const b = r.barangay.trim().toUpperCase()
+      counts[b] = (counts[b] || 0) + 1
+      total++
+    }
+  }
+  const list = Object.entries(counts)
+    .map(([barangay, count]) => ({ barangay, count, pct: total ? +((count / total) * 100).toFixed(1) : 0 }))
+    .sort((a, b) => b.count - a.count)
+  return { list, total }
+}
+
 // ─── Export to Excel ──────────────────────────────────────────────────────────
-function exportToExcel(benefits, birthPlace, education) {
+function exportToExcel(benefits, birthPlace, education, demographics, barangayStats) {
   const wb = XLSX.utils.book_new()
   const autoW = data => data[0]?.map((_, ci) => ({ wch: Math.max(...data.map(r => String(r[ci] ?? '').length), 10) }))
 
-  // Sheet 1 – Benefits by District
   const b1 = [
     ['District', 'Total', 'SSS #', 'SSS %', 'Pag-IBIG #', 'Pag-IBIG %', 'PhilHealth #', 'PhilHealth %', 'QCID #', 'QCID %'],
     ...benefits.byDistrict.map(r => [r.label, r.total, r.rawSss, `${r['SSS']}%`, r.rawPagibig, `${r['Pag-IBIG']}%`, r.rawPhilhealth, `${r['PhilHealth']}%`, r.rawQcid, `${r['QCID']}%`]),
@@ -212,7 +238,6 @@ function exportToExcel(benefits, birthPlace, education) {
   const ws1 = XLSX.utils.aoa_to_sheet(b1); ws1['!cols'] = autoW(b1)
   XLSX.utils.book_append_sheet(wb, ws1, 'Benefits by District')
 
-  // Sheet 2 – Benefits by Year
   const b2 = [
     ['Year', 'Total', 'SSS #', 'SSS %', 'Pag-IBIG #', 'Pag-IBIG %', 'PhilHealth #', 'PhilHealth %', 'QCID #', 'QCID %'],
     ...benefits.byYear.map(r => [r.name, r.total, r.rawSss, `${r['SSS']}%`, r.rawPagibig, `${r['Pag-IBIG']}%`, r.rawPhilhealth, `${r['PhilHealth']}%`, r.rawQcid, `${r['QCID']}%`]),
@@ -220,7 +245,6 @@ function exportToExcel(benefits, birthPlace, education) {
   const ws2 = XLSX.utils.aoa_to_sheet(b2); ws2['!cols'] = autoW(b2)
   XLSX.utils.book_append_sheet(wb, ws2, 'Benefits by Year')
 
-  // Sheet 3 – Birth Place
   const b3 = [
     ['Category', 'Count', 'Percentage'],
     ...birthPlace.overview.map(r => [r.name, r.value, `${r.pct}%`]),
@@ -231,13 +255,20 @@ function exportToExcel(benefits, birthPlace, education) {
   const ws3 = XLSX.utils.aoa_to_sheet(b3); ws3['!cols'] = autoW(b3.filter(r => r.length > 0))
   XLSX.utils.book_append_sheet(wb, ws3, 'Birth Place')
 
-  // Sheet 4 – Educational Attainment
   const b4 = [
     ['Education Level', 'Count', 'Percentage'],
     ...education.overview.map(r => [r.level, r.count, `${r.pct}%`]),
   ]
   const ws4 = XLSX.utils.aoa_to_sheet(b4); ws4['!cols'] = autoW(b4)
   XLSX.utils.book_append_sheet(wb, ws4, 'Educational Attainment')
+
+  const b5 = [['Gender', 'Count', 'Percentage'], ...demographics.pieData.map(r => [r.name, r.value, `${r.pct}%`])]
+  const ws5 = XLSX.utils.aoa_to_sheet(b5); ws5['!cols'] = autoW(b5)
+  XLSX.utils.book_append_sheet(wb, ws5, 'Demographics')
+
+  const b6 = [['Barangay', 'Count', 'Percentage'], ...barangayStats.list.map(r => [r.barangay, r.count, `${r.pct}%`])]
+  const ws6 = XLSX.utils.aoa_to_sheet(b6); ws6['!cols'] = autoW(b6)
+  XLSX.utils.book_append_sheet(wb, ws6, 'Top Barangays')
 
   XLSX.writeFile(wb, 'Kasambahay_Analytics_Report.xlsx')
 }
@@ -273,13 +304,15 @@ const BENEFIT_COLORS = { 'SSS': '#534AB7', 'Pag-IBIG': '#F4A261', 'PhilHealth': 
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ReportsPage() {
-  const [tab,       setTab]       = useState('benefits')
-  const [loading,   setLoading]   = useState(true)
-  const [error,     setError]     = useState('')
-  const [benefits,  setBenefits]  = useState(null)
-  const [birthPlace, setBirthPlace] = useState(null)
-  const [education, setEducation] = useState(null)
-  const [rawCount,  setRawCount]  = useState(0)
+  const [tab,          setTab]          = useState('benefits')
+  const [loading,      setLoading]      = useState(true)
+  const [error,        setError]        = useState('')
+  const [benefits,     setBenefits]     = useState(null)
+  const [birthPlace,   setBirthPlace]   = useState(null)
+  const [education,    setEducation]    = useState(null)
+  const [demographics, setDemographics] = useState(null)
+  const [barangayStats,setBarangayStats]= useState(null)
+  const [rawCount,     setRawCount]     = useState(0)
 
   useEffect(() => {
     const load = async () => {
@@ -290,6 +323,8 @@ export default function ReportsPage() {
         setBenefits(buildBenefits(records))
         setBirthPlace(buildBirthPlace(records))
         setEducation(buildEducation(records))
+        setDemographics(buildDemographics(records))
+        setBarangayStats(buildBarangayStats(records))
       } catch (e) {
         setError(e.message)
       } finally {
@@ -324,18 +359,12 @@ export default function ReportsPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h2 style={{ margin: '0 0 4px', fontSize: 20, color: '#2d2a6e', fontWeight: 700 }}>
-            Analytics Report
-          </h2>
+          <h2 style={{ margin: '0 0 4px', fontSize: 20, color: '#2d2a6e', fontWeight: 700 }}>Analytics Report</h2>
           <p style={{ margin: 0, color: '#888', fontSize: 12 }}>
             {rawCount.toLocaleString()} total records · Generated: {new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
-        <button
-          onClick={() => exportToExcel(benefits, birthPlace, education)}
-          style={{ ...S.btn, background: '#10b981' }}
-          className="hide-on-print"
-        >
+        <button onClick={() => exportToExcel(benefits, birthPlace, education, demographics, barangayStats)} style={{ ...S.btn, background: '#10b981' }} className="hide-on-print">
           📊 Export to Excel
         </button>
       </div>
@@ -344,30 +373,28 @@ export default function ReportsPage() {
       <div style={S.card}>
         <div style={S.tabBar}>
           {[
-            { key: 'benefits',  label: '🏥 Benefit Coverage %' },
-            { key: 'birthplace',label: '📍 Birth Place' },
-            { key: 'education', label: '🎓 Educational Attainment' },
+            { key: 'benefits',    label: '🏥 Benefit Coverage %' },
+            { key: 'demographics',label: '🚻 Demographics' },
+            { key: 'birthplace',  label: '📍 Birth Place' },
+            { key: 'education',   label: '🎓 Educational Attainment' },
+            { key: 'barangay',    label: '🏘️ Top Barangays' },
           ].map(t => (
-            <button key={t.key} style={S.tab(tab === t.key)} onClick={() => setTab(t.key)}>
-              {t.label}
-            </button>
+            <button key={t.key} style={S.tab(tab === t.key)} onClick={() => setTab(t.key)}>{t.label}</button>
           ))}
         </div>
 
         {/* ── Benefits Tab ── */}
         {tab === 'benefits' && benefits && (
           <div style={{ padding: 20 }}>
-
-            {/* Summary metric cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
               {[
-                { label: 'Total Records', val: rawCount.toLocaleString(), sub: '2024 + 2025' },
+                { label: 'Total Records', val: rawCount.toLocaleString(), sub: YEARS.join(' + ') },
                 ...Object.entries(BENEFIT_COLORS).map(([b, color]) => {
-                  const totalAll   = benefits.byDistrict.reduce((s, r) => s + r.total, 0)
-                  const rawKey     = { 'SSS': 'rawSss', 'Pag-IBIG': 'rawPagibig', 'PhilHealth': 'rawPhilhealth', 'QCID': 'rawQcid' }[b]
-                  const totalHave  = benefits.byDistrict.reduce((s, r) => s + r[rawKey], 0)
-                  const overallPct = totalAll ? +((totalHave / totalAll) * 100).toFixed(1) : 0
-                  return { label: b, val: `${overallPct}%`, sub: `${totalHave.toLocaleString()} of ${totalAll.toLocaleString()}`, color }
+                  const totalAll  = benefits.byDistrict.reduce((s, r) => s + r.total, 0)
+                  const rawKey    = { 'SSS': 'rawSss', 'Pag-IBIG': 'rawPagibig', 'PhilHealth': 'rawPhilhealth', 'QCID': 'rawQcid' }[b]
+                  const totalHave = benefits.byDistrict.reduce((s, r) => s + r[rawKey], 0)
+                  const pct       = totalAll ? +((totalHave / totalAll) * 100).toFixed(1) : 0
+                  return { label: b, val: `${pct}%`, sub: `${totalHave.toLocaleString()} of ${totalAll.toLocaleString()}`, color }
                 })
               ].map(m => (
                 <div key={m.label} style={S.metric}>
@@ -378,7 +405,6 @@ export default function ReportsPage() {
               ))}
             </div>
 
-            {/* By District chart */}
             <p style={S.sectionHead}>Benefit Coverage % by District</p>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={benefits.byDistrict} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
@@ -393,7 +419,6 @@ export default function ReportsPage() {
               </BarChart>
             </ResponsiveContainer>
 
-            {/* District table */}
             <div style={{ overflowX: 'auto', marginTop: 20 }}>
               <table style={S.tbl}>
                 <thead>
@@ -401,10 +426,10 @@ export default function ReportsPage() {
                     <th style={S.thL}>District</th>
                     <th style={S.th}>Total</th>
                     {Object.keys(BENEFIT_COLORS).map(b => (
-                      <>
-                        <th key={`${b}n`} style={S.th}>{b} #</th>
-                        <th key={`${b}p`} style={{ ...S.th, color: BENEFIT_COLORS[b] }}>{b} %</th>
-                      </>
+                      <React.Fragment key={b}>
+                        <th style={S.th}>{b} #</th>
+                        <th style={{ ...S.th, color: BENEFIT_COLORS[b] }}>{b} %</th>
+                      </React.Fragment>
                     ))}
                   </tr>
                 </thead>
@@ -414,14 +439,13 @@ export default function ReportsPage() {
                       <td style={S.tdL}>{r.label}</td>
                       <td style={S.td}>{r.total.toLocaleString()}</td>
                       {[['rawSss','SSS'],['rawPagibig','Pag-IBIG'],['rawPhilhealth','PhilHealth'],['rawQcid','QCID']].map(([rk, bk]) => (
-                        <>
-                          <td key={`${rk}n`} style={S.td}>{r[rk].toLocaleString()}</td>
-                          <td key={`${rk}p`} style={{ ...S.td, fontWeight: 600, color: BENEFIT_COLORS[bk] }}>{r[bk]}%</td>
-                        </>
+                        <React.Fragment key={rk}>
+                          <td style={S.td}>{r[rk].toLocaleString()}</td>
+                          <td style={{ ...S.td, fontWeight: 600, color: BENEFIT_COLORS[bk] }}>{r[bk]}%</td>
+                        </React.Fragment>
                       ))}
                     </tr>
                   ))}
-                  {/* Totals row */}
                   {(() => {
                     const tot = benefits.byDistrict.reduce((acc, r) => {
                       acc.total += r.total; acc.rawSss += r.rawSss; acc.rawPagibig += r.rawPagibig; acc.rawPhilhealth += r.rawPhilhealth; acc.rawQcid += r.rawQcid; return acc
@@ -433,10 +457,10 @@ export default function ReportsPage() {
                         {[['rawSss','SSS'],['rawPagibig','Pag-IBIG'],['rawPhilhealth','PhilHealth'],['rawQcid','QCID']].map(([rk, bk]) => {
                           const p = tot.total ? +((tot[rk] / tot.total) * 100).toFixed(1) : 0
                           return (
-                            <>
-                              <td key={`${rk}tn`} style={{ ...S.td, ...S.tot }}>{tot[rk].toLocaleString()}</td>
-                              <td key={`${rk}tp`} style={{ ...S.td, ...S.tot }}>{p}%</td>
-                            </>
+                            <React.Fragment key={rk}>
+                              <td style={{ ...S.td, ...S.tot }}>{tot[rk].toLocaleString()}</td>
+                              <td style={{ ...S.td, ...S.tot }}>{p}%</td>
+                            </React.Fragment>
                           )
                         })}
                       </tr>
@@ -446,31 +470,9 @@ export default function ReportsPage() {
               </table>
             </div>
 
-            {/* Encoding per District per Year chart */}
-            <p style={{ ...S.sectionHead, marginTop: 28 }}>Records Encoded per District by Year</p>
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart
-                data={benefits.byDistrict.map(r => {
-                  const row = { name: r.name, label: r.label }
-                  YEARS.forEach(y => { row[String(y)] = benefits.byYear[String(y)]?.find(d => d.district === r.label)?.count || 0 })
-                  return row
-                })}
-                margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                {YEARS.map((y, i) => (
-                  <Bar key={y} dataKey={String(y)} fill={COLORS[i % COLORS.length]} radius={[3,3,0,0]} />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
-
-            {/* By Year */}
+            {/* By Year — only shows years with actual records */}
             <p style={{ ...S.sectionHead, marginTop: 28 }}>Benefit Coverage % by Year</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
               {benefits.byYear.map(y => (
                 <div key={y.name} style={{ border: '1px solid #e4e2f5', borderRadius: 8, overflow: 'hidden' }}>
                   <div style={{ background: '#534AB7', color: '#fff', padding: '8px 14px', fontWeight: 700, fontSize: 13, display: 'flex', justifyContent: 'space-between' }}>
@@ -497,13 +499,12 @@ export default function ReportsPage() {
         {/* ── Birth Place Tab ── */}
         {tab === 'birthplace' && birthPlace && (
           <div style={{ padding: 20 }}>
-            {/* Summary cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
               {[
-                { label: 'Total Records',  val: birthPlace.total.toLocaleString(), sub: 'all kasambahay', color: '#534AB7' },
-                { label: 'From NCR',       val: birthPlace.ncr.toLocaleString(),   sub: `${birthPlace.overview.find(x => x.name === 'NCR')?.pct ?? 0}% of total`, color: '#2EC4B6' },
-                { label: 'From Province',  val: birthPlace.province.toLocaleString(), sub: `${birthPlace.overview.find(x => x.name === 'Province')?.pct ?? 0}% of total`, color: '#F4A261' },
-                { label: 'Not Specified',  val: birthPlace.unknown.toLocaleString(),  sub: 'blank birth place', color: '#999' },
+                { label: 'Total Records', val: birthPlace.total.toLocaleString(), sub: 'all kasambahay', color: '#534AB7' },
+                { label: 'From NCR',      val: birthPlace.ncr.toLocaleString(),   sub: `${birthPlace.overview.find(x => x.name === 'NCR')?.pct ?? 0}% of total`, color: '#2EC4B6' },
+                { label: 'From Province', val: birthPlace.province.toLocaleString(), sub: `${birthPlace.overview.find(x => x.name === 'Province')?.pct ?? 0}% of total`, color: '#F4A261' },
+                { label: 'Not Specified', val: birthPlace.unknown.toLocaleString(),  sub: 'blank birth place', color: '#999' },
               ].map(m => (
                 <div key={m.label} style={S.metric}>
                   <div style={S.mLabel}>{m.label}</div>
@@ -512,10 +513,7 @@ export default function ReportsPage() {
                 </div>
               ))}
             </div>
-
-            {/* Pie + top list side by side */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, marginBottom: 24 }}>
-              {/* Pie chart */}
               <div>
                 <p style={S.sectionHead}>NCR vs Province Breakdown</p>
                 <ResponsiveContainer width="100%" height={220}>
@@ -526,20 +524,10 @@ export default function ReportsPage() {
                     <Tooltip formatter={(v, n) => [`${v} (${birthPlace.overview.find(x=>x.name===n)?.pct}%)`, n]} />
                   </PieChart>
                 </ResponsiveContainer>
-                <div style={{ display: 'flex', justifyContent: 'center', gap: 16, flexWrap: 'wrap', marginTop: 4 }}>
-                  {birthPlace.overview.map((x, i) => (
-                    <span key={x.name} style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: ['#2EC4B6','#F4A261','#ccc'][i], display: 'inline-block' }} />
-                      {x.name}: {x.value.toLocaleString()} ({x.pct}%)
-                    </span>
-                  ))}
-                </div>
               </div>
-
-              {/* Top provinces table */}
               <div>
-                <p style={S.sectionHead}>Top 20 Birth Places (by count)</p>
-                <div style={{ maxHeight: 280, overflowY: 'auto', border: '1px solid #e4e2f5', borderRadius: 8, overflow: 'hidden' }}>
+                <p style={S.sectionHead}>Top 20 Birth Places</p>
+                <div style={{ maxHeight: 280, overflowY: 'auto', border: '1px solid #e4e2f5', borderRadius: 8 }}>
                   <table style={S.tbl}>
                     <thead>
                       <tr>
@@ -563,13 +551,11 @@ export default function ReportsPage() {
                 </div>
               </div>
             </div>
-
-            {/* Bar chart of top places */}
             {birthPlace.topPlaces.length > 0 && (
               <>
                 <p style={{ ...S.sectionHead, marginTop: 8 }}>Top 10 Birth Places (chart)</p>
                 <ResponsiveContainer width="100%" height={240}>
-                  <BarChart data={birthPlace.topPlaces.slice(0, 10).map(r => ({ name: r.place.length > 16 ? r.place.slice(0, 14) + '…' : r.place, fullName: r.place, count: r.count, pct: r.pct }))} margin={{ top: 5, right: 20, left: 0, bottom: 40 }}>
+                  <BarChart data={birthPlace.topPlaces.slice(0, 10).map(r => ({ name: r.place.length > 16 ? r.place.slice(0, 14) + '…' : r.place, fullName: r.place, count: r.count }))} margin={{ top: 5, right: 20, left: 0, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
                     <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" interval={0} />
                     <YAxis tick={{ fontSize: 11 }} />
@@ -585,7 +571,6 @@ export default function ReportsPage() {
         {/* ── Education Tab ── */}
         {tab === 'education' && education && (
           <div style={{ padding: 20 }}>
-            {/* Summary cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
               {education.overview.map((r, i) => (
                 <div key={r.level} style={S.metric}>
@@ -595,30 +580,18 @@ export default function ReportsPage() {
                 </div>
               ))}
             </div>
-
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, marginBottom: 24 }}>
-              {/* Pie */}
               <div>
                 <p style={S.sectionHead}>Overall Distribution</p>
                 <ResponsiveContainer width="100%" height={220}>
                   <PieChart>
-                    <Pie data={education.overview} dataKey="count" nameKey="level" cx="50%" cy="50%" outerRadius={85} label={({ level, pct }) => `${pct}%`} labelLine={false}>
+                    <Pie data={education.overview} dataKey="count" nameKey="level" cx="50%" cy="50%" outerRadius={85} label={({ pct }) => `${pct}%`} labelLine={false}>
                       {education.overview.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Pie>
                     <Tooltip formatter={(v, n) => [v, n]} />
                   </PieChart>
                 </ResponsiveContainer>
-                <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap', marginTop: 6 }}>
-                  {education.overview.map((x, i) => (
-                    <span key={x.level} style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ width: 9, height: 9, borderRadius: '50%', background: COLORS[i % COLORS.length], display: 'inline-block' }} />
-                      {x.level}
-                    </span>
-                  ))}
-                </div>
               </div>
-
-              {/* Table */}
               <div>
                 <p style={S.sectionHead}>Count & Percentage</p>
                 <table style={S.tbl}>
@@ -643,8 +616,6 @@ export default function ReportsPage() {
                 </table>
               </div>
             </div>
-
-            {/* By District stacked bar */}
             <p style={{ ...S.sectionHead, marginTop: 8 }}>Educational Attainment by District</p>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={education.byDistrict} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
@@ -658,36 +629,87 @@ export default function ReportsPage() {
                 ))}
               </BarChart>
             </ResponsiveContainer>
+          </div>
+        )}
 
-            {/* District breakdown table */}
-            <p style={{ ...S.sectionHead, marginTop: 24 }}>Breakdown per District</p>
-            <div style={{ overflowX: 'auto' }}>
+        {/* ── Demographics Tab ── */}
+        {tab === 'demographics' && demographics && (
+          <div style={{ padding: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
+              <div style={S.metric}><div style={S.mLabel}>Total Kasambahay</div><div style={{ ...S.mVal, color: '#534AB7' }}>{demographics.total.toLocaleString()}</div></div>
+              <div style={S.metric}><div style={S.mLabel}>Female</div><div style={{ ...S.mVal, color: '#d4537e' }}>{demographics.female.toLocaleString()}</div><div style={S.mSub}>{demographics.pieData.find(x => x.name === 'Female')?.pct || 0}%</div></div>
+              <div style={S.metric}><div style={S.mLabel}>Male</div><div style={{ ...S.mVal, color: '#3b82f6' }}>{demographics.male.toLocaleString()}</div><div style={S.mSub}>{demographics.pieData.find(x => x.name === 'Male')?.pct || 0}%</div></div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24 }}>
+              <div>
+                <p style={S.sectionHead}>Sex Distribution</p>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie data={demographics.pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, pct }) => `${name} ${pct}%`}>
+                      {demographics.pieData.map((entry, i) => <Cell key={i} fill={entry.name === 'Female' ? '#d4537e' : '#3b82f6'} />)}
+                    </Pie>
+                    <Tooltip formatter={(v, n) => [v.toLocaleString(), n]} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              {barangayStats && (() => {
+                const top = barangayStats.list.slice(0, 5)
+                const others = barangayStats.list.slice(5).reduce((s, r) => s + r.count, 0)
+                const pieData = [...top]
+                if (others > 0) pieData.push({ barangay: 'Others', count: others, pct: barangayStats.total ? +((others / barangayStats.total) * 100).toFixed(1) : 0 })
+                return (
+                  <div>
+                    <p style={S.sectionHead}>Top 5 Barangays Distribution</p>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie data={pieData} dataKey="count" nameKey="barangay" cx="50%" cy="50%" outerRadius={100} label={({ barangay, pct }) => `${barangay.length > 12 ? barangay.slice(0,10)+'…' : barangay} ${pct}%`}>
+                          {pieData.map((entry, i) => <Cell key={i} fill={entry.barangay === 'Others' ? '#e5e7eb' : COLORS[i % COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip formatter={(v, n) => [v.toLocaleString(), n]} />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                )
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* ── Barangays Tab ── */}
+        {tab === 'barangay' && barangayStats && (
+          <div style={{ padding: 20 }}>
+            <p style={S.sectionHead}>Top 20 Barangays with Most Kasambahay</p>
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={barangayStats.list.slice(0, 20)} margin={{ top: 5, right: 20, left: 0, bottom: 80 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
+                <XAxis dataKey="barangay" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(val) => val.toLocaleString()} />
+                <Bar dataKey="count" fill="#2EC4B6" radius={[3, 3, 0, 0]} name="Kasambahay Count" />
+              </BarChart>
+            </ResponsiveContainer>
+            <p style={{ ...S.sectionHead, marginTop: 30 }}>All Barangays Breakdown</p>
+            <div style={{ maxHeight: 400, overflowY: 'auto', border: '1px solid #e4e2f5', borderRadius: 8 }}>
               <table style={S.tbl}>
                 <thead>
                   <tr>
-                    <th style={S.thL}>District</th>
-                    {EDU_LEVELS.map((l, i) => (
-                      <th key={l.key} style={{ ...S.th, color: COLORS[i % COLORS.length] }}>{l.key}</th>
-                    ))}
+                    <th style={{ ...S.thL, position: 'sticky', top: 0 }}>Rank</th>
+                    <th style={{ ...S.thL, position: 'sticky', top: 0 }}>Barangay</th>
+                    <th style={{ ...S.th,  position: 'sticky', top: 0 }}>Total Kasambahay</th>
+                    <th style={{ ...S.th,  position: 'sticky', top: 0 }}>% of Total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {education.byDistrict.map((r, i) => (
-                    <tr key={r.label} style={{ background: i % 2 === 0 ? '#fff' : '#faf9fe' }}>
-                      <td style={S.tdL}>{r.label}</td>
-                      {EDU_LEVELS.map(l => <td key={l.key} style={S.td}>{(r[l.key] || 0).toLocaleString()}</td>)}
+                  {barangayStats.list.map((r, i) => (
+                    <tr key={r.barangay} style={{ background: i % 2 === 0 ? '#fff' : '#faf9fe' }}>
+                      <td style={{ ...S.tdL, color: '#999', fontWeight: 400 }}>{i + 1}</td>
+                      <td style={S.tdL}>{r.barangay}</td>
+                      <td style={S.td}>{r.count.toLocaleString()}</td>
+                      <td style={{ ...S.td, fontWeight: 600, color: '#534AB7' }}>{r.pct}%</td>
                     </tr>
                   ))}
-                  {/* Totals */}
-                  {(() => {
-                    const totRow = EDU_LEVELS.map(l => education.byDistrict.reduce((s, r) => s + (r[l.key] || 0), 0))
-                    return (
-                      <tr style={S.tot}>
-                        <td style={{ ...S.tdL, ...S.tot }}>TOTAL</td>
-                        {totRow.map((v, i) => <td key={i} style={{ ...S.td, ...S.tot }}>{v.toLocaleString()}</td>)}
-                      </tr>
-                    )
-                  })()}
                 </tbody>
               </table>
             </div>
@@ -695,7 +717,7 @@ export default function ReportsPage() {
         )}
       </div>
 
-      <style dangerouslySetInnerHTML={{ __html: `@media print { .hide-on-print { display: none !important; } @page { size: landscape; margin: 10mm; } }` }} />
+      <style dangerouslySetInnerHTML={{ __html: `@media print { .hide-on-print { display: none !important; } }` }} />
     </div>
   )
 }
