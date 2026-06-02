@@ -534,7 +534,7 @@ export default function ReportsPage() {
                       <tr>
                         <th style={{ ...S.thL, position: 'sticky', top: 0 }}>#</th>
                         <th style={{ ...S.thL, position: 'sticky', top: 0 }}>Birth Place</th>
-                        <th style={{ ...S.th,  position: 'sticky', top: 0 }}>Count</th>
+                        <th style={{ ...S.th,  position: 'sticky', top: 0 }}>Active Kasambahay</th>
                         <th style={{ ...S.th,  position: 'sticky', top: 0 }}>%</th>
                       </tr>
                     </thead>
