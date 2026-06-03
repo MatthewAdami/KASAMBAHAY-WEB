@@ -147,7 +147,7 @@ router.post('/bulk', protect, restrict('admin', 'officer'), async (req, res) => 
 
 // ── POST /api/spes-profiles/import ───────────────────────────────────────────
 const SPES_HEADER_MAP = {
-  'Batch': 'batch', 'Source': 'source', 'Full Name': 'fullName', 'Last Name': 'lastName',
+  'Year': 'year', 'Batch': 'batch', 'Source': 'source', 'Full Name': 'fullName', 'Last Name': 'lastName',
   'First Name': 'firstName', 'Middle Name': 'middleName', 'Age': 'age', 'Sex': 'sex',
   'Birthday': 'birthday', 'Birth Place': 'birthPlace', 'Civil Status': 'civilStatus',
   'Contact': 'contact', 'Email': 'email', 'District': 'district', 'Barangay': 'barangay',
@@ -192,7 +192,7 @@ router.post('/import', protect, restrict('admin', 'officer'), upload.single('fil
 // ── PUT /api/spes-profiles/:id ────────────────────────────────────────────────
 router.put('/:id', protect, restrict('admin', 'officer'), async (req, res) => {
   try {
-    const doc = await SpesProfile.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
+    const doc = await SpesProfile.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true })
     if (!doc) return res.status(404).json({ error: 'Record not found' })
     await logActivity(req.user.id, req.user.name || req.user.id, 'SPES', 'EDIT',
       `Edited SPES record: ${doc.fullName || doc.firstName || 'Unknown'} (Batch ${doc.batch})`)

@@ -13,6 +13,7 @@ const mongoose = require('mongoose')
 
 const SpesProfileSchema = new mongoose.Schema(
   {
+    year:   { type: Number, default: new Date().getFullYear(), index: true },
     batch:  { type: Number, required: true, index: true },
     source: { type: String, enum: ['manual', 'lgu_form'], required: true },
 

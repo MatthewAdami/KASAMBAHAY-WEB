@@ -293,10 +293,11 @@ function ModalField({ fieldKey, value, onChange, district, c }) {
   const selectStyle = { ...inputStyle, cursor: 'pointer' }
 
   if (fieldKey === 'batch') {
+    const currentBatches = [...new Set([...BATCH_OPTIONS, value].filter(Boolean))].sort((a,b) => a-b)
     return (
       <select value={value ?? ''} onChange={e => onChange(e.target.value === '' ? '' : Number(e.target.value))} style={selectStyle}>
         <option value="">— Select Batch —</option>
-        {BATCH_OPTIONS.map(b => <option key={b} value={b}>Batch {b}</option>)}
+        {currentBatches.map(b => <option key={b} value={b}>Batch {b}</option>)}
       </select>
     )
   }
@@ -344,12 +345,11 @@ function ModalField({ fieldKey, value, onChange, district, c }) {
     )
   }
   if (fieldKey === 'skills') {
-    const display = Array.isArray(value) ? value.join(', ') : (value || '')
     return (
       <div>
         <input
-          value={display}
-          onChange={e => onChange(e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+          value={Array.isArray(value) ? value.join(', ') : (value || '')}
+          onChange={e => onChange(e.target.value)}
           placeholder="e.g. Encoding, Filing, Customer Service"
           style={inputStyle}
         />
@@ -404,11 +404,22 @@ function ProgramModal({ isGip, item, onClose, onSuccess, c }) {
     setLoading(true)
     const method = item ? 'PUT' : 'POST'
     const url    = `${isGip ? API_ENDPOINTS.GIP_PROFILES : API_ENDPOINTS.SPES_PROFILES}${item ? `/${item._id}` : ''}`
+
+    // Prepare the payload formatting before sending
+    const payload = { ...form }
+    if (typeof payload.skills === 'string') {
+      payload.skills = payload.skills.split(',').map(s => s.trim()).filter(Boolean)
+    }
+    if (payload.birthday === '') payload.birthday = null
+    if (payload.age === '') payload.age = null
+    if (payload.year === '') payload.year = null
+    if (payload.district === '') payload.district = null
+
     try {
       const res  = await fetch(url, {
         method,
         headers: { ...authHeader(), 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to save record.')
@@ -672,7 +683,7 @@ export default function ProgramsPage() {
     const headers = authHeader()
     const qs = isDeleted ? '?deleted=true' : ''
 
-    fetch(`${API_ENDPOINTS.GIP_PROFILES}${qs}`, { headers })
+    fetch(`${API_ENDPOINTS.GIP_PROFILES}${qs}`, { headers, cache: 'no-store' })
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => {
         setGipData(Array.isArray(data) ? data : data.data ?? [])
@@ -683,7 +694,7 @@ export default function ProgramsPage() {
         setLoading(prev => ({ ...prev, gip: false }))
       })
 
-    fetch(`${API_ENDPOINTS.SPES_PROFILES}${qs}`, { headers })
+    fetch(`${API_ENDPOINTS.SPES_PROFILES}${qs}`, { headers, cache: 'no-store' })
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => {
         setSpesData(Array.isArray(data) ? data : data.data ?? [])

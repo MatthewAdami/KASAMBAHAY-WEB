@@ -9,6 +9,11 @@ const mongoose = require('mongoose')
 
 const GipProfileSchema = new mongoose.Schema(
   {
+    year: {
+      type: Number,
+      default: new Date().getFullYear(),
+      index: true,
+    },
     batch: {
       type: Number,
       required: true,

@@ -139,7 +139,7 @@ router.post('/bulk', protect, restrict('admin', 'officer'), async (req, res) => 
 //
 // Column mapping: headers must match the model field names or the friendly labels below.
 const GIP_HEADER_MAP = {
-  'Batch': 'batch', 'Name': 'name', 'Age': 'age', 'Sex': 'sex',
+  'Year': 'year', 'Batch': 'batch', 'Name': 'name', 'Age': 'age', 'Sex': 'sex',
   'Contact': 'contact', 'Email': 'email', 'District': 'district',
   'Barangay': 'barangay', 'Education': 'educationalAttainment',
   'Educational Attainment': 'educationalAttainment',
@@ -178,7 +178,7 @@ router.post('/import', protect, restrict('admin', 'officer'), upload.single('fil
 // ── PUT /api/gip-profiles/:id ─────────────────────────────────────────────────
 router.put('/:id', protect, restrict('admin', 'officer'), async (req, res) => {
   try {
-    const doc = await GipProfile.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
+    const doc = await GipProfile.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true })
     if (!doc) return res.status(404).json({ error: 'Record not found' })
     await logActivity(req.user.id, req.user.name || req.user.id, 'GIP', 'EDIT',
       `Edited GIP record: ${doc.name || 'Unknown'} (Batch ${doc.batch})`)
