@@ -747,7 +747,7 @@ export default function ReportsPage() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24 }}>
               <div>
-                <p style={S.sectionHead}>Sex Distribution</p>
+                <p style={S.sectionHead}>Gender Distribution</p>
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
                     <Pie data={genderStats.pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ payload }) => `${payload.name}: ${payload.value.toLocaleString()} (${payload.pct}%)`} labelLine={true}>

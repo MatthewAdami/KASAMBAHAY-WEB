@@ -1493,7 +1493,7 @@ const KasambahaySummaryReport = () => {
                   <div key={d} style={{ border: '1px solid #e4e2f5', borderRadius: '8px', overflow: 'hidden' }}>
                     <div style={{ background: '#534AB7', color: '#fff', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontWeight: '700', fontSize: '12px' }}>{d}</span>
-                      <span style={{ fontSize: '11px', opacity: 0.85 }}>COUNTA of KASAMBAHAY</span>
+                      <span style={{ fontSize: '11px', opacity: 0.85 }}>No. of Active KASAMBAHAY</span>
                     </div>
                     <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
