@@ -8,7 +8,7 @@ function authHeader() {
   return { Authorization: `Bearer ${localStorage.getItem('token')}` }
 }
 
-// ─── NAV CARD COMPONENT (Clickable Highlights) ────────────────────────────────
+// ─── NAV CARD COMPONENT (Centered Version) ───────────────────────────────────
 function NavCard({ label, value, sub, accentColor, icon, onClick, c }) {
   return (
     <div 
@@ -23,7 +23,8 @@ function NavCard({ label, value, sub, accentColor, icon, onClick, c }) {
         transition: 'transform 0.2s ease, box-shadow 0.2s ease',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'between',
+        alignItems: 'center', // 👈 Centers items horizontally
+        textAlign: 'center',  // 👈 Centers the text lines
         boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
       }}
       onMouseEnter={e => {
@@ -35,15 +36,16 @@ function NavCard({ label, value, sub, accentColor, icon, onClick, c }) {
         e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)'
       }}
     >
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+      <div style={{ width: '100%' }}>
+        {/* Adjusted this wrapper to group the label and icon tightly in the center */}
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, marginBottom: 8 }}>
           <p style={{
             margin: 0, fontSize: 11, fontWeight: 700,
             color: c.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em',
           }}>
             {label}
           </p>
-          <span style={{ fontSize: 18 }}>{icon}</span>
+          {icon && <span style={{ fontSize: 18 }}>{icon}</span>}
         </div>
         <p style={{
           margin: '0 0 4px', fontSize: 28,
@@ -54,7 +56,11 @@ function NavCard({ label, value, sub, accentColor, icon, onClick, c }) {
         </p>
       </div>
       {sub && (
-        <p style={{ margin: '8px 0 0', fontSize: 11, color: c.textMuted, borderTop: `1px solid ${c.border}44`, paddingTop: 6 }}>
+        <p style={{ 
+          margin: '8px 0 0', fontSize: 11, color: c.textMuted, 
+          borderTop: `1px solid ${c.border}44`, paddingTop: 6,
+          width: '100%' // Ensures the border spans across the card width
+        }}>
           {sub}
         </p>
       )}
@@ -194,50 +200,45 @@ export default function AdminDashboard() {
                 
                 <NavCard 
                   label="Active Kasambahay"
-                  value={stats.total.toLocaleString()}
-                  sub="View & Manage Kasambahay Data"
+                  value={stats.total.toLocaleString() }
+                  sub="Kasambahay Data"
                   accentColor="#534AB7"
-                  icon="👥"
                   c={c}
                   onClick={() => navigate('kasambahay')}
                 />
 
                 <NavCard 
                   label="Programs"
-                  value="Active"
-                  sub="Orientation & Training Modules"
-                  accentColor="#1d9e75"
-                  icon="🎯"
+                  value="🤝"
+                  sub="Attended Programs"
+                  accentColor="#d4537e"
                   c={c}
-                  onClick={() => navigate('reports')}
+                  onClick={() => navigate('kasambahay')}
                 />
 
                 <NavCard 
                   label="Statistical Reports"
-                  value="Graphs"
+                  value="📊"
                   sub="Demographics & Visual Analytics"
                   accentColor="#3b82f6"
-                  icon="📊"
                   c={c}
                   onClick={() => navigate('reports')}
                 />
 
                 <NavCard 
                   label="Summary Reports"
-                  value="Export"
+                  value="📄"
                   sub="Generate Yearly & Monthly Reports"
                   accentColor="#d97706"
-                  icon="📄"
                   c={c}
                   onClick={() => navigate('summary-report')}
                 />
 
                 <NavCard 
                   label="Users"
-                  value="Admin"
-                  sub="Manage System Accounts & Access"
+                  value="⚙️"
+                  sub="System Accounts & Access"
                   accentColor="#d4537e"
-                  icon="⚙️"
                   c={c}
                   onClick={() => navigate('users')}
                 />

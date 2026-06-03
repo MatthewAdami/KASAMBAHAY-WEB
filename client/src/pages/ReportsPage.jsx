@@ -1,4 +1,3 @@
-import React from 'react'
 import { useColors } from '../ThemeContext.jsx'
 import { useState, useEffect } from 'react'
 import {
@@ -549,12 +548,10 @@ export default function ReportsPage() {
                   <tr>
                     <th style={S.thL}>District</th>
                     <th style={S.th}>Total</th>
-                    {Object.keys(BENEFIT_COLORS).map(b => (
-                      <React.Fragment key={b}>
-                        <th style={S.th}>{b} #</th>
-                        <th style={{ ...S.th, color: BENEFIT_COLORS[b] }}>{b} %</th>
-                      </React.Fragment>
-                    ))}
+                    {Object.keys(BENEFIT_COLORS).flatMap(b => [
+                      <th key={`${b}n`} style={S.th}>{b} #</th>,
+                      <th key={`${b}p`} style={{ ...S.th, color: BENEFIT_COLORS[b] }}>{b} %</th>
+                    ])}
                   </tr>
                 </thead>
                 <tbody>
@@ -562,12 +559,10 @@ export default function ReportsPage() {
                     <tr key={r.label} style={{ background: i % 2 === 0 ? '#fff' : '#faf9fe' }}>
                       <td style={S.tdL}>{r.label}</td>
                       <td style={S.td}>{r.total.toLocaleString()}</td>
-                      {[['rawSss','SSS'],['rawPagibig','Pag-IBIG'],['rawPhilhealth','PhilHealth'],['rawQcid','QCID']].map(([rk, bk]) => (
-                        <React.Fragment key={rk}>
-                          <td style={S.td}>{r[rk].toLocaleString()}</td>
-                          <td style={{ ...S.td, fontWeight: 600, color: BENEFIT_COLORS[bk] }}>{r[bk]}%</td>
-                        </React.Fragment>
-                      ))}
+                      {[['rawSss','SSS'],['rawPagibig','Pag-IBIG'],['rawPhilhealth','PhilHealth'],['rawQcid','QCID']].flatMap(([rk, bk]) => [
+                        <td key={`${rk}n`} style={S.td}>{r[rk].toLocaleString()}</td>,
+                        <td key={`${rk}p`} style={{ ...S.td, fontWeight: 600, color: BENEFIT_COLORS[bk] }}>{r[bk]}%</td>
+                      ])}
                     </tr>
                   ))}
                   {(() => {
@@ -578,14 +573,12 @@ export default function ReportsPage() {
                       <tr style={S.tot}>
                         <td style={{ ...S.tdL, ...S.tot }}>TOTAL / OVERALL</td>
                         <td style={{ ...S.td, ...S.tot }}>{tot.total.toLocaleString()}</td>
-                        {[['rawSss','SSS'],['rawPagibig','Pag-IBIG'],['rawPhilhealth','PhilHealth'],['rawQcid','QCID']].map(([rk, bk]) => {
+                        {[['rawSss','SSS'],['rawPagibig','Pag-IBIG'],['rawPhilhealth','PhilHealth'],['rawQcid','QCID']].flatMap(([rk, bk]) => {
                           const p = tot.total ? +((tot[rk] / tot.total) * 100).toFixed(1) : 0
-                          return (
-                            <React.Fragment key={rk}>
-                              <td style={{ ...S.td, ...S.tot }}>{tot[rk].toLocaleString()}</td>
-                              <td style={{ ...S.td, ...S.tot }}>{p}%</td>
-                            </React.Fragment>
-                          )
+                          return [
+                            <td key={`${rk}tn`} style={{ ...S.td, ...S.tot }}>{tot[rk].toLocaleString()}</td>,
+                            <td key={`${rk}tp`} style={{ ...S.td, ...S.tot }}>{p}%</td>
+                          ]
                         })}
                       </tr>
                     )
