@@ -90,6 +90,89 @@ function FilterChip({ label, active, onClick }) {
   )
 }
 
+function DescriptionCell({ text = '' }) {
+  const truncate = (str, max = 40) => {
+    if (!str || str === 'N/A') return str || ''
+    return str.length > max ? str.slice(0, max) + '…' : str
+  }
+
+  // Check if it contains "Changed:" — if not, just show plain text
+  if (!text.includes('Changed:')) {
+    return <span style={{ color: '#374151' }}>{text}</span>
+  }
+
+  const [headerPart, changePart] = text.split('. Changed:')
+  const rawChanges = changePart?.trim() || ''
+
+  // Parse "field: "old" → "new"" entries split by "; "
+  const changes = rawChanges
+    .split('; ')
+    .map(entry => {
+      // Match: fieldName: "old" → "new"
+      const match = entry.match(/^(.+?):\s*"(.*)"\s*→\s*"(.*)"$/)
+      if (!match) return null
+      const [, field, oldVal, newVal] = match
+      // Skip if both are empty or both are N/A
+      if ((oldVal === '' && newVal === '') || (oldVal === 'N/A' && newVal === 'N/A')) return null
+      return { field: field.trim(), oldVal, newVal }
+    })
+    .filter(Boolean)
+
+  return (
+    <div>
+      {/* Header */}
+      <p style={{ margin: '0 0 6px', fontWeight: 600, color: '#111', fontSize: 12 }}>
+        {headerPart?.trim()}
+      </p>
+
+      {/* Changed fields list */}
+      {changes.length > 0 && (
+        <div style={{
+          maxHeight: 140, overflowY: 'auto',
+          background: '#f8f7ff', borderRadius: 6,
+          border: '1px solid #e4e2f5',
+          padding: '6px 8px',
+        }}>
+          {changes.map(({ field, oldVal, newVal }, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'flex-start', gap: 6,
+              padding: '3px 0',
+              borderBottom: i < changes.length - 1 ? '1px solid #ede9f9' : 'none',
+            }}>
+              {/* Bullet + field name */}
+              <span style={{ color: '#534AB7', fontSize: 11, flexShrink: 0, marginTop: 1 }}>•</span>
+              <span style={{
+                fontSize: 11, fontWeight: 600, color: '#534AB7',
+                minWidth: 100, flexShrink: 0,
+              }}>
+                {field}
+              </span>
+              {/* Old → New */}
+              <span style={{ fontSize: 11, color: '#6b7280', wordBreak: 'break-all' }}>
+                <span style={{
+                  background: '#fee2e2', color: '#b91c1c',
+                  padding: '1px 5px', borderRadius: 4, marginRight: 4,
+                  fontFamily: 'monospace',
+                }}>
+                  {truncate(oldVal) || '—'}
+                </span>
+                <span style={{ color: '#9ca3af', margin: '0 4px' }}>→</span>
+                <span style={{
+                  background: '#dcfce7', color: '#15803d',
+                  padding: '1px 5px', borderRadius: 4,
+                  fontFamily: 'monospace',
+                }}>
+                  {truncate(newVal) || '—'}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ActivityLogs() {
   const [logs, setLogs]             = useState([])
@@ -339,8 +422,8 @@ export default function ActivityLogs() {
                           </td>
 
                           {/* Description */}
-                          <td style={{ padding: '12px 16px', color: '#374151', fontSize: 12, wordBreak: 'break-word', minWidth: 200 }}>
-                            {log.description}
+                          <td style={{ padding: '12px 16px', fontSize: 12, minWidth: 200, maxWidth: 420 }}>
+                            <DescriptionCell text={log.description} />
                           </td>
                         </tr>
                       )
