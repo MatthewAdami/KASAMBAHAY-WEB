@@ -145,18 +145,24 @@ function buildBirthPlace(records) {
 
 // ─── Build educational attainment data ───────────────────────────────────────
 const EDU_LEVELS = [
-  { key: 'Elementary',          match: ['elementary', 'grade', 'elem'] },
-  { key: 'High School',         match: ['high school', 'highschool', 'secondary', 'hs'] },
-  { key: 'Vocational / TESDA',  match: ['vocational', 'tesda', 'tech-voc', 'techvoc', 'tech voc', 'nc ii', 'ncii'] },
-  { key: 'College',             match: ['college', 'bachelor', 'bsn', 'bsa', 'bsba', 'ab ', 'bs ', 'undergraduate', 'graduate', 'university'] },
-  { key: 'Post-Graduate',       match: ['master', 'doctorate', 'phd', 'post-grad', 'postgrad'] },
+  { key: 'College Graduate' },
+  { key: 'Highschool Graduate' },
+  { key: 'Elementary Graduate' },
+  { key: 'Vocational / TESDA' },
 ]
 
 function classifyEdu(raw) {
   if (!raw) return 'Not Specified'
   const v = raw.trim().toLowerCase()
-  for (const lvl of [...EDU_LEVELS].reverse()) {
-    if (lvl.match.some(m => v.includes(m))) return lvl.key
+  if (v.includes('voc') || v.includes('tesda')) return 'Vocational / TESDA'
+  if (v.includes('college') || v.includes('bachelor') || v.includes('bs ') || v.includes('ab ') || v.includes('university') || v.includes('master') || v.includes('phd') || v.includes('post-grad')) {
+    return 'College Graduate'
+  }
+  if (v.includes('high school') || v.includes('highschool') || v.includes('hs ') || v.includes('secondary') || v.match(/^hs$/)) {
+    return 'Highschool Graduate'
+  }
+  if (v.includes('elem') || v.includes('grade')) {
+    return 'Elementary Graduate'
   }
   return 'Not Specified'
 }
@@ -180,22 +186,26 @@ function buildEducation(records) {
   }
 
   const total = records.length
+  const order = [...EDU_LEVELS.map(l => l.key), 'Not Specified']
   const overview = Object.entries(totals)
     .map(([level, count]) => ({ level, count, pct: total ? +((count / total) * 100).toFixed(1) : 0 }))
     .filter(x => x.count > 0)
-    .sort((a, b) => b.count - a.count)
+    .sort((a, b) => order.indexOf(a.level) - order.indexOf(b.level))
 
   const byDistrict = DISTRICTS.map(d => {
     const row = { name: d.replace('District ', 'D'), label: d }
     EDU_LEVELS.forEach(l => { row[l.key] = distMap[d][l.key] })
+    row['Not Specified'] = distMap[d]['Not Specified']
     return row
   })
 
-  return { overview, byDistrict }
+  const chartLevels = [...EDU_LEVELS.map(l => l.key), 'Not Specified']
+
+  return { overview, byDistrict, chartLevels }
 }
 
 // ─── Build demographics data ──────────────────────────────────────────────────
-function buildDemographics(records) {
+function buildGenderStats(records) {
   let male = 0, female = 0, total = records.length
   for (const r of records) {
     if (r.isMale) male++
@@ -208,13 +218,95 @@ function buildDemographics(records) {
   return { pieData, male, female, total }
 }
 
+function buildAge(records) {
+  const brackets = {
+    '15 and below': 0, '16-30': 0, '31-45': 0, 
+    '46 and above': 0, 'Unknown': 0
+  }
+  let total = 0
+  for (const r of records) {
+    total++
+    const ageStr = String(r.age).trim()
+    const age = parseInt(ageStr)
+      if (isNaN(age) || ageStr.toLowerCase() === 'n/a' || ageStr === '' || age <= 0) { brackets['Unknown']++; continue }
+    if (age <= 15) brackets['15 and below']++
+    else if (age <= 30) brackets['16-30']++
+    else if (age <= 45) brackets['31-45']++
+    else brackets['46 and above']++
+  }
+  const order = ['15 and below', '16-30', '31-45', '46 and above', 'Unknown']
+  const list = Object.entries(brackets)
+    .map(([range, count]) => ({ range, count, pct: total ? +((count/total)*100).toFixed(1) : 0 }))
+    .sort((a, b) => order.indexOf(a.range) - order.indexOf(b.range))
+  return { list, total }
+}
+
+function buildReligion(records) {
+  const counts = {}
+  let total = 0
+  for (const r of records) {
+    total++
+    let rel = r.religion ? r.religion.trim() : 'Unknown'
+    if (!rel || rel.toLowerCase() === 'n/a') rel = 'Unknown'
+    const lower = rel.toLowerCase()
+    if (lower.includes('catholic')) rel = 'Roman Catholic'
+    else if (lower.includes('iglesia') || lower.includes('inc')) rel = 'Iglesia ni Cristo'
+    else if (lower.includes('islam') || lower.includes('muslim')) rel = 'Islam'
+    else if (lower.includes('born') && lower.includes('again')) rel = 'Born Again Christian'
+    else if (lower.includes('christian')) rel = 'Christian'
+    counts[rel] = (counts[rel] || 0) + 1
+  }
+  const list = Object.entries(counts)
+    .map(([religion, count]) => ({ religion, count, pct: total ? +((count/total)*100).toFixed(1) : 0 }))
+    .sort((a, b) => b.count - a.count)
+  return { list, total }
+}
+
+function buildLengthOfService(records) {
+  const brackets = {
+    'Below 1 year': 0, '1-3 years': 0, '3-5 years': 0,
+    '5-10 years': 0, '10-20 years': 0, '20+ years': 0, 'Unknown': 0
+  }
+  let total = 0
+  for (const r of records) {
+    total++
+    const los = r.lengthOfService || r.yearsOfService
+    if (!los || String(los).trim().toLowerCase() === 'n/a') { brackets['Unknown']++; continue }
+    let str = String(los).toLowerCase()
+
+    if (str.includes('less than') || str.includes('below') || str.includes('few mo')) { brackets['Below 1 year']++; continue }
+
+    // Convert common text numbers to digits in case they typed "two years"
+    const numWords = { 'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10', 'eleven': '11', 'twelve': '12', 'a year': '1', 'a month': '1', 'half': '0.5' };
+    for (const w in numWords) { str = str.replace(new RegExp(`\\b${w}\\b`, 'g'), numWords[w]); }
+
+    const match = str.match(/(\d+(\.\d+)?)/)
+    if (!match) { brackets['Unknown']++; continue }
+    let val = parseFloat(match[0])
+    if (str.includes('month') || str.includes('mo')) { val = val / 12 }
+    if (val < 1) brackets['Below 1 year']++
+    else if (val <= 3) brackets['1-3 years']++
+    else if (val <= 5) brackets['3-5 years']++
+    else if (val <= 10) brackets['5-10 years']++
+    else if (val <= 20) brackets['10-20 years']++
+    else brackets['20+ years']++
+  }
+  const order = ['Below 1 year', '1-3 years', '3-5 years', '5-10 years', '10-20 years', '20+ years', 'Unknown']
+  const list = Object.entries(brackets)
+    .map(([range, count]) => ({ range, count, pct: total ? +((count/total)*100).toFixed(1) : 0 }))
+    .filter(x => x.count > 0)
+    .sort((a, b) => order.indexOf(a.range) - order.indexOf(b.range))
+  return { list, total }
+}
+
 // ─── Build barangay distribution ──────────────────────────────────────────────
 function buildBarangayStats(records) {
   const counts = {}
   let total = 0
   for (const r of records) {
-    if (r.barangay && r.barangay.trim() !== '' && r.barangay.trim().toUpperCase() !== 'N/A') {
-      const b = r.barangay.trim().toUpperCase()
+    let raw = r.barangay || '';
+    let b = raw.toUpperCase().replace(/^(BRGY\.|BRGY|BARANGAY)\s*/, '').replace(/[-.]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (b !== '' && b !== 'N/A') {
       counts[b] = (counts[b] || 0) + 1
       total++
     }
@@ -226,48 +318,58 @@ function buildBarangayStats(records) {
 }
 
 // ─── Export to Excel ──────────────────────────────────────────────────────────
-function exportToExcel(benefits, birthPlace, education, demographics, barangayStats) {
+function exportToExcel(benefits, birthPlace, education, genderStats, barangayStats, ageStats, religionStats, losStats) {
   const wb = XLSX.utils.book_new()
   const autoW = data => data[0]?.map((_, ci) => ({ wch: Math.max(...data.map(r => String(r[ci] ?? '').length), 10) }))
 
-  const b1 = [
+  const buildSheet = (title, header, rows) => {
+    const data = [header, ...rows]
+    const ws = XLSX.utils.aoa_to_sheet(data)
+    ws['!cols'] = autoW(data)
+    XLSX.utils.book_append_sheet(wb, ws, title)
+  }
+
+  buildSheet('Benefits by District', 
     ['District', 'Total', 'SSS #', 'SSS %', 'Pag-IBIG #', 'Pag-IBIG %', 'PhilHealth #', 'PhilHealth %', 'QCID #', 'QCID %'],
-    ...benefits.byDistrict.map(r => [r.label, r.total, r.rawSss, `${r['SSS']}%`, r.rawPagibig, `${r['Pag-IBIG']}%`, r.rawPhilhealth, `${r['PhilHealth']}%`, r.rawQcid, `${r['QCID']}%`]),
-  ]
-  const ws1 = XLSX.utils.aoa_to_sheet(b1); ws1['!cols'] = autoW(b1)
-  XLSX.utils.book_append_sheet(wb, ws1, 'Benefits by District')
-
-  const b2 = [
+    benefits.byDistrict.map(r => [r.label, r.total, r.rawSss, `${r['SSS']}%`, r.rawPagibig, `${r['Pag-IBIG']}%`, r.rawPhilhealth, `${r['PhilHealth']}%`, r.rawQcid, `${r['QCID']}%`])
+  )
+  buildSheet('Benefits by Year', 
     ['Year', 'Total', 'SSS #', 'SSS %', 'Pag-IBIG #', 'Pag-IBIG %', 'PhilHealth #', 'PhilHealth %', 'QCID #', 'QCID %'],
-    ...benefits.byYear.map(r => [r.name, r.total, r.rawSss, `${r['SSS']}%`, r.rawPagibig, `${r['Pag-IBIG']}%`, r.rawPhilhealth, `${r['PhilHealth']}%`, r.rawQcid, `${r['QCID']}%`]),
-  ]
-  const ws2 = XLSX.utils.aoa_to_sheet(b2); ws2['!cols'] = autoW(b2)
-  XLSX.utils.book_append_sheet(wb, ws2, 'Benefits by Year')
-
-  const b3 = [
+    benefits.byYear.map(r => [r.name, r.total, r.rawSss, `${r['SSS']}%`, r.rawPagibig, `${r['Pag-IBIG']}%`, r.rawPhilhealth, `${r['PhilHealth']}%`, r.rawQcid, `${r['QCID']}%`])
+  )
+  buildSheet('Birth Place',
     ['Category', 'Count', 'Percentage'],
-    ...birthPlace.overview.map(r => [r.name, r.value, `${r.pct}%`]),
-    [],
-    ['Top Birth Places', 'Count', 'Percentage'],
-    ...birthPlace.topPlaces.map(r => [r.place, r.count, `${r.pct}%`]),
-  ]
-  const ws3 = XLSX.utils.aoa_to_sheet(b3); ws3['!cols'] = autoW(b3.filter(r => r.length > 0))
-  XLSX.utils.book_append_sheet(wb, ws3, 'Birth Place')
-
-  const b4 = [
+    [
+      ...birthPlace.overview.map(r => [r.name, r.value, `${r.pct}%`]),
+      [],
+      ['Top Birth Places', '', ''],
+      ...birthPlace.topPlaces.map(r => [r.place, r.count, `${r.pct}%`])
+    ]
+  )
+  buildSheet('Education',
     ['Education Level', 'Count', 'Percentage'],
-    ...education.overview.map(r => [r.level, r.count, `${r.pct}%`]),
-  ]
-  const ws4 = XLSX.utils.aoa_to_sheet(b4); ws4['!cols'] = autoW(b4)
-  XLSX.utils.book_append_sheet(wb, ws4, 'Educational Attainment')
-
-  const b5 = [['Gender', 'Count', 'Percentage'], ...demographics.pieData.map(r => [r.name, r.value, `${r.pct}%`])]
-  const ws5 = XLSX.utils.aoa_to_sheet(b5); ws5['!cols'] = autoW(b5)
-  XLSX.utils.book_append_sheet(wb, ws5, 'Demographics')
-
-  const b6 = [['Barangay', 'Count', 'Percentage'], ...barangayStats.list.map(r => [r.barangay, r.count, `${r.pct}%`])]
-  const ws6 = XLSX.utils.aoa_to_sheet(b6); ws6['!cols'] = autoW(b6)
-  XLSX.utils.book_append_sheet(wb, ws6, 'Top Barangays')
+    education.overview.map(r => [r.level, r.count, `${r.pct}%`])
+  )
+  buildSheet('Gender',
+    ['Gender', 'Count', 'Percentage'],
+    genderStats.pieData.map(r => [r.name, r.value, `${r.pct}%`])
+  )
+  buildSheet('Age',
+    ['Age Bracket', 'Count', 'Percentage'],
+    ageStats.list.map(r => [r.range, r.count, `${r.pct}%`])
+  )
+  buildSheet('Religion',
+    ['Religion', 'Count', 'Percentage'],
+    religionStats.list.map(r => [r.religion, r.count, `${r.pct}%`])
+  )
+  buildSheet('Length of Service',
+    ['Length of Service', 'Count', 'Percentage'],
+    losStats.list.map(r => [r.range, r.count, `${r.pct}%`])
+  )
+  buildSheet('Top Barangays',
+    ['Barangay', 'Count', 'Percentage'],
+    barangayStats.list.map(r => [r.barangay, r.count, `${r.pct}%`])
+  )
 
   XLSX.writeFile(wb, 'Kasambahay_Analytics_Report.xlsx')
 }
@@ -278,6 +380,8 @@ const S = {
   card:   { background: '#fff', borderRadius: 10, border: '1px solid #e4e2f5', marginBottom: 20, overflow: 'hidden' },
   tabBar: { display: 'flex', borderBottom: '2px solid #e4e2f5', background: '#fff', padding: '0 16px', overflowX: 'auto' },
   tab:    (a) => ({ padding: '10px 18px', fontWeight: a ? 700 : 500, fontSize: 13, color: a ? '#534AB7' : '#888', background: 'none', border: 'none', borderBottom: `2px solid ${a ? '#534AB7' : 'transparent'}`, marginBottom: -2, cursor: 'pointer', whiteSpace: 'nowrap' }),
+  subTabBar: { display: 'flex', background: '#faf9fe', padding: '12px 16px', borderBottom: '1px solid #e4e2f5', flexWrap: 'wrap', gap: 8 },
+  subTab: (a) => ({ padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: a ? 700 : 500, color: a ? '#fff' : '#534AB7', background: a ? '#534AB7' : '#eef', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }),
   tbl:    { width: '100%', borderCollapse: 'collapse', fontSize: 12 },
   th:     { background: '#f0eefb', color: '#534AB7', fontWeight: 600, padding: '8px 12px', textAlign: 'center', borderBottom: '2px solid #d5d0f0', borderRight: '1px solid #e0dcf5', whiteSpace: 'nowrap', fontSize: 11 },
   thL:    { background: '#f0eefb', color: '#534AB7', fontWeight: 600, padding: '8px 12px', textAlign: 'left',   borderBottom: '2px solid #d5d0f0', borderRight: '1px solid #e0dcf5', whiteSpace: 'nowrap', fontSize: 11 },
@@ -303,14 +407,18 @@ const BENEFIT_COLORS = { 'SSS': '#534AB7', 'Pag-IBIG': '#F4A261', 'PhilHealth': 
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ReportsPage() {
-  const [tab,          setTab]          = useState('benefits')
+  const [tab,          setTab]          = useState('demographics')
+  const [subTab,       setSubTab]       = useState('gender')
   const [loading,      setLoading]      = useState(true)
   const [error,        setError]        = useState('')
   const [benefits,     setBenefits]     = useState(null)
   const [birthPlace,   setBirthPlace]   = useState(null)
   const [education,    setEducation]    = useState(null)
-  const [demographics, setDemographics] = useState(null)
+  const [genderStats,  setGenderStats]  = useState(null)
   const [barangayStats,setBarangayStats]= useState(null)
+  const [ageStats,     setAgeStats]     = useState(null)
+  const [religionStats,setReligionStats]= useState(null)
+  const [losStats,     setLosStats]     = useState(null)
   const [rawCount,     setRawCount]     = useState(0)
 
   useEffect(() => {
@@ -322,8 +430,11 @@ export default function ReportsPage() {
         setBenefits(buildBenefits(records))
         setBirthPlace(buildBirthPlace(records))
         setEducation(buildEducation(records))
-        setDemographics(buildDemographics(records))
+        setGenderStats(buildGenderStats(records))
         setBarangayStats(buildBarangayStats(records))
+        setAgeStats(buildAge(records))
+        setReligionStats(buildReligion(records))
+        setLosStats(buildLengthOfService(records))
       } catch (e) {
         setError(e.message)
       } finally {
@@ -363,7 +474,7 @@ export default function ReportsPage() {
             {rawCount.toLocaleString()} total records · Generated: {new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
-        <button onClick={() => exportToExcel(benefits, birthPlace, education, demographics, barangayStats)} style={{ ...S.btn, background: '#10b981' }} className="hide-on-print">
+        <button onClick={() => exportToExcel(benefits, birthPlace, education, genderStats, barangayStats, ageStats, religionStats, losStats)} style={{ ...S.btn, background: '#10b981' }} className="hide-on-print">
           📊 Export to Excel
         </button>
       </div>
@@ -372,22 +483,34 @@ export default function ReportsPage() {
       <div style={S.card}>
         <div style={S.tabBar}>
           {[
-            { key: 'benefits',    label: '🏥 Benefit Coverage %' },
-            { key: 'demographics',label: '🚻 Demographics' },
-            { key: 'birthplace',  label: '📍 Birth Place' },
-            { key: 'education',   label: '🎓 Educational Attainment' },
-            { key: 'barangay',    label: '🏘️ Top Barangays' },
+            { key: 'demographics', label: ' Demographic Profile' },
           ].map(t => (
             <button key={t.key} style={S.tab(tab === t.key)} onClick={() => setTab(t.key)}>{t.label}</button>
           ))}
         </div>
 
-        {/* ── Benefits Tab ── */}
-        {tab === 'benefits' && benefits && (
+        {tab === 'demographics' && (
+          <>
+            <div style={S.subTabBar}>
+              {[
+                { key: 'gender',          label: 'Gender' },
+                { key: 'age',             label: 'Age' },
+                { key: 'religion',        label: 'Religion' },
+                { key: 'education',       label: 'Educational Attainment' },
+                { key: 'birthplace',      label: 'Birth Place' },
+                { key: 'lengthOfService', label: 'Length of Service' },
+                { key: 'barangay',        label: 'Top Barangays' },
+                { key: 'benefits',        label: 'Benefit Coverage' },
+              ].map(t => (
+                <button key={t.key} style={S.subTab(subTab === t.key)} onClick={() => setSubTab(t.key)}>{t.label}</button>
+              ))}
+            </div>
+
+        {/* ── Benefit Coverage Sub Tab ── */}
+        {subTab === 'benefits' && benefits && (
           <div style={{ padding: 20 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
               {[
-                { label: 'Total Records', val: rawCount.toLocaleString(), sub: YEARS.join(' + ') },
                 ...Object.entries(BENEFIT_COLORS).map(([b, color]) => {
                   const totalAll  = benefits.byDistrict.reduce((s, r) => s + r.total, 0)
                   const rawKey    = { 'SSS': 'rawSss', 'Pag-IBIG': 'rawPagibig', 'PhilHealth': 'rawPhilhealth', 'QCID': 'rawQcid' }[b]
@@ -497,12 +620,11 @@ export default function ReportsPage() {
           </div>
         )}
 
-        {/* ── Birth Place Tab ── */}
-        {tab === 'birthplace' && birthPlace && (
+        {/* ── Birth Place Sub Tab ── */}
+        {subTab === 'birthplace' && birthPlace && (
           <div style={{ padding: 20 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
               {[
-                { label: 'Total Records', val: birthPlace.total.toLocaleString(), sub: 'all kasambahay', color: '#534AB7' },
                 { label: 'From NCR',      val: birthPlace.ncr.toLocaleString(),   sub: `${birthPlace.overview.find(x => x.name === 'NCR')?.pct ?? 0}% of total`, color: '#2EC4B6' },
                 { label: 'From Province', val: birthPlace.province.toLocaleString(), sub: `${birthPlace.overview.find(x => x.name === 'Province')?.pct ?? 0}% of total`, color: '#F4A261' },
                 { label: 'Not Specified', val: birthPlace.unknown.toLocaleString(),  sub: 'blank birth place', color: '#999' },
@@ -519,7 +641,7 @@ export default function ReportsPage() {
                 <p style={S.sectionHead}>NCR vs Province Breakdown</p>
                 <ResponsiveContainer width="100%" height={220}>
                   <PieChart>
-                    <Pie data={birthPlace.overview} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} label={({ name, pct }) => `${name} ${pct}%`} labelLine={false}>
+                    <Pie data={birthPlace.overview} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} label={({ payload }) => `${payload.name}: ${payload.value.toLocaleString()} (${payload.pct}%)`} labelLine={true}>
                       {birthPlace.overview.map((_, i) => <Cell key={i} fill={['#2EC4B6','#F4A261','#ccc'][i]} />)}
                     </Pie>
                     <Tooltip formatter={(v, n) => [`${v} (${birthPlace.overview.find(x=>x.name===n)?.pct}%)`, n]} />
@@ -571,8 +693,8 @@ export default function ReportsPage() {
           </div>
         )}
 
-        {/* ── Education Tab ── */}
-        {tab === 'education' && education && (
+        {/* ── Education Sub Tab ── */}
+        {subTab === 'education' && education && (
           <div style={{ padding: 20 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
               {education.overview.map((r, i) => (
@@ -583,27 +705,14 @@ export default function ReportsPage() {
                 </div>
               ))}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, marginBottom: 24 }}>
-              <div>
-                <p style={S.sectionHead}>Overall Distribution</p>
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie data={education.overview} dataKey="count" nameKey="level" cx="50%" cy="50%" outerRadius={85} label={({ pct }) => `${pct}%`} labelLine={false}>
-                      {education.overview.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip formatter={(v, n) => [v, n]} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div>
-                <p style={S.sectionHead}>Count & Percentage</p>
+          <div style={{ marginBottom: 24 }}>
+            <p style={S.sectionHead}>Numbers & Percentage</p>
                 <table style={S.tbl}>
                   <thead>
                     <tr>
                       <th style={S.thL}>Education Level</th>
-                      <th style={S.th}>Count</th>
-                      <th style={S.th}>%</th>
-                      <th style={{ ...S.th, width: 100 }}>Bar</th>
+                    <th style={S.th}>Numbers</th>
+                    <th style={S.th}>Percentage</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -612,12 +721,10 @@ export default function ReportsPage() {
                         <td style={S.tdL}>{r.level}</td>
                         <td style={S.td}>{r.count.toLocaleString()}</td>
                         <td style={{ ...S.td, fontWeight: 600, color: COLORS[i % COLORS.length] }}>{r.pct}%</td>
-                        <td style={{ ...S.td, padding: '7px 12px' }}>{pctBar(r.pct, COLORS[i % COLORS.length])}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
             </div>
             <p style={{ ...S.sectionHead, marginTop: 8 }}>Educational Attainment by District</p>
             <ResponsiveContainer width="100%" height={260}>
@@ -627,10 +734,10 @@ export default function ReportsPage() {
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                {EDU_LEVELS.map((l, i) => (
-                  <Bar key={l.key} dataKey={l.key} stackId="a" fill={COLORS[i % COLORS.length]} radius={i === EDU_LEVELS.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]}>
+                {education.chartLevels.map((levelKey, i) => (
+                  <Bar key={levelKey} dataKey={levelKey} stackId="a" fill={COLORS[i % COLORS.length]} radius={i === education.chartLevels.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]}>
                     {/* For stacked bar, position center lets it stay visible when numbers fit inside */}
-                    <LabelList dataKey={l.key} position="center" formatter={(v) => v > 0 ? v : ''} style={{ fontSize: 9, fill: '#fff', fontWeight: 600 }} />
+                    <LabelList dataKey={levelKey} position="center" formatter={(v) => v > 0 ? v : ''} style={{ fontSize: 9, fill: '#fff', fontWeight: 600 }} />
                   </Bar>
                 ))}
               </BarChart>
@@ -638,53 +745,143 @@ export default function ReportsPage() {
           </div>
         )}
 
-        {/* ── Demographics Tab ── */}
-        {tab === 'demographics' && demographics && (
+        {/* ── Gender Sub Tab ── */}
+        {subTab === 'gender' && genderStats && (
           <div style={{ padding: 20 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
-              <div style={S.metric}><div style={S.mLabel}>Total Kasambahay</div><div style={{ ...S.mVal, color: '#534AB7' }}>{demographics.total.toLocaleString()}</div></div>
-              <div style={S.metric}><div style={S.mLabel}>Female</div><div style={{ ...S.mVal, color: '#d4537e' }}>{demographics.female.toLocaleString()}</div><div style={S.mSub}>{demographics.pieData.find(x => x.name === 'Female')?.pct || 0}%</div></div>
-              <div style={S.metric}><div style={S.mLabel}>Male</div><div style={{ ...S.mVal, color: '#3b82f6' }}>{demographics.male.toLocaleString()}</div><div style={S.mSub}>{demographics.pieData.find(x => x.name === 'Male')?.pct || 0}%</div></div>
+              <div style={S.metric}><div style={S.mLabel}>Female</div><div style={{ ...S.mVal, color: '#d4537e' }}>{genderStats.female.toLocaleString()}</div><div style={S.mSub}>{genderStats.pieData.find(x => x.name === 'Female')?.pct || 0}%</div></div>
+              <div style={S.metric}><div style={S.mLabel}>Male</div><div style={{ ...S.mVal, color: '#3b82f6' }}>{genderStats.male.toLocaleString()}</div><div style={S.mSub}>{genderStats.pieData.find(x => x.name === 'Male')?.pct || 0}%</div></div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24 }}>
               <div>
                 <p style={S.sectionHead}>Sex Distribution</p>
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
-                    <Pie data={demographics.pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, pct }) => `${name} ${pct}%`}>
-                      {demographics.pieData.map((entry, i) => <Cell key={i} fill={entry.name === 'Female' ? '#d4537e' : '#3b82f6'} />)}
+                    <Pie data={genderStats.pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ payload }) => `${payload.name}: ${payload.value.toLocaleString()} (${payload.pct}%)`} labelLine={true}>
+                      {genderStats.pieData.map((entry, i) => <Cell key={i} fill={entry.name === 'Female' ? '#d4537e' : '#3b82f6'} />)}
                     </Pie>
                     <Tooltip formatter={(v, n) => [v.toLocaleString(), n]} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-              {barangayStats && (() => {
-                const top = barangayStats.list.slice(0, 5)
-                const others = barangayStats.list.slice(5).reduce((s, r) => s + r.count, 0)
-                const pieData = [...top]
-                if (others > 0) pieData.push({ barangay: 'Others', count: others, pct: barangayStats.total ? +((others / barangayStats.total) * 100).toFixed(1) : 0 })
-                return (
-                  <div>
-                    <p style={S.sectionHead}>Top 5 Barangays Distribution</p>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <PieChart>
-                        <Pie data={pieData} dataKey="count" nameKey="barangay" cx="50%" cy="50%" outerRadius={100} label={({ barangay, pct }) => `${barangay.length > 12 ? barangay.slice(0,10)+'…' : barangay} ${pct}%`}>
-                          {pieData.map((entry, i) => <Cell key={i} fill={entry.barangay === 'Others' ? '#e5e7eb' : COLORS[i % COLORS.length]} />)}
-                        </Pie>
-                        <Tooltip formatter={(v, n) => [v.toLocaleString(), n]} />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                )
-              })()}
             </div>
           </div>
         )}
 
-        {/* ── Barangays Tab ── */}
-        {tab === 'barangay' && barangayStats && (
+        {/* ── Age Sub Tab ── */}
+        {subTab === 'age' && ageStats && (
+          <div style={{ padding: 20 }}>
+            <p style={S.sectionHead}>Age Distribution</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, marginBottom: 24 }}>
+              <div>
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={ageStats.list} margin={{ top: 20, right: 20, left: 0, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
+                    <XAxis dataKey="range" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#457B9D" radius={[3, 3, 0, 0]}>
+                      <LabelList dataKey="count" position="top" formatter={(v) => v.toLocaleString()} style={{ fontSize: 10, fill: '#333', fontWeight: 600 }} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div>
+                <table style={S.tbl}>
+                  <thead>
+                    <tr>
+                      <th style={S.thL}>Age Bracket</th>
+                      <th style={S.th}>Count</th>
+                      <th style={S.th}>%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ageStats.list.map((r, i) => (
+                      <tr key={r.range} style={{ background: i % 2 === 0 ? '#fff' : '#faf9fe' }}>
+                        <td style={S.tdL}>{r.range}</td>
+                        <td style={S.td}>{r.count.toLocaleString()}</td>
+                        <td style={{ ...S.td, fontWeight: 600 }}>{r.pct}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Religion Sub Tab ── */}
+        {subTab === 'religion' && religionStats && (
+          <div style={{ padding: 20 }}>
+            <p style={S.sectionHead}>Religion Distribution</p>
+            <div style={{ maxHeight: 400, overflowY: 'auto', border: '1px solid #e4e2f5', borderRadius: 8 }}>
+              <table style={S.tbl}>
+                <thead>
+                  <tr>
+                    <th style={{ ...S.thL, position: 'sticky', top: 0 }}>Religion</th>
+                    <th style={{ ...S.th, position: 'sticky', top: 0 }}>Count</th>
+                    <th style={{ ...S.th, position: 'sticky', top: 0 }}>%</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {religionStats.list.map((r, i) => (
+                    <tr key={r.religion} style={{ background: i % 2 === 0 ? '#fff' : '#faf9fe' }}>
+                      <td style={S.tdL}>{r.religion}</td>
+                      <td style={S.td}>{r.count.toLocaleString()}</td>
+                      <td style={{ ...S.td, fontWeight: 600 }}>{r.pct}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── Length of Service Sub Tab ── */}
+        {subTab === 'lengthOfService' && losStats && (
+          <div style={{ padding: 20 }}>
+            <p style={S.sectionHead}>Length of Service</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, marginBottom: 24 }}>
+              <div>
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={losStats.list} margin={{ top: 20, right: 20, left: 0, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
+                    <XAxis dataKey="range" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#2EC4B6" radius={[3, 3, 0, 0]}>
+                      <LabelList dataKey="count" position="top" formatter={(v) => v.toLocaleString()} style={{ fontSize: 10, fill: '#333', fontWeight: 600 }} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div>
+                <table style={S.tbl}>
+                  <thead>
+                    <tr>
+                      <th style={S.thL}>Length of Service</th>
+                      <th style={S.th}>Count</th>
+                      <th style={S.th}>%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {losStats.list.map((r, i) => (
+                      <tr key={r.range} style={{ background: i % 2 === 0 ? '#fff' : '#faf9fe' }}>
+                        <td style={S.tdL}>{r.range}</td>
+                        <td style={S.td}>{r.count.toLocaleString()}</td>
+                        <td style={{ ...S.td, fontWeight: 600 }}>{r.pct}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Barangays Sub Tab ── */}
+        {subTab === 'barangay' && barangayStats && (
           <div style={{ padding: 20 }}>
             <p style={S.sectionHead}>Top 20 Barangays with Most Kasambahay</p>
             <ResponsiveContainer width="100%" height={320}>
@@ -722,6 +919,8 @@ export default function ReportsPage() {
               </table>
             </div>
           </div>
+        )}
+          </>
         )}
       </div>
 

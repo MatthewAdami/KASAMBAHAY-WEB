@@ -1713,7 +1713,7 @@ function KasambahayData() {
           isSoloParent: isTruthy(getVal('SOLO PARENT')),
           isPersonWithDisability: isTruthy(getVal('PERSON WITH DISABILITY', 'PWD')),
           isSeniorCitizen: isTruthy(getVal('SENIOR CITIZEN')),
-          lengthOfService: getVal('KASAMBAHAY LENGTH OF SERVICE', 'LENGTH OF SERVICE'),
+          lengthOfService: getVal('KASAMBAHAY LENGTH OF SERVICE', 'LENGTH OF SERVICE', 'YEARS OF SERVICE', 'YEARS IN SERVICE'),
           workOfEmployer: getVal("WORK OF EMPLOYER'S", "WORK OF EMPLOYER"),
           isKapsaMember: isTruthy(getVal('KAPSA MEMBER', 'KAPSA  MEMBER')),
           isBcoopMember: isTruthy(getVal('BCOOP MEMBER')),

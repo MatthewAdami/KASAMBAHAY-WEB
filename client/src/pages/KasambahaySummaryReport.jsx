@@ -46,7 +46,7 @@ function buildSummary(records) {
     orientation: 0, organizing: 0, osh: 0,
     genderSens: 0, firstAid: 0, homeSec: 0,
     genHouse: 0, cook: 0, laundry: 0, yaya: 0, gardener: 0,
-    age15below: 0, age1830: 0, age3145: 0, age45above: 0,
+    age15below: 0, age1830: 0, age3145: 0, age45above: 0, ageUnknown: 0,
   });
 
   const map = {};
@@ -81,11 +81,12 @@ function buildSummary(records) {
     if (r.isLaundryPerson)    d.laundry++;
     if (r.isYaya)             d.yaya++;
     if (r.isGardener)         d.gardener++;
-    const age = r.age || 0;
-    if (age <= 15)      d.age15below++;
-    else if (age <= 30) d.age1830++;
-    else if (age <= 45) d.age3145++;
-    else                d.age45above++;
+    const age = parseInt(r.age) || 0;
+    if (age > 0 && age <= 15)        d.age15below++;
+    else if (age >= 16 && age <= 30) d.age1830++;
+    else if (age >= 31 && age <= 45) d.age3145++;
+    else if (age >= 46)              d.age45above++;
+    else                             d.ageUnknown++;
   }
 
   return DISTRICTS.map(d => map[d]);
@@ -113,7 +114,8 @@ function buildBarangay(records) {
   DISTRICTS.forEach(d => { map[d] = {}; });
   for (const r of records) {
     if (!map[r.district]) continue;
-    const brgy = (r.barangay || '(Blank)').trim().toUpperCase();
+    let raw = r.barangay || '';
+    let brgy = raw.toUpperCase().replace(/^(BRGY\.|BRGY|BARANGAY)\s*/, '').replace(/[-.]/g, ' ').replace(/\s+/g, ' ').trim() || '(Blank)';
     map[r.district][brgy] = (map[r.district][brgy] || 0) + 1;
   }
   const result = {};
@@ -129,7 +131,13 @@ function buildBarangay(records) {
 const parseSvc = (val) => {
   if (!val || String(val).trim().toUpperCase() === 'N/A') return 0;
   if (typeof val === 'number') return val;
-  const str = String(val).toLowerCase();
+  let str = String(val).toLowerCase();
+  
+  if (str.includes('less than') || str.includes('below') || str.includes('few mo')) return 0.5;
+
+  const numWords = { 'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10', 'eleven': '11', 'twelve': '12', 'a year': '1', 'a month': '1', 'half': '0.5' };
+  for (const w in numWords) { str = str.replace(new RegExp(`\\b${w}\\b`, 'g'), numWords[w]); }
+
   const match = str.match(/(\d+(\.\d+)?)/);
   if (!match) return 0;
   let num = parseFloat(match[0]);
@@ -331,15 +339,15 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   const svcTotal_26= svc35_26+svc510_26+svc1020_26+svc2030_26+svc3040_26+svc4050_26+svc50p_26;
 
   // Age brackets — 2024+2025
-  const age1830_2425 = cnt(r => (r.age||0)>=18 && (r.age||0)<=30 && YEARS.includes(r.year));
-  const age3145_2425 = cnt(r => (r.age||0)>=31 && (r.age||0)<=45 && YEARS.includes(r.year));
-  const age41up_2425 = cnt(r => (r.age||0)> 41                   && YEARS.includes(r.year));
+  const age1830_2425 = cnt(r => { const a = parseInt(r.age)||0; return a>=16 && a<=30 && YEARS.includes(r.year); });
+  const age3145_2425 = cnt(r => { const a = parseInt(r.age)||0; return a>=31 && a<=45 && YEARS.includes(r.year); });
+  const age41up_2425 = cnt(r => { const a = parseInt(r.age)||0; return a>=46          && YEARS.includes(r.year); });
   const ageTotal2425 = age1830_2425 + age3145_2425 + age41up_2425;
 
   // Age brackets — Jan–Apr 2026
-  const age1830_26 = cnt(r => (r.age||0)>=18 && (r.age||0)<=30 && r.year===2026);
-  const age3145_26 = cnt(r => (r.age||0)>=31 && (r.age||0)<=45 && r.year===2026);
-  const age41up_26 = cnt(r => (r.age||0)> 41                   && r.year===2026);
+  const age1830_26 = cnt(r => { const a = parseInt(r.age)||0; return a>=16 && a<=30 && r.year===2026; });
+  const age3145_26 = cnt(r => { const a = parseInt(r.age)||0; return a>=31 && a<=45 && r.year===2026; });
+  const age41up_26 = cnt(r => { const a = parseInt(r.age)||0; return a>=46          && r.year===2026; });
   const ageTotal26 = age1830_26 + age3145_26 + age41up_26;
 
   // Sex — 2024+2025
@@ -353,24 +361,18 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   // Educational Attainment — 2024+2025
   const edKey = (r) => (r.educationalAttainment || r.education || '').toLowerCase();
   const ed = (kw) => cnt(r => edKey(r).includes(kw) && YEARS.includes(r.year));
-  const edElemGrad    = ed('elem') && cnt(r => edKey(r).includes('elem') && !edKey(r).includes('under') && YEARS.includes(r.year));
-  const edElemUnder   = cnt(r => edKey(r).includes('elem') && edKey(r).includes('under') && YEARS.includes(r.year));
-  const edHSGrad      = cnt(r => (edKey(r).includes('high school') || edKey(r).includes('hs')) && !edKey(r).includes('under') && YEARS.includes(r.year));
-  const edHSUnder     = cnt(r => (edKey(r).includes('high school') || edKey(r).includes('hs')) && edKey(r).includes('under') && YEARS.includes(r.year));
-  const edColGrad     = cnt(r => edKey(r).includes('college') && !edKey(r).includes('under') && YEARS.includes(r.year));
-  const edColUnder    = cnt(r => edKey(r).includes('college') && edKey(r).includes('under') && YEARS.includes(r.year));
-  const edVoc         = cnt(r => edKey(r).includes('voc') && YEARS.includes(r.year));
-  const edTotal2425   = edElemGrad+edElemUnder+edHSGrad+edHSUnder+edColGrad+edColUnder+edVoc;
+  const edElemGrad    = cnt(r => edKey(r).includes('elem') && YEARS.includes(r.year));
+  const edHSGrad      = cnt(r => (edKey(r).includes('high school') || edKey(r).includes('hs') || edKey(r).match(/^hs$/)) && YEARS.includes(r.year));
+  const edColGrad     = cnt(r => (edKey(r).includes('college') || edKey(r).includes('bachelor') || edKey(r).includes('bs ') || edKey(r).includes('ab ')) && YEARS.includes(r.year));
+  const edVoc         = cnt(r => (edKey(r).includes('voc') || edKey(r).includes('tesda')) && YEARS.includes(r.year));
+  const edTotal2425   = edElemGrad+edHSGrad+edColGrad+edVoc;
 
   // Educational Attainment — Jan–Apr 2026
-  const edElemGrad26  = cnt(r => edKey(r).includes('elem') && !edKey(r).includes('under') && r.year===2026);
-  const edElemUnder26 = cnt(r => edKey(r).includes('elem') && edKey(r).includes('under') && r.year===2026);
-  const edHSGrad26    = cnt(r => (edKey(r).includes('high school')||edKey(r).includes('hs')) && !edKey(r).includes('under') && r.year===2026);
-  const edHSUnder26   = cnt(r => (edKey(r).includes('high school')||edKey(r).includes('hs')) && edKey(r).includes('under') && r.year===2026);
-  const edColGrad26   = cnt(r => edKey(r).includes('college') && !edKey(r).includes('under') && r.year===2026);
-  const edColUnder26  = cnt(r => edKey(r).includes('college') && edKey(r).includes('under') && r.year===2026);
-  const edVoc26       = cnt(r => edKey(r).includes('voc') && r.year===2026);
-  const edTotal26     = edElemGrad26+edElemUnder26+edHSGrad26+edHSUnder26+edColGrad26+edColUnder26+edVoc26;
+  const edElemGrad26  = cnt(r => edKey(r).includes('elem') && r.year===2026);
+  const edHSGrad26    = cnt(r => (edKey(r).includes('high school')||edKey(r).includes('hs') || edKey(r).match(/^hs$/)) && r.year===2026);
+  const edColGrad26   = cnt(r => (edKey(r).includes('college') || edKey(r).includes('bachelor') || edKey(r).includes('bs ') || edKey(r).includes('ab ')) && r.year===2026);
+  const edVoc26       = cnt(r => (edKey(r).includes('voc') || edKey(r).includes('tesda')) && r.year===2026);
+  const edTotal26     = edElemGrad26+edHSGrad26+edColGrad26+edVoc26;
 
   // Place of origin — 2024+2025
   const originNCR2425  = cnt(r => isNCR(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && YEARS.includes(r.year));
@@ -566,7 +568,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   // ── Figure 4: Age Brackets ──────────────────────────────────────────────────
   drawFigCaption('Figure 4: Age Brackets');
   autoTable(
-    [['', 'Age 18–30', 'Age 31–45', 'Age 41 Above', 'Total']],
+    [['', 'Age 16–30', 'Age 31–45', 'Age 46 Above', 'Total']],
     [
       [`${YEARS.join(' and ')} Data`,    n(age1830_2425), n(age3145_2425), n(age41up_2425), n(ageTotal2425)],
       ['January to April 2026', n(age1830_26),   n(age3145_26),   n(age41up_26),   n(ageTotal26)],
@@ -580,12 +582,12 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   );
   drawBodyText(
     `The table shows the age brackets of kasambahays for ${YEARS.join(' and ')}, recording a total of ` +
-    `${n(ageTotal2425)} domestic workers. The majority belonged to the age group 41 and above with ` +
-    `${n(age41up_2425)} domestic workers, followed by ages 31–45 with ${n(age3145_2425)}, and ages 18–30 with ${n(age1830_2425)}.`
+    `${n(ageTotal2425)} domestic workers within these brackets. The majority belonged to the age group 46 and above with ` +
+    `${n(age41up_2425)} domestic workers, followed by ages 31–45 with ${n(age3145_2425)}, and ages 16–30 with ${n(age1830_2425)}.`
   );
   drawBodyText(
-    `From January to April 2026, a total of ${n(ageTotal26)} kasambahays were recorded, with ` +
-    `${n(age41up_26)} domestic workers aged 41 and above, ${n(age3145_26)} aged 31–45, and ${n(age1830_26)} aged 18–30.`
+    `From January to April 2026, a total of ${n(ageTotal26)} kasambahays were recorded within these brackets, with ` +
+    `${n(age41up_26)} domestic workers aged 46 and above, ${n(age3145_26)} aged 31–45, and ${n(age1830_26)} aged 16–30.`
   );
   drawBodyText(
     'Overall, the data shows that most kasambahays belong to the older age group, indicating that ' +
@@ -625,25 +627,24 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   // ── Figure 6: Educational Attainment ───────────────────────────────────────
   drawFigCaption('Figure 6: Educational Attainment');
   autoTable(
-    [['', 'Elem.\nGrad.', 'Elem.\nUndergrad', 'HS\nGrad', 'HS\nUndergrad', 'College\nGrad', 'Col.\nUndergrad', 'Voc.', 'Total']],
+    [['', 'College\nGraduate', 'Highschool\nGraduate', 'Elementary\nGraduate', 'Vocational\n/ TESDA', 'Total']],
     [
-      [`${YEARS.join(' and ')} Data`,    n(edElemGrad),   n(edElemUnder),   n(edHSGrad),   n(edHSUnder),   n(edColGrad),   n(edColUnder),   n(edVoc),   n(edTotal2425)],
-      ['January to April 2026', n(edElemGrad26), n(edElemUnder26), n(edHSGrad26), n(edHSUnder26), n(edColGrad26), n(edColUnder26), n(edVoc26), n(edTotal26)],
+      [`${YEARS.join(' and ')} Data`,    n(edColGrad),   n(edHSGrad),   n(edElemGrad),   n(edVoc),   n(edTotal2425)],
+      ['January to April 2026', n(edColGrad26), n(edHSGrad26), n(edElemGrad26), n(edVoc26), n(edTotal26)],
     ],
     {
       columnStyles: {
-        0: { halign: 'left', fontStyle: 'bold', cellWidth: 40 },
-        8: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
+        0: { halign: 'left', fontStyle: 'bold', cellWidth: 55 },
+        5: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
       },
-      styles: { fontSize: 7 },
     }
   );
   drawBodyText(
-    'The data shows that most kasambahays are high school graduates and high school undergraduates. ' +
+    'The data shows that most kasambahays fall under the high school educational level. ' +
     `In ${YEARS[0]}–${YEARS[YEARS.length-1]}, High School Graduates recorded the highest number (${n(edHSGrad)}), followed by ` +
-    `High School Undergraduates (${n(edHSUnder)}). Elementary-level workers also make up a large ` +
-    'portion of the sector, while college graduates and vocational graduates recorded the lowest numbers. ' +
-    'This indicates that most kasambahays have basic to secondary education only.'
+    `Elementary Graduates (${n(edElemGrad)}). College-level workers also make up a ` +
+    'portion of the sector, while vocational graduates recorded the lowest numbers. ' +
+    'This indicates that most kasambahays have basic to secondary education.'
   );
   drawBodyText(
     'The findings highlight the need for continuous skills training, education support, and livelihood ' +
@@ -828,9 +829,10 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   drawFigCaption('Age Brackets per District');
   const ageBracketsDist = [
     { label: '15 and below', key: 'age15below' },
-    { label: '18–30',        key: 'age1830'    },
+    { label: '16–30',        key: 'age1830'    },
     { label: '31–45',        key: 'age3145'    },
-    { label: '45 and above', key: 'age45above' },
+    { label: '46 and above', key: 'age45above' },
+    { label: 'Not Specified',key: 'ageUnknown' },
   ];
   autoTable(
     [['Age Bracket', ...DISTRICTS, 'TOTAL']],
@@ -964,9 +966,10 @@ function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName) {
   // Age Brackets
   const ageBrackets = [
     { label: '15 and below', key: 'age15below' },
-    { label: '18–30',        key: 'age1830'    },
+    { label: '16–30',        key: 'age1830'    },
     { label: '31–45',        key: 'age3145'    },
-    { label: '45 and above', key: 'age45above' },
+    { label: '46 and above', key: 'age45above' },
+    { label: 'Not Specified',key: 'ageUnknown' },
   ];
   const ageData = [
     ['Age Bracket', ...DISTRICTS, 'TOTAL'],
@@ -1327,9 +1330,9 @@ const KasambahaySummaryReport = () => {
         <div style={S.tabBar}>
           {[
             { key: 'overview',  label: 'District Overview'    },
-            { key: 'work',      label: 'Training & Work Type' },
+            { key: 'work',      label: 'Work Arrangement' },
             { key: 'age',       label: 'Age Brackets'         },
-            { key: 'benefits',  label: 'Benefit Coverage %'   },
+            { key: 'benefits',  label: 'Benefits Coverage %'   },
             { key: 'barangay',  label: 'Per Barangay'         },
           ].map(t => (
             <button key={t.key} style={S.tab(tab === t.key)} onClick={() => setTab(t.key)}>
