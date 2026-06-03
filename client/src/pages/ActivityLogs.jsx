@@ -33,7 +33,7 @@ function ActionBadge({ action }) {
 }
 
 const MODULE_ICONS = {
-  Kasambahay: '🏠', Users: '👥', System: '⚙️', default: '📋'
+  Kasambahay: '🏠', Users: '👥', System: '⚙️', GIP: '🎓', SPES: '🎒', default: '📋'
 }
 
 // ─── Empty State ──────────────────────────────────────────────────────────────

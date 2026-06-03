@@ -16,42 +16,32 @@ const multer     = require('multer')
 const XLSX       = require('xlsx')
 const GipProfile = require('../models/GipProfile')
 const { protect, restrict } = require('../middleware/auth')
+const { logActivity }        = require('../utils/logger')
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 
 // ── Helper: build filter from query params ────────────────────────────────────
 function buildFilter(query) {
-  const conditions = []
-
-  // ── isDeleted filter ──────────────────────────────────────────────────────
-  if (query.deleted === 'true') {
-    conditions.push({ isDeleted: true })
-  } else {
-    conditions.push({ $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] })
-  }
-
-  // ── Other filters ─────────────────────────────────────────────────────────
-  if (query.batch)    conditions.push({ batch:    Number(query.batch) })
-  if (query.district) conditions.push({ district: Number(query.district) })
-  if (query.source)   conditions.push({ source:   query.source })
-  if (query.sex)      conditions.push({ sex:      new RegExp(`^${query.sex}$`, 'i') })
-
+  const filter = {}
+  // isDeleted: default false (active records); pass ?deleted=true for soft-deleted
+  filter.isDeleted = query.deleted === 'true'
+  if (query.batch)    filter.batch    = Number(query.batch)
+  if (query.district) filter.district = Number(query.district)
+  if (query.sex)      filter.sex      = new RegExp(`^${query.sex}$`, 'i')
   if (query.search) {
     const q = query.search.trim()
-    conditions.push({ $or: [
-      { fullName:      new RegExp(q, 'i') },
-      { lastName:      new RegExp(q, 'i') },
-      { firstName:     new RegExp(q, 'i') },
-      { email:         new RegExp(q, 'i') },
-      { barangay:      new RegExp(q, 'i') },
-      { contact:       new RegExp(q, 'i') },
-      { courseProgram: new RegExp(q, 'i') },
-      { recommendedBy: new RegExp(q, 'i') },
-      { skills:        new RegExp(q, 'i') },
-    ]})
+    filter.$or = [
+      { name:              new RegExp(q, 'i') },
+      { email:             new RegExp(q, 'i') },
+      { barangay:          new RegExp(q, 'i') },
+      { contact:           new RegExp(q, 'i') },
+      { recommendedBy:     new RegExp(q, 'i') },
+      { courseProgram:     new RegExp(q, 'i') },
+      { assignedSpdOfficer:new RegExp(q, 'i') },
+      { skills:            new RegExp(q, 'i') },
+    ]
   }
-
-  return conditions.length === 1 ? conditions[0] : { $and: conditions }
+  return filter
 }
 
 // ── GET /api/gip-profiles ─────────────────────────────────────────────────────
@@ -120,6 +110,8 @@ router.get('/:id', protect, async (req, res) => {
 router.post('/', protect, restrict('admin', 'officer'), async (req, res) => {
   try {
     const doc = await GipProfile.create(req.body)
+    await logActivity(req.user.id, req.user.name || req.user.id, 'GIP', 'ADD',
+      `Added GIP record: ${doc.name || 'Unknown'} (Batch ${doc.batch})`)
     res.status(201).json(doc)
   } catch (err) {
     res.status(400).json({ error: err.message })
@@ -182,6 +174,8 @@ router.put('/:id', protect, restrict('admin', 'officer'), async (req, res) => {
   try {
     const doc = await GipProfile.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
     if (!doc) return res.status(404).json({ error: 'Record not found' })
+    await logActivity(req.user.id, req.user.name || req.user.id, 'GIP', 'EDIT',
+      `Edited GIP record: ${doc.name || 'Unknown'} (Batch ${doc.batch})`)
     res.json(doc)
   } catch (err) {
     res.status(400).json({ error: err.message })
@@ -193,6 +187,16 @@ router.patch('/:id', protect, restrict('admin', 'officer'), async (req, res) => 
   try {
     const doc = await GipProfile.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true })
     if (!doc) return res.status(404).json({ error: 'Record not found' })
+    if (req.body.isDeleted === true) {
+      await logActivity(req.user.id, req.user.name || req.user.id, 'GIP', 'DELETE',
+        `Soft deleted GIP record: ${doc.name || 'Unknown'} (Batch ${doc.batch})`)
+    } else if (req.body.isDeleted === false) {
+      await logActivity(req.user.id, req.user.name || req.user.id, 'GIP', 'RESTORE',
+        `Restored GIP record: ${doc.name || 'Unknown'} (Batch ${doc.batch})`)
+    } else {
+      await logActivity(req.user.id, req.user.name || req.user.id, 'GIP', 'EDIT',
+        `Updated GIP record: ${doc.name || 'Unknown'} (Batch ${doc.batch})`)
+    }
     res.json(doc)
   } catch (err) {
     res.status(400).json({ error: err.message })
@@ -204,6 +208,8 @@ router.delete('/:id', protect, restrict('admin'), async (req, res) => {
   try {
     const doc = await GipProfile.findByIdAndDelete(req.params.id)
     if (!doc) return res.status(404).json({ error: 'Record not found' })
+    await logActivity(req.user.id, req.user.name || req.user.id, 'GIP', 'DELETE',
+      `Permanently deleted GIP record: ${doc.name || 'Unknown'} (Batch ${doc.batch})`)
     res.json({ message: 'Deleted', id: req.params.id })
   } catch (err) {
     res.status(500).json({ error: err.message })
