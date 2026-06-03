@@ -40,7 +40,8 @@ const GipProfileSchema = new mongoose.Schema(
     recommendedBy:      { type: String, trim: true, default: '' },
 
     // ── Status ────────────────────────────────────────────────────────────────
-    remarks: { type: String, trim: true, default: '' },
+    remarks:   { type: String,  trim: true, default: '' },
+    isDeleted: { type: Boolean, default: false, index: true },
   },
   {
     timestamps: true,           // adds createdAt / updatedAt

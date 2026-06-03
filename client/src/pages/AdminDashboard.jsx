@@ -212,7 +212,7 @@ export default function AdminDashboard() {
                   sub="Attended Programs"
                   accentColor="#d4537e"
                   c={c}
-                  onClick={() => navigate('kasambahay')}
+                  onClick={() => navigate('programs')}
                 />
 
                 <NavCard 

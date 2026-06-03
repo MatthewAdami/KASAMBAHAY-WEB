@@ -158,44 +158,322 @@ function Toolbar({ search, onSearch, onExport, total, filtered, viewDeleted, set
 
 // ─── MODALS ───────────────────────────────────────────────────────────────────
 
-function ProgramModal({ isGip, item, columns, onClose, onSuccess, c }) {
-  const [form, setForm] = useState(item || { year: new Date().getFullYear(), batch: '' })
-  const [loading, setLoading] = useState(false)
+// ── Reference data ────────────────────────────────────────────────────────────
+
+const DISTRICTS = [1, 2, 3, 4, 5, 6]
+
+const BARANGAYS_BY_DISTRICT = {
+  1: ['Alicia','Bagong Pag-asa','Bahay Toro','Balingasa','Bungad','Damar','Damayan','Del Monte','Katipunan','Laging Handa','Maharlika','Manresa','Mariblo','Masambong','New Era','Pag-ibig sa Nayon','Paang Bundok','Pahinga Norte','Pahinga Sur','Project 6','Ramon Magsaysay','Saint Peter','Salvacion','San Antonio','San Isidro Labrador','San Jose','Siena','Talayan','Veterans Village','West Triangle'],
+  2: ['Amihan','Bagong Silangan','Batasan Hills','Commonwealth','Holy Spirit','Payatas','Sauyo'],
+  3: ['Bagumbayan','Bagumbuhay','Bayanihan','Blue Ridge A','Blue Ridge B','Camp Aguinaldo','Claro','Dioquino Zobel','Duyan-Duyan','E. Rodriguez','East Kamias','Escopa I','Escopa II','Escopa III','Escopa IV','Kristong Hari','Krus na Ligas','Lourdes','Loyola Heights','Maharlika','Manga','Manhik','Mariana','Masagana','Matandang Balara','Milagrosa','Pansol','Quirino 2-A','Quirino 2-B','Quirino 2-C','Quirino 3-A','San Roque','Silangan','Socorro','Tagumpay','Ugong Norte','Villa Maria Clara','West Kamias','White Plains'],
+  4: ['Bagong Lipunan ng Crame','Botocan','Central','Damayang Lagi','Don Manuel','Doña Aurora','Doña Imelda','Doña Josefa','Horseshoe','Immaculate Concepcion','Kalusugan','Kamuning','Kaunlaran','Kristong Hari','Krus na Ligas','Laging Handa','Malaya','Marilag','Obrero','Old Capitol Site','Paligsahan','Pinagkaisahan','Pinyahan','Roxas','Sacred Heart','San Isidro Galas','San Martin de Porres','San Vicente','Santol','Scout Borromeo','Scout Chua','Scout Madriñan','Scout Rallos','Scout Albano','Sikatuna Village','South Triangle','Talayan',"Teacher's Village East","Teacher's Village West",'U.P. Campus','U.P. Village','Valencia'],
+  5: ['Bagbag','Capri','Fairview','Glendale','Greater Lagro','Gulod','Kaligayahan','Nagkaisang Nayon','North Fairview','Novaliches Proper','Paligayahan','San Agustin','San Bartolome','San Francisco','San Isidro','Sta. Lucia','Sta. Monica','Pasong Putik Proper','Sangandaan'],
+  6: ['Apolonio Samson','Baesa','Balumbato','Culiat','New Era','Pasong Tamo','Sangandaan','Sauyo','Talipapa','Tandang Sora','Unang Sigaw'],
+}
+
+const BATCH_OPTIONS  = [1, 2, 3, 4, 5]
+const SEX_OPTIONS    = ['Male', 'Female']
+const SOURCE_OPTIONS = [{ value: 'manual', label: 'Manual' }, { value: 'lgu_form', label: 'LGU Form' }]
+const EDUC_OPTIONS   = ['Elementary Graduate','High School Graduate','Senior High Graduate','College Level','College Graduate','Vocational/Technical']
+
+// ── Section layout definitions ────────────────────────────────────────────────
+
+const GIP_SECTIONS = [
+  {
+    title: '📋 Program Info',
+    fields: [
+      { key: 'year',  label: 'Year',  half: true },
+      { key: 'batch', label: 'Batch', half: true, required: true },
+    ],
+  },
+  {
+    title: '👤 Personal Info',
+    fields: [
+      { key: 'name', label: 'Full Name' },
+      { key: 'age',  label: 'Age', half: true },
+      { key: 'sex',  label: 'Sex', half: true },
+    ],
+  },
+  {
+    title: '📞 Contact',
+    fields: [
+      { key: 'contact', label: 'Contact Number', half: true },
+      { key: 'email',   label: 'Email',           half: true },
+    ],
+  },
+  {
+    title: '📍 Location',
+    fields: [
+      { key: 'district', label: 'District', half: true },
+      { key: 'barangay', label: 'Barangay', half: true },
+    ],
+  },
+  {
+    title: '🎓 Education',
+    fields: [
+      { key: 'educationalAttainment', label: 'Educational Attainment', half: true },
+      { key: 'courseProgram',         label: 'Course / Program',       half: true },
+      { key: 'skills',                label: 'Skills' },
+    ],
+  },
+  {
+    title: '📝 Assignment',
+    fields: [
+      { key: 'assignedSpdOfficer', label: 'Assigned SPD Officer', half: true },
+      { key: 'recommendedBy',      label: 'Recommended By',       half: true },
+      { key: 'remarks',            label: 'Remarks' },
+    ],
+  },
+]
+
+const SPES_SECTIONS = [
+  {
+    title: '📋 Program Info',
+    fields: [
+      { key: 'year',   label: 'Year',   half: true },
+      { key: 'batch',  label: 'Batch',  half: true, required: true },
+      { key: 'source', label: 'Source', half: true, required: true },
+    ],
+  },
+  {
+    title: '👤 Personal Info',
+    fields: [
+      { key: 'fullName',   label: 'Full Name' },
+      { key: 'lastName',   label: 'Last Name',   half: true },
+      { key: 'firstName',  label: 'First Name',  half: true },
+      { key: 'middleName', label: 'Middle Name', half: true },
+      { key: 'age',        label: 'Age',         half: true },
+      { key: 'sex',        label: 'Sex',         half: true },
+      { key: 'birthday',   label: 'Birthday',    half: true },
+    ],
+  },
+  {
+    title: '📞 Contact',
+    fields: [
+      { key: 'contact', label: 'Contact Number', half: true },
+      { key: 'email',   label: 'Email',           half: true },
+    ],
+  },
+  {
+    title: '📍 Location',
+    fields: [
+      { key: 'district',       label: 'District', half: true },
+      { key: 'barangay',       label: 'Barangay', half: true },
+      { key: 'presentAddress', label: 'Present Address' },
+    ],
+  },
+  {
+    title: '🎓 Education',
+    fields: [
+      { key: 'educationalAttainment', label: 'Educational Attainment', half: true },
+      { key: 'courseProgram',         label: 'Course / Program',       half: true },
+      { key: 'skills',                label: 'Skills' },
+    ],
+  },
+  {
+    title: '📝 Assignment',
+    fields: [
+      { key: 'recommendedBy',  label: 'Recommended By',  half: true },
+      { key: 'kasambahayType', label: 'Kasambahay Type', half: true },
+      { key: 'deskOfficer',    label: 'Desk Officer',    half: true },
+      { key: 'remarks',        label: 'Remarks' },
+    ],
+  },
+]
+
+// ── Field renderer ────────────────────────────────────────────────────────────
+
+function ModalField({ fieldKey, value, onChange, district, c }) {
+  const inputStyle = {
+    width: '100%', padding: '7px 10px',
+    border: `1px solid ${c.border}`, borderRadius: 6,
+    background: c.bgInput, color: c.text,
+    fontSize: 13, boxSizing: 'border-box',
+  }
+  const selectStyle = { ...inputStyle, cursor: 'pointer' }
+
+  if (fieldKey === 'batch') {
+    return (
+      <select value={value ?? ''} onChange={e => onChange(e.target.value === '' ? '' : Number(e.target.value))} style={selectStyle}>
+        <option value="">— Select Batch —</option>
+        {BATCH_OPTIONS.map(b => <option key={b} value={b}>Batch {b}</option>)}
+      </select>
+    )
+  }
+  if (fieldKey === 'district') {
+    return (
+      <select value={value ?? ''} onChange={e => onChange(e.target.value === '' ? '' : Number(e.target.value))} style={selectStyle}>
+        <option value="">— Select District —</option>
+        {DISTRICTS.map(d => <option key={d} value={d}>District {d}</option>)}
+      </select>
+    )
+  }
+  if (fieldKey === 'barangay') {
+    const barangayList = district ? (BARANGAYS_BY_DISTRICT[Number(district)] || []) : []
+    if (barangayList.length > 0) {
+      return (
+        <select value={value || ''} onChange={e => onChange(e.target.value)} style={selectStyle}>
+          <option value="">— Select Barangay —</option>
+          {barangayList.map(b => <option key={b} value={b}>{b}</option>)}
+        </select>
+      )
+    }
+    return <input value={value || ''} onChange={e => onChange(e.target.value)} placeholder="Select a district first" style={inputStyle} />
+  }
+  if (fieldKey === 'sex') {
+    return (
+      <select value={value || ''} onChange={e => onChange(e.target.value)} style={selectStyle}>
+        <option value="">— Select Sex —</option>
+        {SEX_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+    )
+  }
+  if (fieldKey === 'source') {
+    return (
+      <select value={value || 'manual'} onChange={e => onChange(e.target.value)} style={selectStyle}>
+        {SOURCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    )
+  }
+  if (fieldKey === 'educationalAttainment') {
+    return (
+      <select value={value || ''} onChange={e => onChange(e.target.value)} style={selectStyle}>
+        <option value="">— Select —</option>
+        {EDUC_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+    )
+  }
+  if (fieldKey === 'skills') {
+    const display = Array.isArray(value) ? value.join(', ') : (value || '')
+    return (
+      <div>
+        <input
+          value={display}
+          onChange={e => onChange(e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+          placeholder="e.g. Encoding, Filing, Customer Service"
+          style={inputStyle}
+        />
+        <span style={{ fontSize: 10, color: c.textMuted, marginTop: 2, display: 'block' }}>Separate with commas</span>
+      </div>
+    )
+  }
+  if (fieldKey === 'birthday') {
+    const dateVal = value ? (() => { try { return new Date(value).toISOString().slice(0, 10) } catch { return '' } })() : ''
+    return <input type="date" value={dateVal} onChange={e => onChange(e.target.value)} style={inputStyle} />
+  }
+  if (fieldKey === 'year' || fieldKey === 'age') {
+    return <input type="number" value={value ?? ''} onChange={e => onChange(e.target.value === '' ? '' : Number(e.target.value))} style={inputStyle} />
+  }
+  if (fieldKey === 'remarks' || fieldKey === 'presentAddress' || fieldKey === 'permanentAddress') {
+    return <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
+  }
+  return <input value={value ?? ''} onChange={e => onChange(e.target.value)} style={inputStyle} />
+}
+
+// ── Main modal ────────────────────────────────────────────────────────────────
+
+function ProgramModal({ isGip, item, onClose, onSuccess, c }) {
+  const sections = isGip ? GIP_SECTIONS : SPES_SECTIONS
+  const defaultForm = isGip
+    ? { year: new Date().getFullYear(), batch: '' }
+    : { year: new Date().getFullYear(), batch: '', source: 'manual' }
+
+  const [form, setForm] = useState(() => {
+    if (!item) return defaultForm
+    // strip Mongoose meta fields so PUT doesn't get rejected
+    const { _id, __v, createdAt, updatedAt, ...rest } = item
+    return rest
+  })
+  const [loading,    setLoading]    = useState(false)
+  const [fieldError, setFieldError] = useState('')
+
+  const setField = (key, val) => {
+    setForm(prev => {
+      const next = { ...prev, [key]: val }
+      // clear barangay when district changes
+      if (key === 'district') next.barangay = ''
+      return next
+    })
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setFieldError('')
+    if (!form.batch)          { setFieldError('Batch is required.');  return }
+    if (!isGip && !form.source) { setFieldError('Source is required.'); return }
     setLoading(true)
     const method = item ? 'PUT' : 'POST'
-    const url = `${isGip ? API_ENDPOINTS.GIP_PROFILES : API_ENDPOINTS.SPES_PROFILES}${item ? `/${item._id}` : ''}`
+    const url    = `${isGip ? API_ENDPOINTS.GIP_PROFILES : API_ENDPOINTS.SPES_PROFILES}${item ? `/${item._id}` : ''}`
     try {
-      const res = await fetch(url, {
-        method, headers: { ...authHeader(), 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
+      const res  = await fetch(url, {
+        method,
+        headers: { ...authHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
       })
-      if (!res.ok) throw new Error('Failed to save record.')
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to save record.')
       onSuccess()
-    } catch (err) { alert(err.message) } 
-    finally { setLoading(false) }
+    } catch (err) {
+      setFieldError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <form onSubmit={handleSubmit} style={{ background: c.bgCard, width: '100%', maxWidth: 500, maxHeight: '90vh', display: 'flex', flexDirection: 'column', borderRadius: 8, overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
-        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${c.border}`, background: c.bgTopbar, display: 'flex', justifyContent: 'space-between' }}>
-          <h3 style={{ margin: 0, color: c.text }}>{item ? 'Edit Record' : `Add ${isGip ? 'GIP' : 'SPES'} Record`}</h3>
-          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: c.textMuted, fontSize: 18 }}>✕</button>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <form onSubmit={handleSubmit} style={{ background: c.bgCard, width: '100%', maxWidth: 680, maxHeight: '92vh', display: 'flex', flexDirection: 'column', borderRadius: 10, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+
+        {/* Header */}
+        <div style={{ padding: '14px 20px', borderBottom: `1px solid ${c.border}`, background: c.bgTopbar, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: c.text }}>{item ? `Edit ${isGip ? 'GIP' : 'SPES'} Record` : `Add ${isGip ? 'GIP' : 'SPES'} Record`}</h3>
+            <p style={{ margin: 0, fontSize: 11, color: c.textMuted }}>Fields marked <span style={{ color: '#e53e3e' }}>*</span> are required</p>
+          </div>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: c.textMuted, fontSize: 20, lineHeight: 1 }}>✕</button>
         </div>
-        <div style={{ padding: 20, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {columns.map(col => (
-            <div key={col.key}>
-              <label style={{ display: 'block', fontSize: 12, color: c.textMuted, marginBottom: 4, fontWeight: 600 }}>{col.label}</label>
-              <input value={form[col.key] || ''} onChange={e => setForm({ ...form, [col.key]: e.target.value })} style={{ width: '100%', padding: '8px 12px', border: `1px solid ${c.border}`, borderRadius: 6, background: c.bgInput, color: c.text, fontSize: 13, boxSizing: 'border-box' }} />
+
+        {/* Body */}
+        <div style={{ overflowY: 'auto', flex: 1, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {fieldError && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', fontSize: 12, color: '#b91c1c' }}>
+              ⚠ {fieldError}
+            </div>
+          )}
+
+          {sections.map(section => (
+            <div key={section.title}>
+              {/* Section header */}
+              <div style={{ fontSize: 11, fontWeight: 700, color: c.accent, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, paddingBottom: 6, borderBottom: `1px solid ${c.border}` }}>
+                {section.title}
+              </div>
+              {/* Fields grid */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                {section.fields.map(f => (
+                  <div key={f.key} style={{ flex: f.half ? '1 1 calc(50% - 5px)' : '1 1 100%', minWidth: f.half ? 160 : '100%' }}>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: c.textMuted, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      {f.label}{f.required && <span style={{ color: '#e53e3e', marginLeft: 2 }}>*</span>}
+                    </label>
+                    <ModalField
+                      fieldKey={f.key}
+                      value={form[f.key]}
+                      onChange={val => setField(f.key, val)}
+                      district={form.district}
+                      c={c}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>
-        <div style={{ padding: '16px 20px', borderTop: `1px solid ${c.border}`, background: c.bgTopbar, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <button type="button" onClick={onClose} style={{ padding: '8px 16px', border: `1px solid ${c.border}`, background: c.bgMuted, color: c.text, borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-          <button type="submit" disabled={loading} style={{ padding: '8px 16px', border: 'none', background: '#534AB7', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>{loading ? 'Saving...' : 'Save Record'}</button>
+
+        {/* Footer */}
+        <div style={{ padding: '14px 20px', borderTop: `1px solid ${c.border}`, background: c.bgTopbar, display: 'flex', justifyContent: 'flex-end', gap: 10, flexShrink: 0 }}>
+          <button type="button" onClick={onClose} style={{ padding: '8px 18px', border: `1px solid ${c.border}`, background: c.bgMuted, color: c.text, borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>Cancel</button>
+          <button type="submit" disabled={loading} style={{ padding: '8px 18px', border: 'none', background: '#534AB7', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13, opacity: loading ? 0.7 : 1 }}>
+            {loading ? 'Saving…' : (item ? 'Save Changes' : 'Add Record')}
+          </button>
         </div>
       </form>
     </div>
@@ -387,12 +665,14 @@ export default function ProgramsPage() {
   const [gipBatch,   setGipBatch]     = useState('')
   const [spesBatch,  setSpesBatch]    = useState('')
 
-  // ── Fetch both datasets on mount ─────────────────────────────────────────
-  const loadData = () => {
+  // ── Fetch both datasets ───────────────────────────────────────────────────
+  const loadData = (deleted) => {
+    const isDeleted = deleted !== undefined ? deleted : viewDeleted
     setLoading({ gip: true, spes: true })
     const headers = authHeader()
+    const qs = isDeleted ? '?deleted=true' : ''
 
-    fetch(API_ENDPOINTS.GIP_PROFILES, { headers })
+    fetch(`${API_ENDPOINTS.GIP_PROFILES}${qs}`, { headers })
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => {
         setGipData(Array.isArray(data) ? data : data.data ?? [])
@@ -403,7 +683,7 @@ export default function ProgramsPage() {
         setLoading(prev => ({ ...prev, gip: false }))
       })
 
-    fetch(API_ENDPOINTS.SPES_PROFILES, { headers })
+    fetch(`${API_ENDPOINTS.SPES_PROFILES}${qs}`, { headers })
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => {
         setSpesData(Array.isArray(data) ? data : data.data ?? [])
@@ -415,11 +695,11 @@ export default function ProgramsPage() {
       })
   }
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => { loadData(viewDeleted) }, [viewDeleted])
 
   // ── Filter logic ────────────────────────────────────────────────────────
   const filterRows = (rows, search, batch) => {
-    let out = rows.filter(r => !!r.isDeleted === viewDeleted)
+    let out = [...rows]  // backend already filters isDeleted
     if (batch) out = out.filter(r => String(r.batch) === String(batch))
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -436,8 +716,8 @@ export default function ProgramsPage() {
   const filteredSpes = filterRows(spesData, speSearch, spesBatch)
 
   // ── Unique batches ───────────────────────────────────────────────────────
-  const gipBatches  = [...new Set(gipData.filter(r => !!r.isDeleted === viewDeleted).map(r => r.batch))].sort((a,b)=>a-b)
-  const spesBatches = [...new Set(spesData.filter(r => !!r.isDeleted === viewDeleted).map(r => r.batch))].sort((a,b)=>a-b)
+  const gipBatches  = [...new Set(gipData.map(r => r.batch))].sort((a,b)=>a-b)
+  const spesBatches = [...new Set(spesData.map(r => r.batch))].sort((a,b)=>a-b)
 
   // ── Stats ────────────────────────────────────────────────────────────────
   const statsFor = (rows, batches) => {
@@ -521,8 +801,8 @@ export default function ProgramsPage() {
         background: c.bgTopbar, flexShrink: 0,
         paddingLeft: 8,
       }}>
-        <Tab label="GIP"  active={isGip}  count={gipData.filter(r => !!r.isDeleted === viewDeleted).length}  onClick={() => handleTabChange('gip')}  c={c} />
-        <Tab label="SPES" active={!isGip} count={spesData.filter(r => !!r.isDeleted === viewDeleted).length} onClick={() => handleTabChange('spes')} c={c} />
+        <Tab label="GIP"  active={isGip}  count={gipData.length}  onClick={() => handleTabChange('gip')}  c={c} />
+        <Tab label="SPES" active={!isGip} count={spesData.length} onClick={() => handleTabChange('spes')} c={c} />
       </div>
 
       {/* ── Batch Tabs (Replaces Dropdown & Stacking) ──────────────────── */}
@@ -548,10 +828,10 @@ export default function ProgramsPage() {
         search={isGip ? gipSearch : speSearch}
         onSearch={isGip ? setGipSearch : setSpesSearch}
         onExport={() => exportToExcel(displayRows, columns, isGip ? 'GIP_Profiles' : 'SPES_Profiles')}
-        total={isGip ? gipData.filter(r => !!r.isDeleted === viewDeleted).length : spesData.filter(r => !!r.isDeleted === viewDeleted).length}
+        total={isGip ? gipData.length : spesData.length}
         filtered={displayRows.length}
         viewDeleted={viewDeleted}
-        setViewDeleted={(v) => { setViewDeleted(v); setCheckedItems([]) }}
+        setViewDeleted={(v) => { setViewDeleted(v); setCheckedItems([]); loadData(v) }}
         onAction={handleAction}
         checkedCount={checkedItems.length}
         c={c}

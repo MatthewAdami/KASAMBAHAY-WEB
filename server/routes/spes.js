@@ -21,14 +21,24 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 
 // ── Helper: build filter ──────────────────────────────────────────────────────
 function buildFilter(query) {
-  const filter = {}
-  if (query.batch)    filter.batch    = Number(query.batch)
-  if (query.district) filter.district = Number(query.district)
-  if (query.source)   filter.source   = query.source
-  if (query.sex)      filter.sex      = new RegExp(`^${query.sex}$`, 'i')
+  const conditions = []
+
+  // ── isDeleted filter ──────────────────────────────────────────────────────
+  if (query.deleted === 'true') {
+    conditions.push({ isDeleted: true })
+  } else {
+    conditions.push({ $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] })
+  }
+
+  // ── Other filters ─────────────────────────────────────────────────────────
+  if (query.batch)    conditions.push({ batch:    Number(query.batch) })
+  if (query.district) conditions.push({ district: Number(query.district) })
+  if (query.source)   conditions.push({ source:   query.source })
+  if (query.sex)      conditions.push({ sex:      new RegExp(`^${query.sex}$`, 'i') })
+
   if (query.search) {
     const q = query.search.trim()
-    filter.$or = [
+    conditions.push({ $or: [
       { fullName:      new RegExp(q, 'i') },
       { lastName:      new RegExp(q, 'i') },
       { firstName:     new RegExp(q, 'i') },
@@ -38,9 +48,10 @@ function buildFilter(query) {
       { courseProgram: new RegExp(q, 'i') },
       { recommendedBy: new RegExp(q, 'i') },
       { skills:        new RegExp(q, 'i') },
-    ]
+    ]})
   }
-  return filter
+
+  return conditions.length === 1 ? conditions[0] : { $and: conditions }
 }
 
 // ── GET /api/spes-profiles ────────────────────────────────────────────────────

@@ -69,6 +69,9 @@ const SpesProfileSchema = new mongoose.Schema(
     // ── Employment Preferences (LGU form only) ────────────────────────────────
     preferredOccupation:     { type: String, trim: true, default: '' },
     preferredEmploymentType: { type: String, trim: true, default: '' },
+
+    // ── Soft Delete ───────────────────────────────────────────────────────────
+    isDeleted: { type: Boolean, default: false, index: true },
   },
   {
     timestamps: true,
