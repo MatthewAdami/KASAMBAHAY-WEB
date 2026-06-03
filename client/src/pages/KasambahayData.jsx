@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { API_ENDPOINTS } from '../utils/api'
 import * as XLSX from 'xlsx'
 
-const YEARS = Array.from({ length: 12 }, (_, i) => 2024 + i) // Generates 2024 up to 2035
+const currentYear = new Date().getFullYear()
+const YEARS = Array.from({ length: currentYear - 2023 }, (_, i) => 2024 + i)
 const DISTRICTS = [1, 2, 3, 4, 5, 6]
 const LIMIT     = 100
 
@@ -80,7 +81,14 @@ const ALL_COLUMNS = [
   { key: 'qcCareOrientation',       label: 'QC Care Orientation',    render: k => k.qcCareOrientation ? '✓' : '—', width: 130, center: true },
   { key: 'dateOfQcCareOrientation', label: 'QC Care Orientation Date', render: k => k.dateOfQcCareOrientation || '—', width: 160 },
 ]
-
+const DEFAULT_BARANGAYS = {
+  'District 1': ['Alicia','Bagong Pag-asa','Bahay Toro','Balingasa','Bungad','Damar','Damayan','Del Monte','Katipunan','Laging Handa','Maharlika','Manresa','Mariblo','Masambong','New Era','Pag-ibig sa Nayon','Paang Bundok','Pahinga Norte','Pahinga Sur','Project 6','Ramon Magsaysay','Saint Peter','Salvacion','San Antonio','San Isidro Labrador','San Jose','Siena','Talayan','Veterans Village','West Triangle'],
+  'District 2': ['Amihan','Bagong Silangan','Batasan Hills','Commonwealth','Holy Spirit','Payatas','Sauyo'],
+  'District 3': ['Bagumbayan','Bagumbuhay','Bayanihan','Blue Ridge A','Blue Ridge B','Camp Aguinaldo','Claro','Dioquino Zobel','Duyan-Duyan','E. Rodriguez','East Kamias','Escopa I','Escopa II','Escopa III','Escopa IV','Kristong Hari','Krus na Ligas','Lourdes','Loyola Heights','Maharlika','Manga','Manhik','Mariana','Masagana','Matandang Balara','Milagrosa','Pansol','Quirino 2-A','Quirino 2-B','Quirino 2-C','Quirino 3-A','San Roque','Silangan','Socorro','Tagumpay','Ugong Norte','Villa Maria Clara','West Kamias','White Plains'],
+  'District 4': ['Bagong Lipunan ng Crame','Botocan','Central','Damayang Lagi','Don Manuel','Doña Aurora','Doña Imelda','Doña Josefa','Horseshoe','Immaculate Concepcion','Kalusugan','Kamuning','Kaunlaran','Kristong Hari','Krus na Ligas','Laging Handa','Malaya','Marilag','Obrero','Old Capitol Site','Paligsahan','Pinagkaisahan','Pinyahan','Roxas','Sacred Heart','San Isidro Galas','San Martin de Porres','San Vicente','Santol','Scout Borromeo','Scout Chua','Scout Madriñan','Scout Rallos','Scout Albano','Sikatuna Village','South Triangle','Talayan',"Teacher's Village East","Teacher's Village West",'U.P. Campus','U.P. Village','Valencia'],
+  'District 5': ['Bagbag','Capri','Fairview','Glendale','Greater Lagro','Gulod','Kaligayahan','Nagkaisang Nayon','North Fairview','Novaliches Proper','Paligayahan','San Agustin','San Bartolome','San Francisco','San Isidro','Sta. Lucia','Sta. Monica','Pasong Putik Proper','Sangandaan'],
+  'District 6': ['Apolonio Samson','Baesa','Balumbato','Culiat','New Era','Pasong Tamo','Sangandaan','Sauyo','Talipapa','Tandang Sora','Unang Sigaw'],
+}
 const BADGE_COLORS = {
   blue:   ['#dbeafe', '#1d4ed8'],
   gray:   ['#f0f0f0', '#555'],
@@ -231,9 +239,9 @@ function FormField({ label, children, style }) {
 
 // ─── Shared form fields ───────────────────────────────────────────────────────
 function KasambahayForm({ formData, handleChange, handleGender, formId, onSubmit }) {
-  const barangayList = JSON.parse(localStorage.getItem('kasambahay_barangay_list')) || {}
+  const barangayList = (() => { try { return JSON.parse(localStorage.getItem('kasambahay_barangay_list')) || DEFAULT_BARANGAYS } catch { return DEFAULT_BARANGAYS } })()
   const districtKey = typeof formData.district === 'string' && formData.district.startsWith('District') ? formData.district : `District ${formData.district}`
-  const districtBarangays = barangayList[districtKey] || []
+  const districtBarangays = barangayList[districtKey] || DEFAULT_BARANGAYS[districtKey] || []
 
   return (
     <form id={formId} onSubmit={onSubmit} style={formStyles.formWrapper}>
@@ -269,7 +277,7 @@ function KasambahayForm({ formData, handleChange, handleGender, formId, onSubmit
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <label style={{ ...formStyles.rowLabel, marginBottom: 0, minWidth: 55 }}>District:</label>
-          <select name="district" value={formData.district} onChange={handleChange} style={{ ...formStyles.fieldSelect, width: 130 }}>
+          <select name="district" value={formData.district} onChange={e => { handleChange(e); handleChange({ target: { name: 'barangay', value: '' } }) }} style={{ ...formStyles.fieldSelect, width: 130 }}>
             <option value="">Select</option>
             {[1,2,3,4,5,6].map(d => <option key={d} value={`District ${d}`}>District {d}</option>)}
           </select>
