@@ -14,6 +14,8 @@ const authRoutes      = require('./routes/auth')
 const kasambahayRoutes = require('./routes/kasambahay')
 const userRoutes      = require('./routes/users')
 const activityLogsRoute = require('./routes/activityLogs');
+const gipRoutes       = require('./routes/gip');
+const spesRoutes      = require('./routes/spes');
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(cors({
@@ -54,6 +56,8 @@ app.use('/api/auth',       authRoutes)
 app.use('/api/kasambahay', kasambahayRoutes)
 app.use('/api/users',      userRoutes)
 app.use('/api/activity-logs', activityLogsRoute);
+app.use('/api/gip-profiles', gipRoutes);
+app.use('/api/spes-profiles', spesRoutes);
 
 // ─── 404 handler ─────────────────────────────────────────────────────────────
 app.use((req, res) => {

@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useColors } from '../ThemeContext.jsx'
-
-export const API = "https://kasambahay-backend.onrender.com/api"
+import { API_ENDPOINTS } from '../utils/api'
 
 function authHeader() {
   return { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -109,7 +108,7 @@ export default function AdminDashboard() {
     async function load() {
       setLoading(true); setError('')
       try {
-        const statsRes = await fetch(`${API}/kasambahay/stats`, { headers: authHeader() })
+        const statsRes = await fetch(`${API_ENDPOINTS.KASAMBAHAY}/stats`, { headers: authHeader() })
         if (statsRes.status === 401) { localStorage.clear(); window.location.href = '/login'; return }
         if (!statsRes.ok) { if (isMounted) setError('Failed to load stats'); setLoading(false); return }
         

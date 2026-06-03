@@ -15,6 +15,7 @@ const NAV = [
     items: [
       { key: 'users',      label: 'Users',           icon: '👥', route: '/admin/users',       permission: 'viewUsers' },
       { key: 'kasambahay', label: 'Kasambahay data', icon: '📋', route: '/admin/kasambahay',  permission: 'viewKasambahay' },
+      { key: 'programs',   label: 'Programs',        icon: '📑', route: '/admin/programs',    permission: 'viewKasambahay' },
       { key: 'reports',    label: 'Statistical Reports',         icon: '📈', route: '/admin/reports',     permission: 'viewReports' },
       { key: 'summary-report', label: 'Summary Report', icon: '📊', route: '/admin/summary-report', permission: 'viewReports' },
 
