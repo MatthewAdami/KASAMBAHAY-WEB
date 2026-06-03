@@ -13,4 +13,6 @@ export const API_ENDPOINTS = {
   AUTH_REGISTER: `${BASE_URL}/auth/register`,
   USERS: `${BASE_URL}/users`,
   ACTIVITY_LOGS: `${BASE_URL}/activity-logs`,
+  GIP_PROFILES: `${BASE_URL}/gip-profiles`,
+  SPES_PROFILES: `${BASE_URL}/spes-profiles`,
 };

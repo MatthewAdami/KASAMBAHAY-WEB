@@ -3,8 +3,6 @@ import * as XLSX from 'xlsx'
 import { useColors } from '../ThemeContext.jsx'
 import { API_ENDPOINTS } from '../utils/api'
 
-const BASE_API = API_ENDPOINTS.KASAMBAHAY.replace('/kasambahay', '')
-
 function authHeader() {
   return { Authorization: `Bearer ${localStorage.getItem('token')}` }
 }
@@ -168,7 +166,7 @@ function ProgramModal({ isGip, item, columns, onClose, onSuccess, c }) {
     e.preventDefault()
     setLoading(true)
     const method = item ? 'PUT' : 'POST'
-    const url = `${BASE_API}/${isGip ? 'gip' : 'spes'}-profiles${item ? `/${item._id}` : ''}`
+    const url = `${isGip ? API_ENDPOINTS.GIP_PROFILES : API_ENDPOINTS.SPES_PROFILES}${item ? `/${item._id}` : ''}`
     try {
       const res = await fetch(url, {
         method, headers: { ...authHeader(), 'Content-Type': 'application/json' },
@@ -210,13 +208,13 @@ function ActionModal({ type, items, isGip, onClose, onSuccess, c }) {
 
   const handleConfirm = async () => {
     setLoading(true)
-    const endpoint = isGip ? 'gip-profiles' : 'spes-profiles'
+    const endpoint = isGip ? API_ENDPOINTS.GIP_PROFILES : API_ENDPOINTS.SPES_PROFILES
     try {
       for (const id of items) {
         if (type === 'perm') {
-          await fetch(`${BASE_API}/${endpoint}/${id}`, { method: 'DELETE', headers: authHeader() })
+          await fetch(`${endpoint}/${id}`, { method: 'DELETE', headers: authHeader() })
         } else {
-          await fetch(`${BASE_API}/${endpoint}/${id}`, { method: 'PATCH', headers: { ...authHeader(), 'Content-Type': 'application/json' }, body: JSON.stringify({ isDeleted: type === 'soft' }) })
+          await fetch(`${endpoint}/${id}`, { method: 'PATCH', headers: { ...authHeader(), 'Content-Type': 'application/json' }, body: JSON.stringify({ isDeleted: type === 'soft' }) })
         }
       }
       onSuccess()
@@ -394,7 +392,7 @@ export default function ProgramsPage() {
     setLoading({ gip: true, spes: true })
     const headers = authHeader()
 
-    fetch(`${BASE_API}/gip-profiles`, { headers })
+    fetch(API_ENDPOINTS.GIP_PROFILES, { headers })
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => {
         setGipData(Array.isArray(data) ? data : data.data ?? [])
@@ -405,7 +403,7 @@ export default function ProgramsPage() {
         setLoading(prev => ({ ...prev, gip: false }))
       })
 
-    fetch(`${BASE_API}/spes-profiles`, { headers })
+    fetch(API_ENDPOINTS.SPES_PROFILES, { headers })
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => {
         setSpesData(Array.isArray(data) ? data : data.data ?? [])
