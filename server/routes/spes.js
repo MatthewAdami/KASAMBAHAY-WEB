@@ -23,9 +23,15 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 // ── Helper: build filter ──────────────────────────────────────────────────────
 function buildFilter(query) {
   const filter = {}
-  // isDeleted: default false (active records); pass ?deleted=true for soft-deleted
-  filter.isDeleted = query.deleted === 'true'
-  if (query.batch)    filter.batch    = Number(query.batch)
+  if (query.deleted === 'true') {
+    filter.isDeleted = true
+  } else {
+    filter.isDeleted = { $ne: true }
+  }
+  if (query.batch) {
+    const batches = String(query.batch).split(',').map(Number)
+    filter.batch = batches.length > 1 ? { $in: batches } : batches[0]
+  }
   if (query.district) filter.district = Number(query.district)
   if (query.source)   filter.source   = query.source
   if (query.sex)      filter.sex      = new RegExp(`^${query.sex}$`, 'i')

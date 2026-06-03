@@ -70,10 +70,10 @@ function exportToExcel(rows, columns, filenamePrefix) {
     return;
   }
   const wb = XLSX.utils.book_new();
-  const batches = [...new Set(rows.map(r => r.batch))].sort((a, b) => a - b);
+  const batches = [...new Set(rows.map(r => Number(r.batch) || 0))].filter(b => b > 0).sort((a, b) => a - b);
 
   batches.forEach(b => {
-    const batchRows = rows.filter(r => r.batch === b);
+    const batchRows = rows.filter(r => Number(r.batch) === b);
     if (batchRows.length === 0) return;
 
     const headers = columns.map(c => c.label);
@@ -662,8 +662,8 @@ export default function ProgramsPage() {
 
   const [gipSearch,  setGipSearch]    = useState('')
   const [speSearch,  setSpesSearch]   = useState('')
-  const [gipBatch,   setGipBatch]     = useState('')
-  const [spesBatch,  setSpesBatch]    = useState('')
+  const [gipBatch,   setGipBatch]     = useState('1')
+  const [spesBatch,  setSpesBatch]    = useState('1')
 
   // ── Fetch both datasets ───────────────────────────────────────────────────
   const loadData = (deleted) => {
@@ -716,8 +716,8 @@ export default function ProgramsPage() {
   const filteredSpes = filterRows(spesData, speSearch, spesBatch)
 
   // ── Unique batches ───────────────────────────────────────────────────────
-  const gipBatches  = [...new Set(gipData.map(r => r.batch))].sort((a,b)=>a-b)
-  const spesBatches = [...new Set(spesData.map(r => r.batch))].sort((a,b)=>a-b)
+  const gipBatches  = [...new Set([1, 2, ...gipData.map(r => Number(r.batch) || 0)])].filter(b => b > 0).sort((a,b)=>a-b)
+  const spesBatches = [...new Set([1, 2, ...spesData.map(r => Number(r.batch) || 0)])].filter(b => b > 0).sort((a,b)=>a-b)
 
   // ── Stats ────────────────────────────────────────────────────────────────
   const statsFor = (rows, batches) => {
@@ -726,7 +726,7 @@ export default function ProgramsPage() {
       male:   rows.filter(r => (r.sex || '').toLowerCase() === 'male').length,
       female: rows.filter(r => (r.sex || '').toLowerCase() === 'female').length,
     }
-    batches.forEach(b => { stats[`batch${b}`] = rows.filter(r => r.batch === b).length })
+    batches.forEach(b => { stats[`batch${b}`] = rows.filter(r => Number(r.batch) === b).length })
     return stats
   }
 
