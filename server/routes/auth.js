@@ -16,19 +16,28 @@ const otpStore = {}
 
 // Configure nodemailer
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: process.env.SMTP_PORT || 587,
-  secure: false,
+  service: 'gmail',
   auth: {
     user: process.env.SMTP_EMAIL,
     pass: process.env.SMTP_PASSWORD,
   },
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 10000,
   tls: {
     rejectUnauthorized: false,
   },
   lookup: (hostname, options, callback) => {
     dns.lookup(hostname, { family: 4 }, callback)
   },
+})
+
+transporter.verify((error, success) => {
+  if (error) {
+    console.error('SMTP transporter verification failed:', error)
+  } else {
+    console.log('SMTP transporter is ready')
+  }
 })
 
 // Generate random OTP (6 digits)
@@ -65,7 +74,12 @@ async function sendOTPEmail(email, otp) {
     `,
   }
 
-  return transporter.sendMail(mailOptions)
+  try {
+    return await transporter.sendMail(mailOptions)
+  } catch (err) {
+    console.error('Failed to send OTP email:', err)
+    throw err
+  }
 }
 
 // Step 1: Login with email and password, send OTP
