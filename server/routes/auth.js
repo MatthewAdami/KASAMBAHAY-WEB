@@ -2,8 +2,14 @@ const express = require('express')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
 const nodemailer = require('nodemailer')
+const dns = require('dns')
 const User = require('../models/User')
 const router = express.Router()
+
+// Prefer IPv4 for DNS lookups in environments where IPv6 is unreachable
+if (typeof dns.setDefaultResultOrder === 'function') {
+  dns.setDefaultResultOrder('ipv4first')
+}
 
 // Store OTPs in memory with expiration (in production, use Redis or DB)
 const otpStore = {}
