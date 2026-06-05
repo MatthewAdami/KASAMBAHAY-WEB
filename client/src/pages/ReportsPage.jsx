@@ -114,9 +114,12 @@ function buildBenefits(records) {
 function buildBirthPlace(records) {
   let ncr = 0, province = 0, unknown = 0
   const placeCount = {}
+  const distMap = {}
+  DISTRICTS.forEach(d => { distMap[d] = { NCR: 0, Province: 0, Unknown: 0 } })
 
   for (const r of records) {
     const cls = classifyBirthPlace(r.birthPlace)
+    if (distMap[r.district]) distMap[r.district][cls]++
     if (cls === 'NCR') ncr++
     else if (cls === 'Province') province++
     else unknown++
@@ -139,14 +142,26 @@ function buildBirthPlace(records) {
     .sort((a, b) => b.count - a.count)
     .slice(0, 20)
 
-  return { overview, topPlaces, ncr, province, unknown, total }
+  const byDistrict = DISTRICTS.map(d => {
+    const v = distMap[d]
+    return {
+      name: d.replace('District ', 'D'),
+      label: d,
+      NCR: v.NCR,
+      Province: v.Province,
+      Unknown: v.Unknown,
+      total: v.NCR + v.Province + v.Unknown,
+    }
+  })
+
+  return { overview, topPlaces, ncr, province, unknown, total, byDistrict }
 }
 
 // ─── Build educational attainment data ───────────────────────────────────────
 const EDU_LEVELS = [
-  { key: 'College Graduate' },
-  { key: 'Highschool Graduate' },
-  { key: 'Elementary Graduate' },
+  { key: 'College Level' },
+  { key: 'Highschool Level' },
+  { key: 'Elementary Level' },
   { key: 'Vocational / TESDA' },
 ]
 
@@ -155,13 +170,13 @@ function classifyEdu(raw) {
   const v = raw.trim().toLowerCase()
   if (v.includes('voc') || v.includes('tesda')) return 'Vocational / TESDA'
   if (v.includes('college') || v.includes('bachelor') || v.includes('bs ') || v.includes('ab ') || v.includes('university') || v.includes('master') || v.includes('phd') || v.includes('post-grad')) {
-    return 'College Graduate'
+    return 'College Level'
   }
   if (v.includes('high school') || v.includes('highschool') || v.includes('hs ') || v.includes('secondary') || v.match(/^hs$/)) {
-    return 'Highschool Graduate'
+    return 'Highschool Level'
   }
   if (v.includes('elem') || v.includes('grade')) {
-    return 'Elementary Graduate'
+    return 'Elementary Level'
   }
   return 'Not Specified'
 }
@@ -222,22 +237,37 @@ function buildAge(records) {
     '15 and below': 0, '16-30': 0, '31-45': 0, 
     '46 and above': 0, 'Unknown': 0
   }
+  const distMap = {}
+  DISTRICTS.forEach(d => { distMap[d] = { '15 and below': 0, '16-30': 0, '31-45': 0, '46 and above': 0, 'Unknown': 0 } })
+
   let total = 0
   for (const r of records) {
     total++
     const ageStr = String(r.age).trim()
     const age = parseInt(ageStr)
-      if (isNaN(age) || ageStr.toLowerCase() === 'n/a' || ageStr === '' || age <= 0) { brackets['Unknown']++; continue }
-    if (age <= 15) brackets['15 and below']++
-    else if (age <= 30) brackets['16-30']++
-    else if (age <= 45) brackets['31-45']++
-    else brackets['46 and above']++
+    let bucket = 'Unknown'
+    if (isNaN(age) || ageStr.toLowerCase() === 'n/a' || ageStr === '' || age <= 0) {
+      bucket = 'Unknown'
+    } else if (age <= 15) bucket = '15 and below'
+    else if (age <= 30) bucket = '16-30'
+    else if (age <= 45) bucket = '31-45'
+    else bucket = '46 and above'
+
+    brackets[bucket]++
+    if (distMap[r.district]) distMap[r.district][bucket]++
   }
   const order = ['15 and below', '16-30', '31-45', '46 and above', 'Unknown']
   const list = Object.entries(brackets)
     .map(([range, count]) => ({ range, count, pct: total ? +((count/total)*100).toFixed(1) : 0 }))
     .sort((a, b) => order.indexOf(a.range) - order.indexOf(b.range))
-  return { list, total }
+
+  const byDistrict = DISTRICTS.map(d => {
+    const row = { name: d.replace('District ', 'D'), label: d }
+    order.forEach(range => { row[range] = distMap[d][range] })
+    return row
+  })
+
+  return { list, total, byDistrict }
 }
 
 function buildReligion(records) {
@@ -266,36 +296,54 @@ function buildLengthOfService(records) {
     'Below 1 year': 0, '1-3 years': 0, '3-5 years': 0,
     '5-10 years': 0, '10-20 years': 0, '20+ years': 0, 'Unknown': 0
   }
+  const distMap = {}
+  DISTRICTS.forEach(d => { distMap[d] = { 'Below 1 year': 0, '1-3 years': 0, '3-5 years': 0, '5-10 years': 0, '10-20 years': 0, '20+ years': 0, 'Unknown': 0 } })
+
   let total = 0
   for (const r of records) {
     total++
     const los = r.lengthOfService || r.yearsOfService
-    if (!los || String(los).trim().toLowerCase() === 'n/a') { brackets['Unknown']++; continue }
-    let str = String(los).toLowerCase()
-
-    if (str.includes('less than') || str.includes('below') || str.includes('few mo')) { brackets['Below 1 year']++; continue }
-
-    // Convert common text numbers to digits in case they typed "two years"
-    const numWords = { 'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10', 'eleven': '11', 'twelve': '12', 'a year': '1', 'a month': '1', 'half': '0.5' };
-    for (const w in numWords) { str = str.replace(new RegExp(`\\b${w}\\b`, 'g'), numWords[w]); }
-
-    const match = str.match(/(\d+(\.\d+)?)/)
-    if (!match) { brackets['Unknown']++; continue }
-    let val = parseFloat(match[0])
-    if (str.includes('month') || str.includes('mo')) { val = val / 12 }
-    if (val < 1) brackets['Below 1 year']++
-    else if (val <= 3) brackets['1-3 years']++
-    else if (val <= 5) brackets['3-5 years']++
-    else if (val <= 10) brackets['5-10 years']++
-    else if (val <= 20) brackets['10-20 years']++
-    else brackets['20+ years']++
+    let bucket = 'Unknown'
+    if (!los || String(los).trim().toLowerCase() === 'n/a') {
+      bucket = 'Unknown'
+    } else {
+      let str = String(los).toLowerCase()
+      if (str.includes('less than') || str.includes('below') || str.includes('few mo')) {
+        bucket = 'Below 1 year'
+      } else {
+        const numWords = { 'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10', 'eleven': '11', 'twelve': '12', 'a year': '1', 'a month': '1', 'half': '0.5' };
+        for (const w in numWords) { str = str.replace(new RegExp(`\\b${w}\\b`, 'g'), numWords[w]); }
+        const match = str.match(/(\d+(\.\d+)?)/)
+        if (!match) {
+          bucket = 'Unknown'
+        } else {
+          let val = parseFloat(match[0])
+          if (str.includes('month') || str.includes('mo')) { val = val / 12 }
+          if (val < 1) bucket = 'Below 1 year'
+          else if (val <= 3) bucket = '1-3 years'
+          else if (val <= 5) bucket = '3-5 years'
+          else if (val <= 10) bucket = '5-10 years'
+          else if (val <= 20) bucket = '10-20 years'
+          else bucket = '20+ years'
+        }
+      }
+    }
+    brackets[bucket]++
+    if (distMap[r.district]) distMap[r.district][bucket]++
   }
   const order = ['Below 1 year', '1-3 years', '3-5 years', '5-10 years', '10-20 years', '20+ years', 'Unknown']
   const list = Object.entries(brackets)
     .map(([range, count]) => ({ range, count, pct: total ? +((count/total)*100).toFixed(1) : 0 }))
     .filter(x => x.count > 0)
     .sort((a, b) => order.indexOf(a.range) - order.indexOf(b.range))
-  return { list, total }
+
+  const byDistrict = DISTRICTS.map(d => {
+    const row = { name: d.replace('District ', 'D'), label: d }
+    order.forEach(range => { row[range] = distMap[d][range] })
+    return row
+  })
+
+  return { list, total, byDistrict }
 }
 
 // ─── Build barangay distribution ──────────────────────────────────────────────
@@ -487,13 +535,13 @@ export default function ReportsPage() {
           <>
             <div style={S.subTabBar}>
               {[
-                { key: 'gender',          label: 'Gender' },
-                { key: 'age',             label: 'Age' },
-                { key: 'education',       label: 'Educational Attainment' },
-                { key: 'birthplace',      label: 'Birth Place' },
-                { key: 'lengthOfService', label: 'Length of Service' },
-                { key: 'barangay',        label: 'Top Barangays' },
-                { key: 'benefits',        label: 'Benefit Coverage' },
+                { key: 'gender',          label: '🚻 Gender 🚻' },
+                { key: 'age',             label: '🎂 Age 🎂' },
+                { key: 'education',       label: '🎓 Educational Level 🎓' },
+                { key: 'birthplace',      label: '🏠 Birth Place 🏠' },
+                { key: 'lengthOfService', label: '⏳ Length of Service ⏳' },
+                { key: 'barangay',        label: '🏘️ Top Barangays 🏘️' },
+                { key: 'benefits',        label: '🛡️ Benefits Coverage 🛡️' },
               ].map(t => (
                 <button key={t.key} style={S.subTab(subTab === t.key)} onClick={() => setSubTab(t.key)}>{t.label}</button>
               ))}
@@ -520,7 +568,7 @@ export default function ReportsPage() {
               ))}
             </div>
 
-            <p style={S.sectionHead}>Benefit Coverage % by District</p>
+            <p style={S.sectionHead}>Benefits Coverage % by District</p>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={benefits.byDistrict} margin={{ top: 20, right: 20, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
@@ -677,6 +725,23 @@ export default function ReportsPage() {
                 </ResponsiveContainer>
               </>
             )}
+            <div style={{ marginTop: 24 }}>
+              <p style={{ ...S.sectionHead, marginTop: 8 }}>Birth Place Breakdown by District</p>
+              <ResponsiveContainer width="100%" height={340}>
+                <BarChart data={birthPlace.byDistrict} margin={{ top: 20, right: 20, left: 0, bottom: 20 }} barCategoryGap="20%" barGap={6}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(value) => value.toLocaleString()} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  {['NCR','Province','Unknown'].map((key, i) => (
+                    <Bar key={key} dataKey={key} fill={['#2EC4B6','#F4A261','#999'][i]} radius={[3, 3, 0, 0]} barSize={18}>
+                      <LabelList dataKey={key} position="top" formatter={(v) => v > 0 ? v.toLocaleString() : ''} style={{ fontSize: 9, fill: '#333', fontWeight: 600 }} />
+                    </Bar>
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         )}
 
@@ -713,18 +778,17 @@ export default function ReportsPage() {
                   </tbody>
                 </table>
             </div>
-            <p style={{ ...S.sectionHead, marginTop: 8 }}>Educational Attainment by District</p>
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={education.byDistrict} margin={{ top: 20, right: 20, left: 0, bottom: 5 }}>
+            <p style={{ ...S.sectionHead, marginTop: 8 }}>Educational Level by District</p>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={education.byDistrict} margin={{ top: 30, right: 20, left: 0, bottom: 5 }} barCategoryGap="20%">
                 <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
+                <Tooltip formatter={(value) => value.toLocaleString()} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 {education.chartLevels.map((levelKey, i) => (
-                  <Bar key={levelKey} dataKey={levelKey} stackId="a" fill={COLORS[i % COLORS.length]} radius={i === education.chartLevels.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]}>
-                    {/* For stacked bar, position center lets it stay visible when numbers fit inside */}
-                    <LabelList dataKey={levelKey} position="center" formatter={(v) => v > 0 ? v : ''} style={{ fontSize: 9, fill: '#fff', fontWeight: 600 }} />
+                  <Bar key={levelKey} dataKey={levelKey} fill={COLORS[i % COLORS.length]} radius={[3, 3, 0, 0]} barSize={18}>
+                    <LabelList dataKey={levelKey} position="top" formatter={(v) => v > 0 ? v.toLocaleString() : ''} style={{ fontSize: 9, fill: '#333', fontWeight: 600 }} />
                   </Bar>
                 ))}
               </BarChart>
@@ -795,6 +859,23 @@ export default function ReportsPage() {
                 </table>
               </div>
             </div>
+            <div style={{ marginTop: 20 }}>
+              <p style={{ ...S.sectionHead, marginTop: 24 }}>Age Range by District</p>
+              <ResponsiveContainer width="100%" height={340}>
+                <BarChart data={ageStats.byDistrict} margin={{ top: 20, right: 20, left: 0, bottom: 20 }} barCategoryGap="20%" barGap={6}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(value) => value.toLocaleString()} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  {['15 and below','16-30','31-45','46 and above','Unknown'].map((range, i) => (
+                    <Bar key={range} dataKey={range} fill={COLORS[i % COLORS.length]} radius={[3, 3, 0, 0]} barSize={18}>
+                      <LabelList dataKey={range} position="top" formatter={(v) => v > 0 ? v.toLocaleString() : ''} style={{ fontSize: 9, fill: '#333', fontWeight: 600 }} />
+                    </Bar>
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         )}
 
@@ -836,6 +917,23 @@ export default function ReportsPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
+            <div style={{ marginTop: 20 }}>
+              <p style={{ ...S.sectionHead, marginTop: 24 }}>Length of Service by District</p>
+              <ResponsiveContainer width="100%" height={340}>
+                <BarChart data={losStats.byDistrict} margin={{ top: 20, right: 20, left: 0, bottom: 20 }} barCategoryGap="20%" barGap={6}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(value) => value.toLocaleString()} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  {['Below 1 year','1-3 years','3-5 years','5-10 years','10-20 years','20+ years','Unknown'].map((range, i) => (
+                    <Bar key={range} dataKey={range} fill={COLORS[i % COLORS.length]} radius={[3, 3, 0, 0]} barSize={18}>
+                      <LabelList dataKey={range} position="top" formatter={(v) => v > 0 ? v.toLocaleString() : ''} style={{ fontSize: 9, fill: '#333', fontWeight: 600 }} />
+                    </Bar>
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
         )}

@@ -10,6 +10,49 @@ const API_URL = API_ENDPOINTS.KASAMBAHAY
 const DISTRICTS = ['District 1','District 2','District 3','District 4','District 5','District 6'];
 const YEARS     = [2024, 2025];
 
+// ─── Official Barangays per District ─────────────────────────────────────────
+const DISTRICT_BARANGAYS = {
+  'District 1': [
+    'Alicia', 'Bagong Pag-asa', 'Bahay Toro', 'Balingasa', 'Bungad', 'Damar', 'Damayan',
+    'Del Monte', 'Katipunan', 'Lourdes', 'Maharlika', 'Manresa', 'Mariblo', 'Masambong',
+    'N.S. Amoranto (Gintong Silahis)', 'Nayong Kanluran', 'Paang Bundok', 'Pag-ibig sa Nayon',
+    'Paltok', 'Paraiso', 'Phil-Am', 'Project 6', 'Ramon Magsaysay', 'Saint Peter', 'Salvacion',
+    'San Antonio', 'San Isidro Labrador', 'San Jose', 'Santa Cruz', 'Santa Teresita',
+    'Santo Cristo', 'Santo Domingo (Matalahib)', 'Siena', 'Talayan', 'Vasra',
+    'Veterans Village', 'West Triangle',
+  ],
+  'District 2': [
+    'Bagong Silangan', 'Batasan Hills', 'Commonwealth', 'Holy Spirit', 'Payatas',
+  ],
+  'District 3': [
+    'Amihan', 'Bagumbayan', 'Bagumbuhay', 'Bayanihan', 'Blue Ridge A', 'Blue Ridge B',
+    'Camp Aguinaldo', 'Claro (Quirino 3-B)', 'Dioquino Zobel', 'Duyan-duyan', 'E. Rodriguez',
+    'East Kamias', 'Escopa I', 'Escopa II', 'Escopa III', 'Escopa IV', 'Libis',
+    'Loyola Heights', 'Mangga', 'Marilag', 'Masagana', 'Milagrosa', 'Pansol',
+    'Quirino 2-A', 'Quirino 2-B', 'Quirino 2-C', 'Quirino 3-A', 'San Roque', 'Silangan',
+    'St. Ignatius', 'Tagumpay', 'Ugong Norte', 'Villa Maria Clara', 'West Kamias', 'White Plains',
+  ],
+  'District 4': [
+    'Bagong Lipunan ng Crame', 'Botocan', 'Central', 'Damayang Lagi', 'Don Manuel',
+    'Doña Aurora', 'Doña Imelda', 'Doña Josefa', 'Horseshoe', 'Immaculate Concepcion',
+    'Kalusugan', 'Kamuning', 'Kaunlaran', 'Kristong Hari', 'Krus na Ligas', 'Laging Handa',
+    'Malaya', 'Mariana', 'Obrero', 'Old Capitol Site', 'Paligsahan', 'Pinagkaisahan',
+    'Pinyahan', 'Roxas', 'Sacred Heart', 'San Isidro Galas', 'San Martin de Porres',
+    'San Vicente', 'Santol', 'Sikatuna Village', 'South Triangle', 'Santo Niño',
+    "Teacher's Village East", "Teacher's Village West", 'Tatalon', 'U.P. Campus',
+    'U.P. Village', 'Valencia',
+  ],
+  'District 5': [
+    'Bagbag', 'Capri', 'Fairview', 'Greater Lagro', 'Gulod', 'Kaligayahan',
+    'Nagkaisang Nayon', 'North Fairview', 'Novaliches Proper', 'Pasong Putik Proper',
+    'San Agustin', 'San Bartolome', 'Santa Lucia', 'Santa Monica',
+  ],
+  'District 6': [
+    'Apolonio Samson', 'Baesa', 'Balong Bato', 'Culiat', 'New Era', 'Pasong Tamo',
+    'Sangandaan', 'Sauyo', 'Talipapa', 'Tandang Sora', 'Unang Sigaw',
+  ],
+};
+
 // ─── Colors ───────────────────────────────────────────────────────────────────
 const PDF_COLORS = {
   maroon:    [123, 17,  19],
@@ -112,19 +155,86 @@ function buildPct(rows) {
   }));
 }
 
+const BARANGAY_OFFICIAL_NAMES = [
+  'Alicia', 'Bagong Pag-asa', 'Bahay Toro', 'Balingasa', 'Bungad', 'Damar', 'Damayan', 'Del Monte', 'Katipunan', 'Lourdes',
+  'Maharlika', 'Manresa', 'Mariblo', 'Masambong', 'N.S. Amoranto (Gintong Silahis)', 'Nayong Kanluran', 'Paang Bundok',
+  'Pag-ibig sa Nayon', 'Paltok', 'Paraiso', 'Phil-Am', 'Project 6', 'Ramon Magsaysay', 'Saint Peter', 'Salvacion', 'San Antonio',
+  'San Isidro Labrador', 'San Jose', 'Santa Cruz', 'Santa Teresita', 'Santo Cristo', 'Santo Domingo (Matalahib)', 'Siena',
+  'Talayan', 'Vasra', 'Veterans Village', 'West Triangle',
+  'Bagong Silangan', 'Batasan Hills', 'Commonwealth', 'Holy Spirit', 'Payatas',
+  'Amihan', 'Bagumbayan', 'Bagumbuhay', 'Bayanihan', 'Blue Ridge A', 'Blue Ridge B', 'Camp Aguinaldo', 'Claro (Quirino 3-B)',
+  'Dioquino Zobel', 'Duyan-duyan', 'E. Rodriguez', 'East Kamias', 'Escopa I', 'Escopa II', 'Escopa III', 'Escopa IV', 'Libis',
+  'Loyola Heights', 'Mangga', 'Marilag', 'Masagana', 'Milagrosa', 'Pansol', 'Quirino 2-A', 'Quirino 2-B', 'Quirino 2-C', 'Quirino 3-A',
+  'San Roque', 'Silangan', 'St. Ignatius', 'Tagumpay', 'Ugong Norte', 'Villa Maria Clara', 'West Kamias', 'White Plains',
+  'Bagong Lipunan ng Crame', 'Botocan', 'Central', 'Damayang Lagi', 'Don Manuel', 'Doña Aurora', 'Doña Imelda', 'Doña Josefa',
+  'Horseshoe', 'Immaculate Concepcion', 'Kalusugan', 'Kamuning', 'Kaunlaran', 'Kristong Hari', 'Krus na Ligas', 'Laging Handa',
+  'Malaya', 'Mariana', 'Obrero', 'Old Capitol Site', 'Paligsahan', 'Pinagkaisahan', 'Pinyahan', 'Roxas', 'Sacred Heart',
+  'San Isidro Galas', 'San Martin de Porres', 'San Vicente', 'Santol', 'Sikatuna Village', 'South Triangle', 'Santo Niño',
+  'Tatalon', 'Teacher\'s Village East', 'Teacher\'s Village West', 'U.P. Campus', 'U.P. Village', 'Valencia',
+  'Bagbag', 'Capri', 'Fairview', 'Greater Lagro', 'Gulod', 'Kaligayahan', 'Nagkaisang Nayon', 'North Fairview', 'Novaliches Proper',
+  'Pasong Putik Proper', 'San Agustin', 'San Bartolome', 'Santa Lucia', 'Santa Monica',
+  'Apolonio Samson', 'Baesa', 'Balong Bato', 'Culiat', 'New Era', 'Pasong Tamo', 'Sangandaan', 'Sauyo', 'Talipapa', 'Tandang Sora',
+  'Unang Sigaw'
+];
+
+const BARANGAY_CANONICAL = BARANGAY_OFFICIAL_NAMES.reduce((map, name) => {
+  const key = normalizeBarangayKey(name);
+  if (key) map[key] = name;
+  const keyWithoutParens = normalizeBarangayKey(name.replace(/\s*\(.*\)$/, ''));
+  if (keyWithoutParens) map[keyWithoutParens] = name;
+  return map;
+}, {});
+
+function normalizeBarangayKey(input) {
+  return String(input || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toUpperCase()
+    .trim()
+    .replace(/^(BRGY\.?|BARANGAY)\s*/i, '')
+    .replace(/\s+(BRGY\.?|BARANGAY)$/i, '')
+    .replace(/[-.,()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeBarangayName(raw) {
+  let name = normalizeBarangayKey(raw);
+  if (!name || name === 'N/A') return '';
+  return BARANGAY_CANONICAL[name] || name;
+}
+
+// ─── Build barangay counts — only official barangays per district ─────────────
 function buildBarangay(records) {
+  // Start with all official barangays at 0
   const map = {};
-  DISTRICTS.forEach(d => { map[d] = {}; });
+  DISTRICTS.forEach(d => {
+    map[d] = {};
+    (DISTRICT_BARANGAYS[d] || []).forEach(brgy => {
+      map[d][brgy] = 0;
+    });
+  });
+
+  // Count records — only increment if barangay is official for that district
   for (const r of records) {
     if (!map[r.district]) continue;
-    const brgy = (r.barangay || '(Blank)').trim().toUpperCase();
-    map[r.district][brgy] = (map[r.district][brgy] || 0) + 1;
+    const brgy = normalizeBarangayName(r.barangay);
+    if (!brgy) continue;
+    // Only count if it's a recognized official barangay for this district
+    if (Object.prototype.hasOwnProperty.call(map[r.district], brgy)) {
+      map[r.district][brgy]++;
+    }
   }
+
+  // Convert to sorted array — always show all official barangays
   const result = {};
   for (const d of DISTRICTS) {
-    result[d] = Object.entries(map[d])
-      .map(([barangay, count]) => ({ barangay, count }))
-      .sort((a, b) => a.barangay.localeCompare(b.barangay));
+    result[d] = (DISTRICT_BARANGAYS[d] || []).map(barangay => ({
+      barangay,
+      count: map[d][barangay] || 0,
+    }));
+    // Already in official order, but sort alphabetically for display
+    result[d].sort((a, b) => a.barangay.localeCompare(b.barangay));
   }
   return result;
 }
@@ -160,7 +270,6 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   const ML = 14, MR = 14, CT = PW / 2;
   let y = 0;
 
-  // ── helpers ──────────────────────────────────────────────────────────────────
   const n   = (v) => (v || 0).toLocaleString();
   const pct = (a, b) => b ? `${((a / b) * 100).toFixed(1)}%` : '0%';
   const cnt = (fn) => rawRecords.filter(fn).length;
@@ -236,7 +345,6 @@ async function exportGeneralAnalysisPDF(rawRecords) {
     doc.setTextColor(0, 0, 0);
   };
 
-  // autoTable wrapper — calls jspdfAutoTable(doc, opts) directly (no prototype patch needed)
   const autoTable = (head, body, opts = {}) => {
     checkNewPage(20);
     const result = jspdfAutoTable(doc, {
@@ -265,7 +373,6 @@ async function exportGeneralAnalysisPDF(rawRecords) {
     y = (result?.finalY ?? doc.lastAutoTable?.finalY ?? y) + 4;
   };
 
-  // ── Total row style helper ────────────────────────────────────────────────────
   const totalRowCb = (rowCount) => ({
     didParseCell: (data) => {
       if (data.row.index === rowCount) {
@@ -276,23 +383,19 @@ async function exportGeneralAnalysisPDF(rawRecords) {
     },
   });
 
-  // ── Pre-compute all counts from rawRecords ────────────────────────────────────
   const rec2425 = rawRecords.filter(r => r.year === 2024 || r.year === 2025);
 
-  // Employment arrangements — 2024+2025 combined
   const liveIn2425  = cnt(r => r.isLiveIn  && (r.year===2024||r.year===2025));
   const liveOut2425 = cnt(r => r.isLiveOut && (r.year===2024||r.year===2025));
   const onCall2425  = cnt(r => r.isOnCall  && (r.year===2024||r.year===2025));
   const total2425   = rec2425.length;
 
-  // Employment arrangements — Jan–Apr 2026
   const rec2026    = rawRecords.filter(r => r.year === 2026);
   const liveIn26   = cnt(r => r.isLiveIn  && r.year === 2026);
   const liveOut26  = cnt(r => r.isLiveOut && r.year === 2026);
   const onCall26   = cnt(r => r.isOnCall  && r.year === 2026);
   const total26    = rec2026.length;
 
-  // Job categorizations — 2024+2025
   const genHouse2425 = cnt(r => r.isGeneralHousehelp && (r.year===2024||r.year===2025));
   const yaya2425     = cnt(r => r.isYaya          && (r.year===2024||r.year===2025));
   const cook2425     = cnt(r => r.isCook          && (r.year===2024||r.year===2025));
@@ -300,7 +403,6 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   const gard2425     = cnt(r => r.isGardener      && (r.year===2024||r.year===2025));
   const jobTotal2425 = yaya2425 + cook2425 + laun2425 + gard2425;
 
-  // Job categorizations — Jan–Apr 2026
   const genHouse26  = cnt(r => r.isGeneralHousehelp && r.year===2026);
   const yaya26      = cnt(r => r.isYaya          && r.year===2026);
   const cook26      = cnt(r => r.isCook          && r.year===2026);
@@ -308,7 +410,6 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   const gard26      = cnt(r => r.isGardener      && r.year===2026);
   const jobTotal26  = yaya26 + cook26 + laun26 + gard26;
 
-  // Length of service (from 2024-2025 ODK data — using yearsOfService field if available)
   const svc = (lo, hi) => cnt(r => {
     const s = parseSvc(r.yearsOfService || r.lengthOfService);
     return s >= lo && s <= hi && (r.year===2024||r.year===2025);
@@ -334,27 +435,22 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   const svc50p_26  = svc26(50, 999);
   const svcTotal_26= svc35_26+svc510_26+svc1020_26+svc2030_26+svc3040_26+svc4050_26+svc50p_26;
 
-  // Age brackets — 2024+2025
   const age1830_2425 = cnt(r => (r.age||0)>=18 && (r.age||0)<=30 && (r.year===2024||r.year===2025));
   const age3145_2425 = cnt(r => (r.age||0)>=31 && (r.age||0)<=45 && (r.year===2024||r.year===2025));
   const age41up_2425 = cnt(r => (r.age||0)> 41                   && (r.year===2024||r.year===2025));
   const ageTotal2425 = age1830_2425 + age3145_2425 + age41up_2425;
 
-  // Age brackets — Jan–Apr 2026
   const age1830_26 = cnt(r => (r.age||0)>=18 && (r.age||0)<=30 && r.year===2026);
   const age3145_26 = cnt(r => (r.age||0)>=31 && (r.age||0)<=45 && r.year===2026);
   const age41up_26 = cnt(r => (r.age||0)> 41                   && r.year===2026);
   const ageTotal26 = age1830_26 + age3145_26 + age41up_26;
 
-  // Sex — 2024+2025
   const female2425 = cnt(r => r.isFemale && (r.year===2024||r.year===2025));
   const male2425   = cnt(r => r.isMale   && (r.year===2024||r.year===2025));
 
-  // Sex — Jan–Apr 2026
   const female26 = cnt(r => r.isFemale && r.year===2026);
   const male26   = cnt(r => r.isMale   && r.year===2026);
 
-  // Educational Attainment — 2024+2025
   const edKey = (r) => (r.educationalAttainment || r.education || '').toLowerCase();
   const ed = (kw) => cnt(r => edKey(r).includes(kw) && (r.year===2024||r.year===2025));
   const edElemGrad    = ed('elem') && cnt(r => edKey(r).includes('elem') && !edKey(r).includes('under') && (r.year===2024||r.year===2025));
@@ -366,7 +462,6 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   const edVoc         = cnt(r => edKey(r).includes('voc') && (r.year===2024||r.year===2025));
   const edTotal2425   = edElemGrad+edElemUnder+edHSGrad+edHSUnder+edColGrad+edColUnder+edVoc;
 
-  // Educational Attainment — Jan–Apr 2026
   const edElemGrad26  = cnt(r => edKey(r).includes('elem') && !edKey(r).includes('under') && r.year===2026);
   const edElemUnder26 = cnt(r => edKey(r).includes('elem') && edKey(r).includes('under') && r.year===2026);
   const edHSGrad26    = cnt(r => (edKey(r).includes('high school')||edKey(r).includes('hs')) && !edKey(r).includes('under') && r.year===2026);
@@ -376,38 +471,33 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   const edVoc26       = cnt(r => edKey(r).includes('voc') && r.year===2026);
   const edTotal26     = edElemGrad26+edElemUnder26+edHSGrad26+edHSUnder26+edColGrad26+edColUnder26+edVoc26;
 
-  // Place of origin — 2024+2025
   const originNCR2425  = cnt(r => isNCR(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && (r.year===2024||r.year===2025));
   const originProv2425 = cnt(r => !isNCR(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && !!(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && (r.year===2024||r.year===2025));
 
-  // Place of origin — Jan–Apr 2026
   const originNCR26   = cnt(r => isNCR(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && r.year===2026);
   const originProv26  = cnt(r => !isNCR(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && !!(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && r.year===2026);
 
-  // Social Benefits — 2024+2025
   const sss2425  = cnt(r => r.sss        && (r.year===2024||r.year===2025));
   const phi2425  = cnt(r => r.philhealth && (r.year===2024||r.year===2025));
   const pag2425  = cnt(r => r.pagIbig    && (r.year===2024||r.year===2025));
   const qcid2425 = cnt(r => r.qcid       && (r.year===2024||r.year===2025));
   const benTotal2425 = sss2425 + phi2425 + pag2425 + qcid2425;
 
-  // Social Benefits — Jan–Apr 2026
   const sss26   = cnt(r => r.sss        && r.year===2026);
   const phi26   = cnt(r => r.philhealth && r.year===2026);
   const pag26   = cnt(r => r.pagIbig    && r.year===2026);
   const qcid26  = cnt(r => r.qcid       && r.year===2026);
   const benTotal26 = sss26 + phi26 + pag26 + qcid26;
 
-  // Barangay compliance (from actual data)
+  // Use official-barangay-only data for PDF
   const barangayData   = buildBarangay(rawRecords);
   const brgyCompliance = DISTRICTS.map(d => ({
     district:  d,
-    barangays: (barangayData[d] || []).map(b => b.barangay),
-    total:     (barangayData[d] || []).length,
+    barangays: (DISTRICT_BARANGAYS[d] || []),
+    total:     (DISTRICT_BARANGAYS[d] || []).length,
   }));
   const totalBrgy = brgyCompliance.reduce((s, d) => s + d.total, 0);
 
-  // Program activity counts
   const ori24  = cnt(r => r.kasambahayOrientation);
   const org24  = cnt(r => r.kasambahayOrganizing);
   const fgd24  = cnt(r => r.focusGroupDiscussion);
@@ -417,20 +507,13 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   const fa24   = cnt(r => r.basicFirstAidTraining);
   const hs24   = cnt(r => r.homeSecurityAwareness);
 
-  // District summary
   const rows   = buildSummary(rawRecords);
   const totals = buildTotals(rows);
 
-  // ════════════════════════════════════════════════════════════════════════════
   // HEADER
-  // ════════════════════════════════════════════════════════════════════════════
   y = 12;
-
-  // Top maroon rule
   doc.setFillColor(...PDF_COLORS.maroon);
   doc.rect(0, 0, PW, 2.5, 'F');
-
-  // Agency text
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(...PDF_COLORS.darkBlue);
@@ -446,16 +529,12 @@ async function exportGeneralAnalysisPDF(rawRecords) {
     CT, y, { align: 'center' }
   );
   y += 3;
-
-  // Double rule
   doc.setDrawColor(...PDF_COLORS.maroon);
   doc.setLineWidth(1.5);
   doc.line(ML, y, PW - MR, y); y += 1.5;
   doc.setDrawColor(...PDF_COLORS.darkBlue);
   doc.setLineWidth(0.4);
   doc.line(ML, y, PW - MR, y); y += 7;
-
-  // Report title
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
   doc.setTextColor(...PDF_COLORS.maroon);
@@ -472,9 +551,6 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   doc.line(ML, y, PW - MR, y); y += 7;
   doc.setTextColor(0, 0, 0);
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // I. OVERVIEW
-  // ════════════════════════════════════════════════════════════════════════════
   drawSectionHeader('I.  OVERVIEW');
   drawBodyText(
     'The Special Projects Division – Kasambahay Section continues to implement various orientations, ' +
@@ -483,12 +559,8 @@ async function exportGeneralAnalysisPDF(rawRecords) {
     'Kasambahays, and improve access to social protection and government services.'
   );
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // II. DEMOGRAPHIC PROFILE
-  // ════════════════════════════════════════════════════════════════════════════
   drawSectionHeader('II.  DEMOGRAPHIC PROFILE');
 
-  // ── Figure 1: Employment Arrangements ──────────────────────────────────────
   drawFigCaption('Figure 1: Employment Arrangements');
   autoTable(
     [['', 'Live-In', 'Live-Out', 'On-Call', 'Total']],
@@ -496,12 +568,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
       ['2024 and 2025 Data',    n(liveIn2425),  n(liveOut2425),  n(onCall2425),  n(total2425)],
       ['January to April 2026', n(liveIn26),    n(liveOut26),    n(onCall26),    n(total26)],
     ],
-    {
-      columnStyles: {
-        0: { halign: 'left', fontStyle: 'bold', cellWidth: 55 },
-        4: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
-      },
-    }
+    { columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 55 }, 4: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue } } }
   );
   drawBodyText(
     `The consolidated data on Kasambahay employment arrangements for 2024 and 2025 recorded a total of ` +
@@ -516,7 +583,6 @@ async function exportGeneralAnalysisPDF(rawRecords) {
     `demand for flexible domestic work services.`
   );
 
-  // ── Figure 2: Job Categorizations ──────────────────────────────────────────
   drawFigCaption('Figure 2: Job Categorizations');
   autoTable(
     [['', 'Yaya', 'Cook', 'Laundry', 'Gardener', 'Total']],
@@ -524,12 +590,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
       ['2024 and 2025 Data',    n(yaya2425), n(cook2425), n(laun2425), n(gard2425), n(jobTotal2425)],
       ['January to April 2026', n(yaya26),   n(cook26),   n(laun26),   n(gard26),   n(jobTotal26)],
     ],
-    {
-      columnStyles: {
-        0: { halign: 'left', fontStyle: 'bold', cellWidth: 55 },
-        5: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
-      },
-    }
+    { columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 55 }, 5: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue } } }
   );
   drawBodyText(
     `The data on kasambahay job categorizations for 2024 and 2025 recorded a total of ${n(jobTotal2425)} ` +
@@ -548,7 +609,6 @@ async function exportGeneralAnalysisPDF(rawRecords) {
     'the need for skills training and support programs for kasambahays.'
   );
 
-  // ── Figure 3: Length of Service ────────────────────────────────────────────
   drawFigCaption('Figure 3: Length of Service');
   drawNote('Source: Open Data Kit (ODK) LMIS DATABASE 2024–2025');
   autoTable(
@@ -557,17 +617,10 @@ async function exportGeneralAnalysisPDF(rawRecords) {
       ['2024 and 2025 Data',    n(svc35), n(svc510), n(svc1020), n(svc2030), n(svc3040), n(svc4050), n(svc50p), n(svcTotal)],
       ['January to April 2026', n(svc35_26), n(svc510_26), n(svc1020_26), n(svc2030_26), n(svc3040_26), n(svc4050_26), n(svc50p_26), n(svcTotal_26)],
     ],
-    {
-      columnStyles: {
-        0: { halign: 'left', fontStyle: 'bold', cellWidth: 45 },
-        8: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
-      },
-      styles: { fontSize: 7 },
-    }
+    { columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 45 }, 8: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue } }, styles: { fontSize: 7 } }
   );
   drawNote('Based on Open Data Kit (ODK) YEAR 2024 TO 2025 NOVEMBER');
 
-  // ── Figure 4: Age Brackets ──────────────────────────────────────────────────
   drawFigCaption('Figure 4: Age Brackets');
   autoTable(
     [['', 'Age 18–30', 'Age 31–45', 'Age 41 Above', 'Total']],
@@ -575,12 +628,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
       ['2024 and 2025 Data',    n(age1830_2425), n(age3145_2425), n(age41up_2425), n(ageTotal2425)],
       ['January to April 2026', n(age1830_26),   n(age3145_26),   n(age41up_26),   n(ageTotal26)],
     ],
-    {
-      columnStyles: {
-        0: { halign: 'left', fontStyle: 'bold', cellWidth: 55 },
-        4: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
-      },
-    }
+    { columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 55 }, 4: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue } } }
   );
   drawBodyText(
     `The table shows the age brackets of kasambahays for 2024 and 2025, recording a total of ` +
@@ -596,7 +644,6 @@ async function exportGeneralAnalysisPDF(rawRecords) {
     'domestic work is largely sustained by experienced adult workers rather than younger individuals.'
   );
 
-  // ── Figure 5: Sex ───────────────────────────────────────────────────────────
   drawFigCaption('Figure 5: Sex');
   autoTable(
     [['', 'Female', 'Male', 'Total']],
@@ -604,12 +651,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
       ['2024 and 2025 Data',    n(female2425), n(male2425), n(female2425+male2425)],
       ['January to April 2026', n(female26),   n(male26),   n(female26+male26)],
     ],
-    {
-      columnStyles: {
-        0: { halign: 'left', fontStyle: 'bold', cellWidth: 55 },
-        3: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
-      },
-    }
+    { columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 55 }, 3: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue } } }
   );
   drawBodyText(
     `The data on the sex distribution of kasambahays for 2024 and 2025 recorded a total of ` +
@@ -626,7 +668,6 @@ async function exportGeneralAnalysisPDF(rawRecords) {
     'the importance of gender-responsive programs, protection, and welfare support for female kasambahays.'
   );
 
-  // ── Figure 6: Educational Attainment ───────────────────────────────────────
   drawFigCaption('Figure 6: Educational Attainment');
   autoTable(
     [['', 'Elem.\nGrad.', 'Elem.\nUndergrad', 'HS\nGrad', 'HS\nUndergrad', 'College\nGrad', 'Col.\nUndergrad', 'Voc.', 'Total']],
@@ -634,13 +675,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
       ['2024 and 2025 Data',    n(edElemGrad),   n(edElemUnder),   n(edHSGrad),   n(edHSUnder),   n(edColGrad),   n(edColUnder),   n(edVoc),   n(edTotal2425)],
       ['January to April 2026', n(edElemGrad26), n(edElemUnder26), n(edHSGrad26), n(edHSUnder26), n(edColGrad26), n(edColUnder26), n(edVoc26), n(edTotal26)],
     ],
-    {
-      columnStyles: {
-        0: { halign: 'left', fontStyle: 'bold', cellWidth: 40 },
-        8: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
-      },
-      styles: { fontSize: 7 },
-    }
+    { columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 40 }, 8: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue } }, styles: { fontSize: 7 } }
   );
   drawBodyText(
     'The data shows that most kasambahays are high school graduates and high school undergraduates. ' +
@@ -654,7 +689,6 @@ async function exportGeneralAnalysisPDF(rawRecords) {
     'programs to improve employment opportunities and career growth for kasambahays.'
   );
 
-  // ── Figure 7: Place of Origin ───────────────────────────────────────────────
   drawFigCaption('Figure 7: Place of Origin');
   drawNote('Based on Kasambahay Masterlist database.');
   autoTable(
@@ -663,14 +697,9 @@ async function exportGeneralAnalysisPDF(rawRecords) {
       ['2024 and 2025 Data',    n(originNCR2425), n(originProv2425)],
       ['January to April 2026', n(originNCR26),   n(originProv26)],
     ],
-    {
-      columnStyles: {
-        0: { halign: 'left', fontStyle: 'bold', cellWidth: 55 },
-      },
-    }
+    { columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 55 } } }
   );
 
-  // ── Figure 8: Social Benefits ──────────────────────────────────────────────
   drawFigCaption('Figure 8: Social Benefits');
   autoTable(
     [['', 'SSS', 'PhilHealth', 'Pag-IBIG', 'QC ID', 'Total']],
@@ -678,12 +707,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
       ['2024 and 2025 Data',    n(sss2425), n(phi2425), n(pag2425), n(qcid2425), n(benTotal2425)],
       ['January to April 2026', n(sss26),   n(phi26),   n(pag26),   n(qcid26),   n(benTotal26)],
     ],
-    {
-      columnStyles: {
-        0: { halign: 'left', fontStyle: 'bold', cellWidth: 55 },
-        5: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
-      },
-    }
+    { columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 55 }, 5: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue } } }
   );
   drawBodyText(
     `The data shows that many kasambahays are enrolled in social protection programs, with QC ID having ` +
@@ -695,25 +719,13 @@ async function exportGeneralAnalysisPDF(rawRecords) {
     `registration assistance are still needed to improve coverage.`
   );
 
-  // ── Figure 9: Barangay Compliance ──────────────────────────────────────────
   drawFigCaption('Figure 9: Based on Submitted Report per Barangays');
   autoTable(
     [['Compliance Submitted Report per Barangays', '2024–2025', '2026']],
-    [
-      ['', `${totalBrgy} Barangays`, `${brgyCompliance.reduce((s,d)=> s + (d.barangays.filter(b => b).length), 0)}`],
-    ],
-    {
-      columnStyles: {
-        0: { halign: 'left', fontStyle: 'bold', cellWidth: 100 },
-        1: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
-        2: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
-      },
-    }
+    [['', `${totalBrgy} Barangays`, `${brgyCompliance.reduce((s,d)=> s + (d.barangays.filter(b => b).length), 0)}`]],
+    { columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 100 }, 1: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue }, 2: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue } } }
   );
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // OTHER KEY OUTPUTS (ENGAGEMENTS)
-  // ════════════════════════════════════════════════════════════════════════════
   checkNewPage(30);
   drawSectionHeader('OTHER KEY OUTPUTS (ENGAGEMENTS)');
   drawBullet('Kasambahays enrolled in Savings Program');
@@ -722,9 +734,6 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   drawSubBullet('MADISKARTENG KASAMBAHAY NG ESCOPA 1 (7/14/25)');
   y += 2;
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // PROGRAM ACTIVITIES
-  // ════════════════════════════════════════════════════════════════════════════
   checkNewPage(30);
   drawSectionHeader('SUMMARY OF KASAMBAHAY PROGRAM ACTIVITIES');
   drawBodyText('Below are the breakdowns of the various activities/programs conducted:');
@@ -739,27 +748,16 @@ async function exportGeneralAnalysisPDF(rawRecords) {
       ['Kasambahay OSH Training and GAD',              n(osh24 + gen24)],
       ['Basic First Aid Training and Home Security Awareness', n(fa24 + hs24)],
     ],
-    {
-      columnStyles: {
-        0: { halign: 'left', cellWidth: 130 },
-        1: { halign: 'center', fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
-      },
-    }
+    { columnStyles: { 0: { halign: 'left', cellWidth: 130 }, 1: { halign: 'center', fontStyle: 'bold', textColor: PDF_COLORS.darkBlue } } }
   );
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // BARANGAY COMPLIANCE TABLE
-  // ════════════════════════════════════════════════════════════════════════════
   checkNewPage(30);
   drawSectionHeader('BARANGAYS COMPLIANCE – SUBMITTED REPORTS');
   drawFigCaption('Figure 2: Barangays Compliance Submitted Reports');
 
-  // One row per district listing all barangays
   const brgyBody = brgyCompliance.map(d => [
     `${d.district}\n(Total: ${d.total})`,
-    d.barangays.length > 0
-      ? d.barangays.join('\n')
-      : 'None recorded',
+    d.barangays.length > 0 ? d.barangays.join('\n') : 'None recorded',
   ]);
 
   autoTable(
@@ -781,52 +779,26 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   y += 6;
   doc.setTextColor(0, 0, 0);
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // DISTRICT SUMMARY (appended at end for reference)
-  // ════════════════════════════════════════════════════════════════════════════
   checkNewPage(30);
   drawSectionHeader('DISTRICT SUMMARY – REGISTERED KASAMBAHAYS');
-
   drawFigCaption('District Overview: Encoded Records & Demographics');
   autoTable(
     [['District', 'Enc\n2024', 'Enc\n2025', 'Sub\nTotal', 'Female', 'Male', 'Live-In', 'Live-Out', 'On-Call']],
     [
-      ...rows.map(r => [
-        r.district, n(r.enc2024), n(r.enc2025), n(r.subtotal),
-        n(r.female), n(r.male), n(r.liveIn), n(r.liveOut), n(r.onCall),
-      ]),
-      [
-        'TOTAL', n(totals.enc2024), n(totals.enc2025), n(totals.subtotal),
-        n(totals.female), n(totals.male), n(totals.liveIn), n(totals.liveOut), n(totals.onCall),
-      ],
+      ...rows.map(r => [r.district, n(r.enc2024), n(r.enc2025), n(r.subtotal), n(r.female), n(r.male), n(r.liveIn), n(r.liveOut), n(r.onCall)]),
+      ['TOTAL', n(totals.enc2024), n(totals.enc2025), n(totals.subtotal), n(totals.female), n(totals.male), n(totals.liveIn), n(totals.liveOut), n(totals.onCall)],
     ],
-    {
-      columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 28 }, 3: { fontStyle: 'bold' } },
-      styles: { fontSize: 7 },
-      ...totalRowCb(rows.length),
-    }
+    { columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 28 }, 3: { fontStyle: 'bold' } }, styles: { fontSize: 7 }, ...totalRowCb(rows.length) }
   );
 
   drawFigCaption('District Training & Work Type');
   autoTable(
     [['District', 'Orientation', 'Organizing', 'OSH', 'Gender\nSens.', 'First Aid', 'Home\nSec.', 'Gen.\nHousehelp', 'Cook', 'Laundry', 'Yaya', 'Gardener']],
     [
-      ...rows.map(r => [
-        r.district, n(r.orientation), n(r.organizing), n(r.osh),
-        n(r.genderSens), n(r.firstAid), n(r.homeSec),
-        n(r.genHouse), n(r.cook), n(r.laundry), n(r.yaya), n(r.gardener),
-      ]),
-      [
-        'TOTAL', n(totals.orientation), n(totals.organizing), n(totals.osh),
-        n(totals.genderSens), n(totals.firstAid), n(totals.homeSec),
-        n(totals.genHouse), n(totals.cook), n(totals.laundry), n(totals.yaya), n(totals.gardener),
-      ],
+      ...rows.map(r => [r.district, n(r.orientation), n(r.organizing), n(r.osh), n(r.genderSens), n(r.firstAid), n(r.homeSec), n(r.genHouse), n(r.cook), n(r.laundry), n(r.yaya), n(r.gardener)]),
+      ['TOTAL', n(totals.orientation), n(totals.organizing), n(totals.osh), n(totals.genderSens), n(totals.firstAid), n(totals.homeSec), n(totals.genHouse), n(totals.cook), n(totals.laundry), n(totals.yaya), n(totals.gardener)],
     ],
-    {
-      columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 28 } },
-      styles: { fontSize: 7 },
-      ...totalRowCb(rows.length),
-    }
+    { columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 28 } }, styles: { fontSize: 7 }, ...totalRowCb(rows.length) }
   );
 
   drawFigCaption('Age Brackets per District');
@@ -839,47 +811,23 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   autoTable(
     [['Age Bracket', ...DISTRICTS, 'TOTAL']],
     [
-      ...ageBracketsDist.map(({ label, key }) => [
-        label,
-        ...rows.map(r => n(r[key])),
-        n(rows.reduce((s, r) => s + (r[key] || 0), 0)),
-      ]),
+      ...ageBracketsDist.map(({ label, key }) => [label, ...rows.map(r => n(r[key])), n(rows.reduce((s, r) => s + (r[key] || 0), 0))]),
       ['SUBTOTAL', ...rows.map(r => n(r.subtotal)), n(totals.subtotal)],
     ],
-    {
-      columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 30 } },
-      styles: { fontSize: 7 },
-      ...totalRowCb(ageBracketsDist.length),
-    }
+    { columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 30 } }, styles: { fontSize: 7 }, ...totalRowCb(ageBracketsDist.length) }
   );
 
-  drawFigCaption('Benefit Coverage % per District');
+  drawFigCaption('Benefits Coverage % per District');
   const pctRows = buildPct(rows);
   autoTable(
     [['District', 'SSS %', 'PhilHealth %', 'Pag-IBIG %', 'QCID %']],
     [
-      ...pctRows.map(r => [
-        r.district,
-        `${r.sss.toFixed(2)}%`, `${r.philhealth.toFixed(2)}%`,
-        `${r.pagibig.toFixed(2)}%`, `${r.qcid.toFixed(2)}%`,
-      ]),
-      [
-        'All Districts',
-        `${totals.subtotal ? ((totals.sss/totals.subtotal)*100).toFixed(2) : 0}%`,
-        `${totals.subtotal ? ((totals.philhealth/totals.subtotal)*100).toFixed(2) : 0}%`,
-        `${totals.subtotal ? ((totals.pagibig/totals.subtotal)*100).toFixed(2) : 0}%`,
-        `${totals.subtotal ? ((totals.qcid/totals.subtotal)*100).toFixed(2) : 0}%`,
-      ],
+      ...pctRows.map(r => [r.district, `${r.sss.toFixed(2)}%`, `${r.philhealth.toFixed(2)}%`, `${r.pagibig.toFixed(2)}%`, `${r.qcid.toFixed(2)}%`]),
+      ['All Districts', `${totals.subtotal ? ((totals.sss/totals.subtotal)*100).toFixed(2) : 0}%`, `${totals.subtotal ? ((totals.philhealth/totals.subtotal)*100).toFixed(2) : 0}%`, `${totals.subtotal ? ((totals.pagibig/totals.subtotal)*100).toFixed(2) : 0}%`, `${totals.subtotal ? ((totals.qcid/totals.subtotal)*100).toFixed(2) : 0}%`],
     ],
-    {
-      columnStyles: { 0: { halign: 'left', fontStyle: 'bold' } },
-      ...totalRowCb(pctRows.length),
-    }
+    { columnStyles: { 0: { halign: 'left', fontStyle: 'bold' } }, ...totalRowCb(pctRows.length) }
   );
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // FOOTER — every page
-  // ════════════════════════════════════════════════════════════════════════════
   const totalPages = doc.internal.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
@@ -907,7 +855,6 @@ function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName) {
       wch: Math.max(...data.map(row => String(row[ci] ?? '').length), 8),
     }));
 
-  // Masterlist
   const masterHeaders = [
     'No.','Last Name','First Name','Middle Name','District','Barangay',
     'Age','Sex','Civil Status','Home Address','Nature of Work',
@@ -939,7 +886,6 @@ function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName) {
   wsMaster['!cols'] = autoWidth(masterData);
   XLSX.utils.book_append_sheet(wb, wsMaster, 'Masterlist');
 
-  // District Overview
   const ovHeaders = [
     'District','Encoded 2024','Encoded 2025','Sub Total',
     'Female','Male','Live-In','Live-Out','On-Call',
@@ -954,7 +900,6 @@ function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName) {
   ws1['!cols'] = autoWidth(ovData);
   XLSX.utils.book_append_sheet(wb, ws1, 'District Overview');
 
-  // Training & Work
   const wkHeaders = ['District','Kasambahay Orientation','Kasambahay Organizing','Occupational Safety','Gender Sensitivity','Basic First Aid','Home Security','General Househelp','Cook','Laundry','Yaya','Gardener'];
   const wkData = [
     wkHeaders,
@@ -965,7 +910,6 @@ function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName) {
   ws2['!cols'] = autoWidth(wkData);
   XLSX.utils.book_append_sheet(wb, ws2, 'Training & Work Type');
 
-  // Age Brackets
   const ageBrackets = [
     { label: '15 and below', key: 'age15below' },
     { label: '18–30',        key: 'age1830'    },
@@ -974,18 +918,13 @@ function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName) {
   ];
   const ageData = [
     ['Age Bracket', ...DISTRICTS, 'TOTAL'],
-    ...ageBrackets.map(({ label, key }) => [
-      label,
-      ...rows.map(r => r[key] || 0),
-      rows.reduce((s, r) => s + (r[key] || 0), 0),
-    ]),
+    ...ageBrackets.map(({ label, key }) => [label, ...rows.map(r => r[key] || 0), rows.reduce((s, r) => s + (r[key] || 0), 0)]),
     ['SUBTOTAL', ...rows.map(r => r.subtotal), totals.subtotal],
   ];
   const ws3 = XLSX.utils.aoa_to_sheet(ageData);
   ws3['!cols'] = autoWidth(ageData);
   XLSX.utils.book_append_sheet(wb, ws3, 'Age Brackets');
 
-  // Benefit Coverage %
   const pctData = [
     ['District','SSS %','PhilHealth %','Pag-IBIG %','QCID %'],
     ...pctRows.map(r => [r.district,`${r.sss.toFixed(2)}%`,`${r.philhealth.toFixed(2)}%`,`${r.pagibig.toFixed(2)}%`,`${r.qcid.toFixed(2)}%`]),
@@ -994,12 +933,16 @@ function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName) {
   ws4['!cols'] = autoWidth(pctData);
   XLSX.utils.book_append_sheet(wb, ws4, 'Benefit Coverage');
 
-  // Per Barangay
+  // Per Barangay — always uses official barangay list, shows all even if count = 0
   const brgyRows = [['District','Barangay','Count']];
   for (const dist of DISTRICTS) {
-    const list = barangay[dist] || [];
-    list.forEach(b => brgyRows.push([dist, b.barangay, b.count]));
-    brgyRows.push([dist, 'Grand Total', list.reduce((s, b) => s + b.count, 0)]);
+    const officialList = DISTRICT_BARANGAYS[dist] || [];
+    const countMap = {};
+    (barangay[dist] || []).forEach(b => { countMap[b.barangay] = b.count; });
+    officialList.forEach(brgy => {
+      brgyRows.push([dist, brgy, countMap[brgy] || 0]);
+    });
+    brgyRows.push([dist, 'Grand Total', officialList.reduce((s, brgy) => s + (countMap[brgy] || 0), 0)]);
     brgyRows.push([]);
   }
   const ws5 = XLSX.utils.aoa_to_sheet(brgyRows);
@@ -1097,9 +1040,8 @@ const KasambahaySummaryReport = () => {
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState('');
   const [tab,        setTab]        = useState('overview');
-  const [genPdfLoading, setGenPdfLoading] = useState(false); // ← NEW
+  const [genPdfLoading, setGenPdfLoading] = useState(false);
 
-  // Filter state
   const [filterYear,        setFilterYear]        = useState('');
   const [filterDistrict,    setFilterDistrict]    = useState('');
   const [filterSex,         setFilterSex]         = useState('');
@@ -1120,7 +1062,6 @@ const KasambahaySummaryReport = () => {
     load();
   }, []);
 
-  // ── NEW: General Analysis PDF handler ────────────────────────────────────────
   const handleGeneralAnalysisPDF = async () => {
     setGenPdfLoading(true);
     try {
@@ -1132,13 +1073,11 @@ const KasambahaySummaryReport = () => {
     }
   };
 
-  // Derive filtered records
   const activeFilters  = { year: filterYear, district: filterDistrict, sex: filterSex, arrangement: filterArrangement };
   const hasFilter      = Object.values(activeFilters).some(Boolean);
   const displayRecords = hasFilter ? applyFilters(rawRecords, activeFilters) : rawRecords;
   const resetFilters   = () => { setFilterYear(''); setFilterDistrict(''); setFilterSex(''); setFilterArrangement(''); };
 
-  // Re-aggregate from displayRecords
   const rows    = buildSummary(displayRecords);
   const totals  = rows.length ? buildTotals(rows) : null;
   const tot     = totals || {};
@@ -1209,10 +1148,7 @@ const KasambahaySummaryReport = () => {
           </p>
         </div>
 
-        {/* ── ACTION BUTTONS ── */}
         <div className="hide-on-print" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-
-          {/* ── NEW: General Analysis PDF Button ── */}
           <button
             onClick={handleGeneralAnalysisPDF}
             disabled={genPdfLoading}
@@ -1227,7 +1163,6 @@ const KasambahaySummaryReport = () => {
             {genPdfLoading ? '⏳ Generating…' : '📋 General Analysis PDF'}
           </button>
 
-          {/* Full Excel export */}
           <button
             onClick={() => {
               const allRows = buildSummary(rawRecords);
@@ -1239,7 +1174,6 @@ const KasambahaySummaryReport = () => {
             📊 Export to Excel
           </button>
 
-          {/* Filtered Excel export */}
           {hasFilter && (
             <button
               onClick={() => exportToExcel(rows, totals, pctRows, barangay, displayRecords, `Kasambahay_Filtered_${filterLabel}`)}
@@ -1277,7 +1211,7 @@ const KasambahaySummaryReport = () => {
         </div>
       </div>
 
-      {/* ── Tabs Card (Filter Bar + Tabs + Content) ── */}
+      {/* ── Tabs Card ── */}
       <div style={S.card}>
 
         {/* Filter Bar */}
@@ -1331,7 +1265,7 @@ const KasambahaySummaryReport = () => {
             { key: 'overview',  label: 'District Overview'    },
             { key: 'work',      label: 'Training & Work Type' },
             { key: 'age',       label: 'Age Brackets'         },
-            { key: 'benefits',  label: 'Benefit Coverage %'   },
+            { key: 'benefits',  label: 'Benefits Coverage %'   },
             { key: 'barangay',  label: 'Per Barangay'         },
           ].map(t => (
             <button key={t.key} style={S.tab(tab === t.key)} onClick={() => setTab(t.key)}>
@@ -1467,35 +1401,115 @@ const KasambahaySummaryReport = () => {
           </div>
         )}
 
-        {/* ── Per Barangay ── */}
+        {/* ── Per Barangay — official barangays only, always all shown ── */}
         {tab === 'barangay' && (
           <div style={{ padding: '16px' }}>
+            {/* Legend */}
+            <div style={{ display: 'flex', gap: '16px', marginBottom: '12px', fontSize: '11px', color: '#888', flexWrap: 'wrap' }}>
+              <span>
+                <span style={{ display: 'inline-block', width: 10, height: 10, background: '#fff', border: '1px solid #e0dcf5', borderRadius: 2, marginRight: 4 }} />
+                Barangay with registered kasambahays
+              </span>
+              <span>
+                <span style={{ display: 'inline-block', width: 10, height: 10, background: '#fdf6f6', border: '1px solid #e0dcf5', borderRadius: 2, marginRight: 4 }} />
+                No registered kasambahays yet
+              </span>
+              <span style={{ marginLeft: 'auto', fontStyle: 'italic', color: '#aaa' }}>
+                Showing all official barangays per district (QC)
+              </span>
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
               {DISTRICTS.map(d => {
                 const brgyList   = barangay[d] || [];
                 const grandTotal = brgyList.reduce((s, b) => s + b.count, 0);
+                const withData   = brgyList.filter(b => b.count > 0).length;
+
                 return (
                   <div key={d} style={{ border: '1px solid #e4e2f5', borderRadius: '8px', overflow: 'hidden' }}>
-                    <div style={{ background: '#534AB7', color: '#fff', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: '700', fontSize: '12px' }}>{d}</span>
-                      <span style={{ fontSize: '11px', opacity: 0.85 }}>COUNTA of KASAMBAHAY</span>
+                    {/* District header */}
+                    <div style={{ background: '#534AB7', color: '#fff', padding: '8px 12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: '700', fontSize: '12px' }}>{d}</span>
+                        <span style={{ fontSize: '11px', opacity: 0.85 }}>COUNTA of KASAMBAHAY</span>
+                      </div>
+                      <div style={{ fontSize: '10px', opacity: 0.75, marginTop: '2px' }}>
+                        {withData} of {brgyList.length} barangays with records
+                      </div>
                     </div>
+
                     <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                         <tbody>
                           {brgyList.length === 0
-                            ? <tr><td style={{ ...S.td, textAlign: 'center', color: '#aaa', padding: '16px' }}>No barangay data</td></tr>
-                            : brgyList.map((b, i) => (
-                                <tr key={b.barangay} style={{ background: i % 2 === 0 ? '#fff' : '#faf9fe' }}>
-                                  <td style={{ ...S.tdL, fontWeight: '400', fontSize: '12px', paddingLeft: '12px' }}>{b.barangay}</td>
-                                  <td style={{ ...S.td, fontWeight: '600', color: '#534AB7', paddingRight: '12px' }}>{n(b.count)}</td>
-                                </tr>
-                              ))
+                            ? (
+                              <tr>
+                                <td style={{ ...S.td, textAlign: 'center', color: '#aaa', padding: '16px' }}>
+                                  No barangay data
+                                </td>
+                              </tr>
+                            )
+                            : brgyList.map((b, i) => {
+                                const hasRecords = b.count > 0;
+                                return (
+                                  <tr
+                                    key={b.barangay}
+                                    style={{
+                                      background: hasRecords
+                                        ? (i % 2 === 0 ? '#fff' : '#faf9fe')
+                                        : '#fdf6f6',
+                                    }}
+                                  >
+                                    <td style={{
+                                      ...S.tdL,
+                                      fontWeight: '400',
+                                      fontSize: '12px',
+                                      paddingLeft: '8px',
+                                      color: hasRecords ? '#333' : '#bbb',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '8px',
+                                    }}>
+                                      <input 
+                                        type="checkbox" 
+                                        checked={hasRecords} 
+                                        readOnly 
+                                        style={{
+                                          width: '14px',
+                                          height: '14px',
+                                          cursor: 'default',
+                                          flexShrink: 0,
+                                          accentColor: '#534AB7',
+                                        }}
+                                      />
+                                      {b.barangay}
+                                    </td>
+                                    <td style={{
+                                      ...S.td,
+                                      fontWeight: hasRecords ? '600' : '400',
+                                      color: hasRecords ? '#534AB7' : '#ccc',
+                                      paddingRight: '12px',
+                                    }}>
+                                      {hasRecords ? n(b.count) : '—'}
+                                    </td>
+                                  </tr>
+                                );
+                              })
                           }
                         </tbody>
                       </table>
                     </div>
-                    <div style={{ background: '#edeaf9', borderTop: '2px solid #d5d0f0', padding: '7px 12px', display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '12px', color: '#3c3289' }}>
+
+                    <div style={{
+                      background: '#edeaf9',
+                      borderTop: '2px solid #d5d0f0',
+                      padding: '7px 12px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontWeight: '700',
+                      fontSize: '12px',
+                      color: '#3c3289',
+                    }}>
                       <span>Grand Total</span>
                       <span>{n(grandTotal)}</span>
                     </div>
