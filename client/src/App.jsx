@@ -10,6 +10,7 @@ import KasambahaySummaryReport from './pages/KasambahaySummaryReport'
 import ReportsPage    from './pages/ReportsPage'
 import SettingsPage   from './pages/SettingsPage'
 import ProgramsPage   from './pages/ProgramsPage'
+import TrainingsPage from './pages/TrainingsPage'
 import { can, getRole } from './rbac'
 const AuditPage = () => <div style={{ padding: 24 }}>Audit log page</div>
 
@@ -87,6 +88,11 @@ export default function App() {
         <Route path="programs" element={
           <RoleRoute permission="viewKasambahay">
             <ProgramsPage />
+          </RoleRoute>
+        } />
+        <Route path="trainings" element={
+          <RoleRoute permission="viewKasambahay">
+            <TrainingsPage />
           </RoleRoute>
         } />
         <Route path="reports" element={

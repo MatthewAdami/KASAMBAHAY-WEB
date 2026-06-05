@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer
+} from 'recharts';
 import * as XLSX from 'xlsx';
 
 import { API_ENDPOINTS } from '../utils/api'
 const API_URL = API_ENDPOINTS.KASAMBAHAY
 const DISTRICTS = ['District 1','District 2','District 3','District 4','District 5','District 6'];
-const currentYear = new Date().getFullYear()
-const YEARS = Array.from({ length: currentYear - 2023 }, (_, i) => 2024 + i);
+const YEARS     = [2024, 2025];
 
 // ─── Colors ───────────────────────────────────────────────────────────────────
 const PDF_COLORS = {
@@ -38,7 +41,7 @@ function applyFilters(records, { year, district, sex, arrangement }) {
 function buildSummary(records) {
   const blank = () => ({
     subtotal: 0,
-    ...Object.fromEntries(YEARS.map(y => [`enc${y}`, 0])),
+    enc2024: 0, enc2025: 0,
     sss: 0, philhealth: 0, pagibig: 0, qcid: 0,
     female: 0, male: 0,
     liveIn: 0, liveOut: 0, onCall: 0,
@@ -46,7 +49,7 @@ function buildSummary(records) {
     orientation: 0, organizing: 0, osh: 0,
     genderSens: 0, firstAid: 0, homeSec: 0,
     genHouse: 0, cook: 0, laundry: 0, yaya: 0, gardener: 0,
-    age15below: 0, age1830: 0, age3145: 0, age45above: 0, ageUnknown: 0,
+    age15below: 0, age1830: 0, age3145: 0, age45above: 0,
   });
 
   const map = {};
@@ -56,7 +59,8 @@ function buildSummary(records) {
     const d = map[r.district];
     if (!d) continue;
     d.subtotal++;
-    YEARS.forEach(y => { if (r.year === y) d[`enc${y}`]++ });
+    if (r.year === 2024) d.enc2024++;
+    if (r.year === 2025) d.enc2025++;
     if (r.sss)        d.sss++;
     if (r.philhealth) d.philhealth++;
     if (r.pagIbig)    d.pagibig++;
@@ -81,12 +85,11 @@ function buildSummary(records) {
     if (r.isLaundryPerson)    d.laundry++;
     if (r.isYaya)             d.yaya++;
     if (r.isGardener)         d.gardener++;
-    const age = parseInt(r.age) || 0;
-    if (age > 0 && age <= 15)        d.age15below++;
-    else if (age >= 16 && age <= 30) d.age1830++;
-    else if (age >= 31 && age <= 45) d.age3145++;
-    else if (age >= 46)              d.age45above++;
-    else                             d.ageUnknown++;
+    const age = r.age || 0;
+    if (age <= 15)      d.age15below++;
+    else if (age <= 30) d.age1830++;
+    else if (age <= 45) d.age3145++;
+    else                d.age45above++;
   }
 
   return DISTRICTS.map(d => map[d]);
@@ -114,8 +117,7 @@ function buildBarangay(records) {
   DISTRICTS.forEach(d => { map[d] = {}; });
   for (const r of records) {
     if (!map[r.district]) continue;
-    let raw = r.barangay || '';
-    let brgy = raw.toUpperCase().replace(/^(BRGY\.|BRGY|BARANGAY)\s*/, '').replace(/[-.]/g, ' ').replace(/\s+/g, ' ').trim() || '(Blank)';
+    const brgy = (r.barangay || '(Blank)').trim().toUpperCase();
     map[r.district][brgy] = (map[r.district][brgy] || 0) + 1;
   }
   const result = {};
@@ -131,13 +133,7 @@ function buildBarangay(records) {
 const parseSvc = (val) => {
   if (!val || String(val).trim().toUpperCase() === 'N/A') return 0;
   if (typeof val === 'number') return val;
-  let str = String(val).toLowerCase();
-  
-  if (str.includes('less than') || str.includes('below') || str.includes('few mo')) return 0.5;
-
-  const numWords = { 'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10', 'eleven': '11', 'twelve': '12', 'a year': '1', 'a month': '1', 'half': '0.5' };
-  for (const w in numWords) { str = str.replace(new RegExp(`\\b${w}\\b`, 'g'), numWords[w]); }
-
+  const str = String(val).toLowerCase();
   const match = str.match(/(\d+(\.\d+)?)/);
   if (!match) return 0;
   let num = parseFloat(match[0]);
@@ -284,9 +280,9 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   const rec2425 = rawRecords.filter(r => r.year === 2024 || r.year === 2025);
 
   // Employment arrangements — 2024+2025 combined
-  const liveIn2425  = cnt(r => r.isLiveIn  && YEARS.includes(r.year));
-  const liveOut2425 = cnt(r => r.isLiveOut && YEARS.includes(r.year));
-  const onCall2425  = cnt(r => r.isOnCall  && YEARS.includes(r.year));
+  const liveIn2425  = cnt(r => r.isLiveIn  && (r.year===2024||r.year===2025));
+  const liveOut2425 = cnt(r => r.isLiveOut && (r.year===2024||r.year===2025));
+  const onCall2425  = cnt(r => r.isOnCall  && (r.year===2024||r.year===2025));
   const total2425   = rec2425.length;
 
   // Employment arrangements — Jan–Apr 2026
@@ -297,11 +293,11 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   const total26    = rec2026.length;
 
   // Job categorizations — 2024+2025
-  const genHouse2425 = cnt(r => r.isGeneralHousehelp && YEARS.includes(r.year));
-  const yaya2425     = cnt(r => r.isYaya          && YEARS.includes(r.year));
-  const cook2425     = cnt(r => r.isCook          && YEARS.includes(r.year));
-  const laun2425     = cnt(r => r.isLaundryPerson && YEARS.includes(r.year));
-  const gard2425     = cnt(r => r.isGardener      && YEARS.includes(r.year));
+  const genHouse2425 = cnt(r => r.isGeneralHousehelp && (r.year===2024||r.year===2025));
+  const yaya2425     = cnt(r => r.isYaya          && (r.year===2024||r.year===2025));
+  const cook2425     = cnt(r => r.isCook          && (r.year===2024||r.year===2025));
+  const laun2425     = cnt(r => r.isLaundryPerson && (r.year===2024||r.year===2025));
+  const gard2425     = cnt(r => r.isGardener      && (r.year===2024||r.year===2025));
   const jobTotal2425 = yaya2425 + cook2425 + laun2425 + gard2425;
 
   // Job categorizations — Jan–Apr 2026
@@ -315,7 +311,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   // Length of service (from 2024-2025 ODK data — using yearsOfService field if available)
   const svc = (lo, hi) => cnt(r => {
     const s = parseSvc(r.yearsOfService || r.lengthOfService);
-    return s >= lo && s <= hi && YEARS.includes(r.year);
+    return s >= lo && s <= hi && (r.year===2024||r.year===2025);
   });
   const svc26 = (lo, hi) => cnt(r => {
     const s = parseSvc(r.yearsOfService || r.lengthOfService);
@@ -339,20 +335,20 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   const svcTotal_26= svc35_26+svc510_26+svc1020_26+svc2030_26+svc3040_26+svc4050_26+svc50p_26;
 
   // Age brackets — 2024+2025
-  const age1830_2425 = cnt(r => { const a = parseInt(r.age)||0; return a>=16 && a<=30 && YEARS.includes(r.year); });
-  const age3145_2425 = cnt(r => { const a = parseInt(r.age)||0; return a>=31 && a<=45 && YEARS.includes(r.year); });
-  const age41up_2425 = cnt(r => { const a = parseInt(r.age)||0; return a>=46          && YEARS.includes(r.year); });
+  const age1830_2425 = cnt(r => (r.age||0)>=18 && (r.age||0)<=30 && (r.year===2024||r.year===2025));
+  const age3145_2425 = cnt(r => (r.age||0)>=31 && (r.age||0)<=45 && (r.year===2024||r.year===2025));
+  const age41up_2425 = cnt(r => (r.age||0)> 41                   && (r.year===2024||r.year===2025));
   const ageTotal2425 = age1830_2425 + age3145_2425 + age41up_2425;
 
   // Age brackets — Jan–Apr 2026
-  const age1830_26 = cnt(r => { const a = parseInt(r.age)||0; return a>=16 && a<=30 && r.year===2026; });
-  const age3145_26 = cnt(r => { const a = parseInt(r.age)||0; return a>=31 && a<=45 && r.year===2026; });
-  const age41up_26 = cnt(r => { const a = parseInt(r.age)||0; return a>=46          && r.year===2026; });
+  const age1830_26 = cnt(r => (r.age||0)>=18 && (r.age||0)<=30 && r.year===2026);
+  const age3145_26 = cnt(r => (r.age||0)>=31 && (r.age||0)<=45 && r.year===2026);
+  const age41up_26 = cnt(r => (r.age||0)> 41                   && r.year===2026);
   const ageTotal26 = age1830_26 + age3145_26 + age41up_26;
 
   // Sex — 2024+2025
-  const female2425 = cnt(r => r.isFemale && YEARS.includes(r.year));
-  const male2425   = cnt(r => r.isMale   && YEARS.includes(r.year));
+  const female2425 = cnt(r => r.isFemale && (r.year===2024||r.year===2025));
+  const male2425   = cnt(r => r.isMale   && (r.year===2024||r.year===2025));
 
   // Sex — Jan–Apr 2026
   const female26 = cnt(r => r.isFemale && r.year===2026);
@@ -360,33 +356,39 @@ async function exportGeneralAnalysisPDF(rawRecords) {
 
   // Educational Attainment — 2024+2025
   const edKey = (r) => (r.educationalAttainment || r.education || '').toLowerCase();
-  const ed = (kw) => cnt(r => edKey(r).includes(kw) && YEARS.includes(r.year));
-  const edElemGrad    = cnt(r => edKey(r).includes('elem') && YEARS.includes(r.year));
-  const edHSGrad      = cnt(r => (edKey(r).includes('high school') || edKey(r).includes('hs') || edKey(r).match(/^hs$/)) && YEARS.includes(r.year));
-  const edColGrad     = cnt(r => (edKey(r).includes('college') || edKey(r).includes('bachelor') || edKey(r).includes('bs ') || edKey(r).includes('ab ')) && YEARS.includes(r.year));
-  const edVoc         = cnt(r => (edKey(r).includes('voc') || edKey(r).includes('tesda')) && YEARS.includes(r.year));
-  const edTotal2425   = edElemGrad+edHSGrad+edColGrad+edVoc;
+  const ed = (kw) => cnt(r => edKey(r).includes(kw) && (r.year===2024||r.year===2025));
+  const edElemGrad    = ed('elem') && cnt(r => edKey(r).includes('elem') && !edKey(r).includes('under') && (r.year===2024||r.year===2025));
+  const edElemUnder   = cnt(r => edKey(r).includes('elem') && edKey(r).includes('under') && (r.year===2024||r.year===2025));
+  const edHSGrad      = cnt(r => (edKey(r).includes('high school') || edKey(r).includes('hs')) && !edKey(r).includes('under') && (r.year===2024||r.year===2025));
+  const edHSUnder     = cnt(r => (edKey(r).includes('high school') || edKey(r).includes('hs')) && edKey(r).includes('under') && (r.year===2024||r.year===2025));
+  const edColGrad     = cnt(r => edKey(r).includes('college') && !edKey(r).includes('under') && (r.year===2024||r.year===2025));
+  const edColUnder    = cnt(r => edKey(r).includes('college') && edKey(r).includes('under') && (r.year===2024||r.year===2025));
+  const edVoc         = cnt(r => edKey(r).includes('voc') && (r.year===2024||r.year===2025));
+  const edTotal2425   = edElemGrad+edElemUnder+edHSGrad+edHSUnder+edColGrad+edColUnder+edVoc;
 
   // Educational Attainment — Jan–Apr 2026
-  const edElemGrad26  = cnt(r => edKey(r).includes('elem') && r.year===2026);
-  const edHSGrad26    = cnt(r => (edKey(r).includes('high school')||edKey(r).includes('hs') || edKey(r).match(/^hs$/)) && r.year===2026);
-  const edColGrad26   = cnt(r => (edKey(r).includes('college') || edKey(r).includes('bachelor') || edKey(r).includes('bs ') || edKey(r).includes('ab ')) && r.year===2026);
-  const edVoc26       = cnt(r => (edKey(r).includes('voc') || edKey(r).includes('tesda')) && r.year===2026);
-  const edTotal26     = edElemGrad26+edHSGrad26+edColGrad26+edVoc26;
+  const edElemGrad26  = cnt(r => edKey(r).includes('elem') && !edKey(r).includes('under') && r.year===2026);
+  const edElemUnder26 = cnt(r => edKey(r).includes('elem') && edKey(r).includes('under') && r.year===2026);
+  const edHSGrad26    = cnt(r => (edKey(r).includes('high school')||edKey(r).includes('hs')) && !edKey(r).includes('under') && r.year===2026);
+  const edHSUnder26   = cnt(r => (edKey(r).includes('high school')||edKey(r).includes('hs')) && edKey(r).includes('under') && r.year===2026);
+  const edColGrad26   = cnt(r => edKey(r).includes('college') && !edKey(r).includes('under') && r.year===2026);
+  const edColUnder26  = cnt(r => edKey(r).includes('college') && edKey(r).includes('under') && r.year===2026);
+  const edVoc26       = cnt(r => edKey(r).includes('voc') && r.year===2026);
+  const edTotal26     = edElemGrad26+edElemUnder26+edHSGrad26+edHSUnder26+edColGrad26+edColUnder26+edVoc26;
 
   // Place of origin — 2024+2025
-  const originNCR2425  = cnt(r => isNCR(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && YEARS.includes(r.year));
-  const originProv2425 = cnt(r => !isNCR(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && !!(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && YEARS.includes(r.year));
+  const originNCR2425  = cnt(r => isNCR(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && (r.year===2024||r.year===2025));
+  const originProv2425 = cnt(r => !isNCR(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && !!(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && (r.year===2024||r.year===2025));
 
   // Place of origin — Jan–Apr 2026
   const originNCR26   = cnt(r => isNCR(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && r.year===2026);
   const originProv26  = cnt(r => !isNCR(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && !!(r.provincialAddress || r.birthPlace || r.placeOfOrigin || r.origin) && r.year===2026);
 
   // Social Benefits — 2024+2025
-  const sss2425  = cnt(r => r.sss        && YEARS.includes(r.year));
-  const phi2425  = cnt(r => r.philhealth && YEARS.includes(r.year));
-  const pag2425  = cnt(r => r.pagIbig    && YEARS.includes(r.year));
-  const qcid2425 = cnt(r => r.qcid       && YEARS.includes(r.year));
+  const sss2425  = cnt(r => r.sss        && (r.year===2024||r.year===2025));
+  const phi2425  = cnt(r => r.philhealth && (r.year===2024||r.year===2025));
+  const pag2425  = cnt(r => r.pagIbig    && (r.year===2024||r.year===2025));
+  const qcid2425 = cnt(r => r.qcid       && (r.year===2024||r.year===2025));
   const benTotal2425 = sss2425 + phi2425 + pag2425 + qcid2425;
 
   // Social Benefits — Jan–Apr 2026
@@ -491,7 +493,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   autoTable(
     [['', 'Live-In', 'Live-Out', 'On-Call', 'Total']],
     [
-      [`${YEARS.join(' and ')} Data`,    n(liveIn2425),  n(liveOut2425),  n(onCall2425),  n(total2425)],
+      ['2024 and 2025 Data',    n(liveIn2425),  n(liveOut2425),  n(onCall2425),  n(total2425)],
       ['January to April 2026', n(liveIn26),    n(liveOut26),    n(onCall26),    n(total26)],
     ],
     {
@@ -502,7 +504,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
     }
   );
   drawBodyText(
-    `The consolidated data on Kasambahay employment arrangements for ${YEARS.join(' and ')} recorded a total of ` +
+    `The consolidated data on Kasambahay employment arrangements for 2024 and 2025 recorded a total of ` +
     `${n(total2425)} domestic workers, consisting of ${n(liveIn2425)} live-in, ${n(liveOut2425)} live-out, and ` +
     `${n(onCall2425)} on-call workers. The data shows that live-out kasambahays had the highest number, ` +
     `indicating a growing preference for non-residential work arrangements.`
@@ -519,7 +521,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   autoTable(
     [['', 'Yaya', 'Cook', 'Laundry', 'Gardener', 'Total']],
     [
-      [`${YEARS.join(' and ')} Data`,    n(yaya2425), n(cook2425), n(laun2425), n(gard2425), n(jobTotal2425)],
+      ['2024 and 2025 Data',    n(yaya2425), n(cook2425), n(laun2425), n(gard2425), n(jobTotal2425)],
       ['January to April 2026', n(yaya26),   n(cook26),   n(laun26),   n(gard26),   n(jobTotal26)],
     ],
     {
@@ -530,7 +532,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
     }
   );
   drawBodyText(
-    `The data on kasambahay job categorizations for ${YEARS.join(' and ')} recorded a total of ${n(jobTotal2425)} ` +
+    `The data on kasambahay job categorizations for 2024 and 2025 recorded a total of ${n(jobTotal2425)} ` +
     `domestic workers. Cooks had the highest number with ${n(cook2425)} workers, followed by laundry ` +
     `workers with ${n(laun2425)}, yayas with ${n(yaya2425)}, and gardeners with ${n(gard2425)}. This shows ` +
     `that cooking, childcare, and laundry services are the most needed household roles.`
@@ -552,7 +554,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   autoTable(
     [['', '3–5\nyrs', '5–10\nyrs', '10–20\nyrs', '20–30\nyrs', '30–40\nyrs', '40–50\nyrs', '50 yrs\n& above', 'Total']],
     [
-      [`${YEARS.join(' and ')} Data`,    n(svc35), n(svc510), n(svc1020), n(svc2030), n(svc3040), n(svc4050), n(svc50p), n(svcTotal)],
+      ['2024 and 2025 Data',    n(svc35), n(svc510), n(svc1020), n(svc2030), n(svc3040), n(svc4050), n(svc50p), n(svcTotal)],
       ['January to April 2026', n(svc35_26), n(svc510_26), n(svc1020_26), n(svc2030_26), n(svc3040_26), n(svc4050_26), n(svc50p_26), n(svcTotal_26)],
     ],
     {
@@ -563,14 +565,14 @@ async function exportGeneralAnalysisPDF(rawRecords) {
       styles: { fontSize: 7 },
     }
   );
-  drawNote('Based on Open Data Kit (ODK) YEAR ${YEARS[0]} TO ${YEARS[YEARS.length-1]} NOVEMBER');
+  drawNote('Based on Open Data Kit (ODK) YEAR 2024 TO 2025 NOVEMBER');
 
   // ── Figure 4: Age Brackets ──────────────────────────────────────────────────
   drawFigCaption('Figure 4: Age Brackets');
   autoTable(
-    [['', 'Age 16–30', 'Age 31–45', 'Age 46 Above', 'Total']],
+    [['', 'Age 18–30', 'Age 31–45', 'Age 41 Above', 'Total']],
     [
-      [`${YEARS.join(' and ')} Data`,    n(age1830_2425), n(age3145_2425), n(age41up_2425), n(ageTotal2425)],
+      ['2024 and 2025 Data',    n(age1830_2425), n(age3145_2425), n(age41up_2425), n(ageTotal2425)],
       ['January to April 2026', n(age1830_26),   n(age3145_26),   n(age41up_26),   n(ageTotal26)],
     ],
     {
@@ -581,13 +583,13 @@ async function exportGeneralAnalysisPDF(rawRecords) {
     }
   );
   drawBodyText(
-    `The table shows the age brackets of kasambahays for ${YEARS.join(' and ')}, recording a total of ` +
-    `${n(ageTotal2425)} domestic workers within these brackets. The majority belonged to the age group 46 and above with ` +
-    `${n(age41up_2425)} domestic workers, followed by ages 31–45 with ${n(age3145_2425)}, and ages 16–30 with ${n(age1830_2425)}.`
+    `The table shows the age brackets of kasambahays for 2024 and 2025, recording a total of ` +
+    `${n(ageTotal2425)} domestic workers. The majority belonged to the age group 41 and above with ` +
+    `${n(age41up_2425)} domestic workers, followed by ages 31–45 with ${n(age3145_2425)}, and ages 18–30 with ${n(age1830_2425)}.`
   );
   drawBodyText(
-    `From January to April 2026, a total of ${n(ageTotal26)} kasambahays were recorded within these brackets, with ` +
-    `${n(age41up_26)} domestic workers aged 46 and above, ${n(age3145_26)} aged 31–45, and ${n(age1830_26)} aged 16–30.`
+    `From January to April 2026, a total of ${n(ageTotal26)} kasambahays were recorded, with ` +
+    `${n(age41up_26)} domestic workers aged 41 and above, ${n(age3145_26)} aged 31–45, and ${n(age1830_26)} aged 18–30.`
   );
   drawBodyText(
     'Overall, the data shows that most kasambahays belong to the older age group, indicating that ' +
@@ -599,7 +601,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   autoTable(
     [['', 'Female', 'Male', 'Total']],
     [
-      [`${YEARS.join(' and ')} Data`,    n(female2425), n(male2425), n(female2425+male2425)],
+      ['2024 and 2025 Data',    n(female2425), n(male2425), n(female2425+male2425)],
       ['January to April 2026', n(female26),   n(male26),   n(female26+male26)],
     ],
     {
@@ -610,7 +612,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
     }
   );
   drawBodyText(
-    `The data on the sex distribution of kasambahays for ${YEARS.join(' and ')} recorded a total of ` +
+    `The data on the sex distribution of kasambahays for 2024 and 2025 recorded a total of ` +
     `${n(female2425+male2425)} workers, of which ${n(female2425)} were female and ${n(male2425)} were male. ` +
     `This indicates that the kasambahay sector remains predominantly female-dominated.`
   );
@@ -627,24 +629,25 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   // ── Figure 6: Educational Attainment ───────────────────────────────────────
   drawFigCaption('Figure 6: Educational Attainment');
   autoTable(
-    [['', 'College\nGraduate', 'Highschool\nGraduate', 'Elementary\nGraduate', 'Vocational\n/ TESDA', 'Total']],
+    [['', 'Elem.\nGrad.', 'Elem.\nUndergrad', 'HS\nGrad', 'HS\nUndergrad', 'College\nGrad', 'Col.\nUndergrad', 'Voc.', 'Total']],
     [
-      [`${YEARS.join(' and ')} Data`,    n(edColGrad),   n(edHSGrad),   n(edElemGrad),   n(edVoc),   n(edTotal2425)],
-      ['January to April 2026', n(edColGrad26), n(edHSGrad26), n(edElemGrad26), n(edVoc26), n(edTotal26)],
+      ['2024 and 2025 Data',    n(edElemGrad),   n(edElemUnder),   n(edHSGrad),   n(edHSUnder),   n(edColGrad),   n(edColUnder),   n(edVoc),   n(edTotal2425)],
+      ['January to April 2026', n(edElemGrad26), n(edElemUnder26), n(edHSGrad26), n(edHSUnder26), n(edColGrad26), n(edColUnder26), n(edVoc26), n(edTotal26)],
     ],
     {
       columnStyles: {
-        0: { halign: 'left', fontStyle: 'bold', cellWidth: 55 },
-        5: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
+        0: { halign: 'left', fontStyle: 'bold', cellWidth: 40 },
+        8: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue },
       },
+      styles: { fontSize: 7 },
     }
   );
   drawBodyText(
-    'The data shows that most kasambahays fall under the high school educational level. ' +
-    `In ${YEARS[0]}–${YEARS[YEARS.length-1]}, High School Graduates recorded the highest number (${n(edHSGrad)}), followed by ` +
-    `Elementary Graduates (${n(edElemGrad)}). College-level workers also make up a ` +
-    'portion of the sector, while vocational graduates recorded the lowest numbers. ' +
-    'This indicates that most kasambahays have basic to secondary education.'
+    'The data shows that most kasambahays are high school graduates and high school undergraduates. ' +
+    `In 2024–2025, High School Graduates recorded the highest number (${n(edHSGrad)}), followed by ` +
+    `High School Undergraduates (${n(edHSUnder)}). Elementary-level workers also make up a large ` +
+    'portion of the sector, while college graduates and vocational graduates recorded the lowest numbers. ' +
+    'This indicates that most kasambahays have basic to secondary education only.'
   );
   drawBodyText(
     'The findings highlight the need for continuous skills training, education support, and livelihood ' +
@@ -657,7 +660,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   autoTable(
     [['', 'NCR', 'Provinces']],
     [
-      [`${YEARS.join(' and ')} Data`,    n(originNCR2425), n(originProv2425)],
+      ['2024 and 2025 Data',    n(originNCR2425), n(originProv2425)],
       ['January to April 2026', n(originNCR26),   n(originProv26)],
     ],
     {
@@ -672,7 +675,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   autoTable(
     [['', 'SSS', 'PhilHealth', 'Pag-IBIG', 'QC ID', 'Total']],
     [
-      [`${YEARS.join(' and ')} Data`,    n(sss2425), n(phi2425), n(pag2425), n(qcid2425), n(benTotal2425)],
+      ['2024 and 2025 Data',    n(sss2425), n(phi2425), n(pag2425), n(qcid2425), n(benTotal2425)],
       ['January to April 2026', n(sss26),   n(phi26),   n(pag26),   n(qcid26),   n(benTotal26)],
     ],
     {
@@ -685,7 +688,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   drawBodyText(
     `The data shows that many kasambahays are enrolled in social protection programs, with QC ID having ` +
     `the highest number of beneficiaries (${n(qcid2425)}), followed by PhilHealth (${n(phi2425)}) and ` +
-    `SSS (${n(sss2425)}). In ${YEARS[0]}–${YEARS[YEARS.length-1]}, Pag-IBIG recorded the lowest number (${n(pag2425)}), indicating ` +
+    `SSS (${n(sss2425)}). In 2024–2025, Pag-IBIG recorded the lowest number (${n(pag2425)}), indicating ` +
     `lower participation in housing and savings programs. From January to April 2026, QC ID remained the ` +
     `most accessed benefit, while Pag-IBIG participation showed improvement. Overall, the figures reflect ` +
     `increasing awareness and access to social benefits among kasambahays, but continued information and ` +
@@ -695,7 +698,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   // ── Figure 9: Barangay Compliance ──────────────────────────────────────────
   drawFigCaption('Figure 9: Based on Submitted Report per Barangays');
   autoTable(
-    [['Compliance Submitted Report per Barangays', `${YEARS[0]}–${YEARS[YEARS.length-1]}`, '2026']],
+    [['Compliance Submitted Report per Barangays', '2024–2025', '2026']],
     [
       ['', `${totalBrgy} Barangays`, `${brgyCompliance.reduce((s,d)=> s + (d.barangays.filter(b => b).length), 0)}`],
     ],
@@ -786,14 +789,14 @@ async function exportGeneralAnalysisPDF(rawRecords) {
 
   drawFigCaption('District Overview: Encoded Records & Demographics');
   autoTable(
-    [[`District`, ...YEARS.map(y => `Enc\n${y}`), 'Sub\nTotal', 'Female', 'Male', 'Live-In', 'Live-Out', 'On-Call']],
+    [['District', 'Enc\n2024', 'Enc\n2025', 'Sub\nTotal', 'Female', 'Male', 'Live-In', 'Live-Out', 'On-Call']],
     [
       ...rows.map(r => [
-        r.district, ...YEARS.map(y => n(r[`enc${y}`] || 0)), n(r.subtotal),
+        r.district, n(r.enc2024), n(r.enc2025), n(r.subtotal),
         n(r.female), n(r.male), n(r.liveIn), n(r.liveOut), n(r.onCall),
       ]),
       [
-        'TOTAL', ...YEARS.map(y => n(totals[`enc${y}`] || 0)), n(totals.subtotal),
+        'TOTAL', n(totals.enc2024), n(totals.enc2025), n(totals.subtotal),
         n(totals.female), n(totals.male), n(totals.liveIn), n(totals.liveOut), n(totals.onCall),
       ],
     ],
@@ -829,10 +832,9 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   drawFigCaption('Age Brackets per District');
   const ageBracketsDist = [
     { label: '15 and below', key: 'age15below' },
-    { label: '16–30',        key: 'age1830'    },
+    { label: '18–30',        key: 'age1830'    },
     { label: '31–45',        key: 'age3145'    },
-    { label: '46 and above', key: 'age45above' },
-    { label: 'Not Specified',key: 'ageUnknown' },
+    { label: '45 and above', key: 'age45above' },
   ];
   autoTable(
     [['Age Bracket', ...DISTRICTS, 'TOTAL']],
@@ -939,14 +941,14 @@ function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName) {
 
   // District Overview
   const ovHeaders = [
-    'District',...YEARS.map(y => `Encoded ${y}`),'Sub Total',
+    'District','Encoded 2024','Encoded 2025','Sub Total',
     'Female','Male','Live-In','Live-Out','On-Call',
     'Senior','Solo Parent','Ex-OFW','PWD',
   ];
   const ovData = [
     ovHeaders,
-    ...rows.map(r => [r.district,...YEARS.map(y => r[`enc${y}`] || 0),r.subtotal,r.female,r.male,r.liveIn,r.liveOut,r.onCall,r.senior,r.soloParent,r.exOfw,r.pwd]),
-    ['TOTAL',...YEARS.map(y => totals[`enc${y}`] || 0),totals.subtotal,totals.female,totals.male,totals.liveIn,totals.liveOut,totals.onCall,totals.senior,totals.soloParent,totals.exOfw,totals.pwd],
+    ...rows.map(r => [r.district,r.enc2024,r.enc2025,r.subtotal,r.female,r.male,r.liveIn,r.liveOut,r.onCall,r.senior,r.soloParent,r.exOfw,r.pwd]),
+    ['TOTAL',totals.enc2024,totals.enc2025,totals.subtotal,totals.female,totals.male,totals.liveIn,totals.liveOut,totals.onCall,totals.senior,totals.soloParent,totals.exOfw,totals.pwd],
   ];
   const ws1 = XLSX.utils.aoa_to_sheet(ovData);
   ws1['!cols'] = autoWidth(ovData);
@@ -966,10 +968,9 @@ function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName) {
   // Age Brackets
   const ageBrackets = [
     { label: '15 and below', key: 'age15below' },
-    { label: '16–30',        key: 'age1830'    },
+    { label: '18–30',        key: 'age1830'    },
     { label: '31–45',        key: 'age3145'    },
-    { label: '46 and above', key: 'age45above' },
-    { label: 'Not Specified',key: 'ageUnknown' },
+    { label: '45 and above', key: 'age45above' },
   ];
   const ageData = [
     ['Age Bracket', ...DISTRICTS, 'TOTAL'],
@@ -1060,7 +1061,8 @@ const OvRow = ({ r, isT, even }) => {
   return (
     <tr style={ts}>
       <td style={{ ...S.tdL, ...ts }}>{r.district}</td>
-      {YEARS.map(y => <td key={y} style={{ ...S.td, ...ts }}>{n(r[`enc${y}`] || 0)}</td>)}
+      <td style={{ ...S.td,  ...ts }}>{n(r.enc2024)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.enc2025)}</td>
       <td style={{ ...S.td,  ...ts, fontWeight: '700' }}>{n(r.subtotal)}</td>
       <td style={{ ...S.td,  ...ts, color: isT ? '#3c3289' : '#993556' }}>{n(r.female)}</td>
       <td style={{ ...S.td,  ...ts, color: isT ? '#3c3289' : '#185fa5' }}>{n(r.male)}</td>
@@ -1080,12 +1082,6 @@ const WkRow = ({ r, isT, even }) => {
   return (
     <tr style={ts}>
       <td style={{ ...S.tdL, ...ts }}>{r.district}</td>
-      <td style={{ ...S.td,  ...ts }}>{n(r.orientation)}</td>
-      <td style={{ ...S.td,  ...ts }}>{n(r.organizing)}</td>
-      <td style={{ ...S.td,  ...ts }}>{n(r.osh)}</td>
-      <td style={{ ...S.td,  ...ts }}>{n(r.genderSens)}</td>
-      <td style={{ ...S.td,  ...ts }}>{n(r.firstAid)}</td>
-      <td style={{ ...S.td,  ...ts }}>{n(r.homeSec)}</td>
       <td style={{ ...S.td,  ...ts, fontWeight: '700' }}>{n(r.genHouse)}</td>
       <td style={{ ...S.td,  ...ts }}>{n(r.cook)}</td>
       <td style={{ ...S.td,  ...ts }}>{n(r.laundry)}</td>
@@ -1156,6 +1152,8 @@ const KasambahaySummaryReport = () => {
       }]
     : [];
   const barangay     = buildBarangay(displayRecords);
+  const encChartData = rows.map(r => ({ name: r.district.replace('District ', 'D'), '2024': r.enc2024, '2025': r.enc2025 }));
+  const ageChartData = rows.map(r => ({ name: r.district.replace('District ', 'D'), '18–30': r.age1830, '31–45': r.age3145, '45+': r.age45above }));
 
   const ageTableRows = [
     { label: '15 and below', key: 'age15below' },
@@ -1201,7 +1199,7 @@ const KasambahaySummaryReport = () => {
             Kasambahay Summary Report
           </h2>
           <p style={{ margin: 0, color: '#888', fontSize: '12px' }}>
-            All 6 Districts · Combined {YEARS.join(' & ')} ·
+            All 6 Districts · Combined 2024 &amp; 2025 ·
             Generated: {new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}
             {hasFilter && (
               <span style={{ marginLeft: '8px', color: '#e67e22', fontWeight: '600' }}>
@@ -1262,7 +1260,8 @@ const KasambahaySummaryReport = () => {
         <div style={S.metricGrid}>
           {[
             { label: 'Total Registered', val: n(tot.subtotal)   },
-            ...YEARS.map(y => ({ label: `Encoded ${y}`, val: n(tot[`enc${y}`] || 0) })),
+            { label: 'Encoded 2024',     val: n(tot.enc2024)    },
+            { label: 'Encoded 2025',     val: n(tot.enc2025)    },
             { label: 'SSS Covered',      val: n(tot.sss)        },
             { label: 'PhilHealth',       val: n(tot.philhealth) },
             { label: 'Pag-IBIG',         val: n(tot.pagibig)    },
@@ -1295,7 +1294,7 @@ const KasambahaySummaryReport = () => {
 
           {[
             { label: 'Year',        value: filterYear,        setter: setFilterYear,
-              options: [['','All Years'], ...YEARS.map(y => [String(y), String(y)])] },
+              options: [['','All Years'],  ['2024','2024'], ['2025','2025']] },
             { label: 'District',    value: filterDistrict,    setter: setFilterDistrict,
               options: [['','All Districts'], ...DISTRICTS.map(d => [d, d])] },
             { label: 'Sex',         value: filterSex,         setter: setFilterSex,
@@ -1330,9 +1329,9 @@ const KasambahaySummaryReport = () => {
         <div style={S.tabBar}>
           {[
             { key: 'overview',  label: 'District Overview'    },
-            { key: 'work',      label: 'Work Arrangement' },
+            { key: 'work',      label: 'Training & Work Type' },
             { key: 'age',       label: 'Age Brackets'         },
-            { key: 'benefits',  label: 'Benefits Coverage %'   },
+            { key: 'benefits',  label: 'Benefit Coverage %'   },
             { key: 'barangay',  label: 'Per Barangay'         },
           ].map(t => (
             <button key={t.key} style={S.tab(tab === t.key)} onClick={() => setTab(t.key)}>
@@ -1347,27 +1346,21 @@ const KasambahaySummaryReport = () => {
             <table style={{ ...S.tbl, tableLayout: 'fixed', minWidth: '1000px' }}>
               <colgroup>
                 <col style={{ width: '90px' }} />
-              {YEARS.map(y => <col key={y} style={{ width: '72px' }} />)}
-              <col style={{ width: '70px' }} /> {/* Sub Total */}
-              <col style={{ width: '60px' }} /> {/* Female */}
-              <col style={{ width: '60px' }} /> {/* Male */}
-              <col style={{ width: '65px' }} /> {/* Live-In */}
-              <col style={{ width: '65px' }} /> {/* Live-Out */}
-              <col style={{ width: '65px' }} /> {/* On-Call */}
-              {/* Marginalized Sectors */}
-              <col style={{ width: '75px' }} /> {/* Senior */}
-              <col style={{ width: '75px' }} /> {/* Solo Parent */}
-              <col style={{ width: '75px' }} /> {/* Ex-OFW */}
-              <col style={{ width: '75px' }} /> {/* PWD */}
+                {Array(3).fill(0).map((_, i) => <col key={i} style={{ width: '72px' }} />)}
+                <col style={{ width: '68px' }} /><col style={{ width: '58px' }} />
+                {Array(3).fill(0).map((_, i) => <col key={`a${i}`} style={{ width: '68px' }} />)}
+                <col style={{ width: '60px' }} /><col style={{ width: '78px' }} />
+                <col style={{ width: '64px' }} /><col style={{ width: '54px' }} />
               </colgroup>
               <thead>
                 <tr>
                   <th style={S.thL} rowSpan={2}>District</th>
-                  {YEARS.map(y => <th key={y} style={S.th} rowSpan={2}>Encoded {y}</th>)}
+                  <th style={S.th}  rowSpan={2}>Encoded 2024</th>
+                  <th style={S.th}  rowSpan={2}>Encoded 2025</th>
                   <th style={S.th}  rowSpan={2}>Sub Total</th>
                   <th style={{ ...S.th, background: '#fce8f0', color: '#993556' }} colSpan={2}>Gender</th>
                   <th style={S.th}  colSpan={3}>Working Arrangements</th>
-                <th style={S.th}  colSpan={4}>Marginalized Sectors</th>
+                  <th style={S.th}  colSpan={4}>Special Categories</th>
                 </tr>
                 <tr>
                   <th style={{ ...S.th, background: '#fce8f0', color: '#993556' }}>Female</th>
@@ -1389,25 +1382,17 @@ const KasambahaySummaryReport = () => {
           </div>
         )}
 
-        {/* ── Training & Work Type ── */}
+        {/* ── Nature of Work ── */}
         {tab === 'work' && (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ ...S.tbl, tableLayout: 'fixed', minWidth: '1100px' }}>
+            <table style={{ ...S.tbl, tableLayout: 'fixed', minWidth: '600px' }}>
               <colgroup>
                 <col style={{ width: '90px' }} />
-                {Array(6).fill(0).map((_, i) => <col key={i} style={{ width: '130px' }} />)}
-                {Array(5).fill(0).map((_, i) => <col key={`w${i}`} style={{ width: '110px' }} />)}
+                {Array(5).fill(0).map((_, i) => <col key={i} style={{ width: '110px' }} />)}
               </colgroup>
               <thead>
                 <tr>
-                  <th style={S.thL} rowSpan={2}>District</th>
-                  <th style={{ ...S.th, background: '#e8f3e8', color: '#3b6d11' }} colSpan={6}>Trainings / Programs</th>
-                  <th style={{ ...S.th, background: '#faeeda', color: '#854f0b' }} colSpan={5}>Nature of Work</th>
-                </tr>
-                <tr>
-                  {['Kasambahay Orientation','Kasambahay Organizing','Occupational Safety','Gender Sensitivity','Basic First Aid','Home Security'].map(h => (
-                    <th key={h} style={{ ...S.th, background: '#f0f7f0', color: '#3b6d11' }}>{h}</th>
-                  ))}
+                  <th style={S.thL}>District</th>
                   {['General Househelp','Cook','Laundry','Yaya','Gardener'].map(h => (
                     <th key={h} style={{ ...S.th, background: '#fef5e0', color: '#854f0b' }}>{h}</th>
                   ))}
@@ -1493,7 +1478,7 @@ const KasambahaySummaryReport = () => {
                   <div key={d} style={{ border: '1px solid #e4e2f5', borderRadius: '8px', overflow: 'hidden' }}>
                     <div style={{ background: '#534AB7', color: '#fff', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontWeight: '700', fontSize: '12px' }}>{d}</span>
-                      <span style={{ fontSize: '11px', opacity: 0.85 }}>No. of Active KASAMBAHAY</span>
+                      <span style={{ fontSize: '11px', opacity: 0.85 }}>COUNTA of KASAMBAHAY</span>
                     </div>
                     <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
@@ -1521,7 +1506,7 @@ const KasambahaySummaryReport = () => {
           </div>
         )}
 
-        </div>{/* end tabs card */}
+      </div>{/* end tabs card */}
 
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {

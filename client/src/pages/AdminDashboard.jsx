@@ -246,7 +246,10 @@ export default function AdminDashboard() {
             </div>
 
             {/* ── SECTION 2: Active Kasambahay Summary (National Summary Style) ── */}
-            <div style={{ maxWidth: '500px' }}>
+            <div style={{ 
+              maxWidth: '500px',
+              margin: '0 auto'
+            }}>
               <div style={{
                 background: c.bgCard, 
                 border: `1px solid ${c.border}`,

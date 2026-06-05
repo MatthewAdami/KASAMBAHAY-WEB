@@ -357,10 +357,6 @@ function exportToExcel(benefits, birthPlace, education, genderStats, barangaySta
     ['Age Bracket', 'Count', 'Percentage'],
     ageStats.list.map(r => [r.range, r.count, `${r.pct}%`])
   )
-  buildSheet('Religion',
-    ['Religion', 'Count', 'Percentage'],
-    religionStats.list.map(r => [r.religion, r.count, `${r.pct}%`])
-  )
   buildSheet('Length of Service',
     ['Length of Service', 'Count', 'Percentage'],
     losStats.list.map(r => [r.range, r.count, `${r.pct}%`])
@@ -432,7 +428,6 @@ export default function ReportsPage() {
         setGenderStats(buildGenderStats(records))
         setBarangayStats(buildBarangayStats(records))
         setAgeStats(buildAge(records))
-        setReligionStats(buildReligion(records))
         setLosStats(buildLengthOfService(records))
       } catch (e) {
         setError(e.message)
@@ -473,7 +468,7 @@ export default function ReportsPage() {
             {rawCount.toLocaleString()} total records · Generated: {new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
-        <button onClick={() => exportToExcel(benefits, birthPlace, education, genderStats, barangayStats, ageStats, religionStats, losStats)} style={{ ...S.btn, background: '#10b981' }} className="hide-on-print">
+        <button onClick={() => exportToExcel(benefits, birthPlace, education, genderStats, barangayStats, ageStats, losStats)} style={{ ...S.btn, background: '#10b981' }} className="hide-on-print">
           📊 Export to Excel
         </button>
       </div>
@@ -494,7 +489,6 @@ export default function ReportsPage() {
               {[
                 { key: 'gender',          label: 'Gender' },
                 { key: 'age',             label: 'Age' },
-                { key: 'religion',        label: 'Religion' },
                 { key: 'education',       label: 'Educational Attainment' },
                 { key: 'birthplace',      label: 'Birth Place' },
                 { key: 'lengthOfService', label: 'Length of Service' },
@@ -800,33 +794,6 @@ export default function ReportsPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Religion Sub Tab ── */}
-        {subTab === 'religion' && religionStats && (
-          <div style={{ padding: 20 }}>
-            <p style={S.sectionHead}>Religion Distribution</p>
-            <div style={{ maxHeight: 400, overflowY: 'auto', border: '1px solid #e4e2f5', borderRadius: 8 }}>
-              <table style={S.tbl}>
-                <thead>
-                  <tr>
-                    <th style={{ ...S.thL, position: 'sticky', top: 0 }}>Religion</th>
-                    <th style={{ ...S.th, position: 'sticky', top: 0 }}>Count</th>
-                    <th style={{ ...S.th, position: 'sticky', top: 0 }}>%</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {religionStats.list.map((r, i) => (
-                    <tr key={r.religion} style={{ background: i % 2 === 0 ? '#fff' : '#faf9fe' }}>
-                      <td style={S.tdL}>{r.religion}</td>
-                      <td style={S.td}>{r.count.toLocaleString()}</td>
-                      <td style={{ ...S.td, fontWeight: 600 }}>{r.pct}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           </div>
         )}

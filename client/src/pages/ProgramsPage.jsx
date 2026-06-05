@@ -180,7 +180,7 @@ const EDUC_OPTIONS   = ['Elementary Graduate','High School Graduate','Senior Hig
 
 const GIP_SECTIONS = [
   {
-    title: '📋 Program Info',
+    title: '📋 Internship Info',
     fields: [
       { key: 'year',  label: 'Year',  half: true },
       { key: 'batch', label: 'Batch', half: true, required: true },
@@ -228,7 +228,7 @@ const GIP_SECTIONS = [
 
 const SPES_SECTIONS = [
   {
-    title: '📋 Program Info',
+    title: '📋 Internship Info',
     fields: [
       { key: 'year',   label: 'Year',   half: true },
       { key: 'batch',  label: 'Batch',  half: true, required: true },
@@ -787,7 +787,7 @@ export default function ProgramsPage() {
       }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: c.text }}>
-            📋 Programs
+            📋 Internship
           </h1>
           <p style={{ margin: 0, fontSize: 11, color: c.textMuted }}>
             GIP & SPES intern profiling records
