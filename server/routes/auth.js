@@ -1,79 +1,54 @@
 const express = require('express')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
-const nodemailer = require('nodemailer')
+const { Resend } = require('resend')
 const User = require('../models/User')
 const router = express.Router()
+
+const resend = new Resend(process.env.RESEND_API_KEY)
 
 // Store OTPs in memory with expiration (in production, use Redis or DB)
 const otpStore = {}
 
-// Configure nodemailer
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
-  family: 4,
-  auth: {
-    user: process.env.SMTP_EMAIL,
-    pass: process.env.SMTP_PASSWORD,
-  },
-  connectionTimeout: 15000,
-  greetingTimeout: 15000,
-  socketTimeout: 15000,
-  tls: {
-    rejectUnauthorized: false,
-  },
-})
-
-transporter.verify((error, success) => {
-  if (error) {
-    console.error('SMTP transporter verification failed:', error.message)
-  } else {
-    console.log('✅ SMTP transporter is ready')
-  }
-})
-
-// Generate random OTP (6 digits)
-function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString()
-}
-
 // Send OTP email
 async function sendOTPEmail(email, otp) {
-  const mailOptions = {
-    from: process.env.SMTP_EMAIL,
-    to: email,
-    subject: 'Your Kasambahay Login OTP',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
-          <h2 style="margin: 0;">Kasambahay Management System</h2>
-        </div>
-        <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb;">
-          <p style="color: #374151; font-size: 14px; margin-bottom: 20px;">
-            You requested to sign in to your Kasambahay account. Use the code below to verify your identity:
-          </p>
-          <div style="background: white; border: 2px solid #e5e7eb; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
-            <p style="font-size: 32px; font-weight: 700; color: #667eea; letter-spacing: 4px; margin: 0;">${otp}</p>
-          </div>
-          <p style="color: #6b7280; font-size: 13px; margin-bottom: 20px;">
-            This code will expire in <strong>5 minutes</strong>.
-          </p>
-          <p style="color: #6b7280; font-size: 13px; margin: 0;">
-            If you didn't request this code, you can safely ignore this email.
-          </p>
-        </div>
-      </div>
-    `,
-  }
-
   try {
-    return await transporter.sendMail(mailOptions)
+    await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL,
+      to: email,
+      subject: 'Your Kasambahay Login OTP',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+            <h2 style="margin: 0;">Kasambahay Management System</h2>
+          </div>
+          <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb;">
+            <p style="color: #374151; font-size: 14px; margin-bottom: 20px;">
+              You requested to sign in to your Kasambahay account. Use the code below to verify your identity:
+            </p>
+            <div style="background: white; border: 2px solid #e5e7eb; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
+              <p style="font-size: 32px; font-weight: 700; color: #667eea; letter-spacing: 4px; margin: 0;">${otp}</p>
+            </div>
+            <p style="color: #6b7280; font-size: 13px; margin-bottom: 20px;">
+              This code will expire in <strong>5 minutes</strong>.
+            </p>
+            <p style="color: #6b7280; font-size: 13px; margin: 0;">
+              If you didn't request this code, you can safely ignore this email.
+            </p>
+          </div>
+        </div>
+      `,
+    })
+    console.log('✅ OTP email sent to:', email)
   } catch (err) {
     console.error('Failed to send OTP email:', err)
     throw err
   }
+}
+
+// Generate random OTP (6 digits)
+function generateOTP() {
+  return Math.floor(100000 + Math.random() * 900000).toString()
 }
 
 // Step 1: Login with email and password, send OTP
