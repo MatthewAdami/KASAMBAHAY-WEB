@@ -2,46 +2,35 @@ const express = require('express')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
 const nodemailer = require('nodemailer')
-const dns = require('dns')
 const User = require('../models/User')
 const router = express.Router()
-
-// Prefer IPv4 for DNS lookups in environments where IPv6 is unreachable
-if (typeof dns.setDefaultResultOrder === 'function') {
-  dns.setDefaultResultOrder('ipv4first')
-}
 
 // Store OTPs in memory with expiration (in production, use Redis or DB)
 const otpStore = {}
 
 // Configure nodemailer
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
   host: 'smtp.gmail.com',
   port: 465,
-  family: 4,
   secure: true,
-  requireTLS: true,
+  family: 4,
   auth: {
     user: process.env.SMTP_EMAIL,
     pass: process.env.SMTP_PASSWORD,
   },
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 10000,
+  connectionTimeout: 15000,
+  greetingTimeout: 15000,
+  socketTimeout: 15000,
   tls: {
     rejectUnauthorized: false,
-  },
-  lookup: (hostname, options, callback) => {
-    dns.lookup(hostname, { family: 4 }, callback)
   },
 })
 
 transporter.verify((error, success) => {
   if (error) {
-    console.error('SMTP transporter verification failed:', error)
+    console.error('SMTP transporter verification failed:', error.message)
   } else {
-    console.log('SMTP transporter is ready')
+    console.log('✅ SMTP transporter is ready')
   }
 })
 
