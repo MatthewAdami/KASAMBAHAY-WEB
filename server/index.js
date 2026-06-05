@@ -1,28 +1,27 @@
+const dns = require('dns');
+if (typeof dns.setDefaultResultOrder === 'function') {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
-if (process.env.NODE_ENV !== 'production') {
-  const dns = require('dns');
-  dns.setDefaultResultOrder('ipv4first');
-  dns.setServers(['8.8.8.8', '8.8.4.4']);
-}
-
 const app = express();
-const authRoutes      = require('./routes/auth')
+const authRoutes       = require('./routes/auth')
 const kasambahayRoutes = require('./routes/kasambahay')
-const userRoutes      = require('./routes/users')
+const userRoutes       = require('./routes/users')
 const activityLogsRoute = require('./routes/activityLogs');
-const gipRoutes       = require('./routes/gip');
-const spesRoutes      = require('./routes/spes');
+const gipRoutes        = require('./routes/gip');
+const spesRoutes       = require('./routes/spes');
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(cors({
   origin: [
-    'http://localhost:5173', 
+    'http://localhost:5173',
     'http://localhost:3000',
-    'https://kasambahay-web.vercel.app' // 💡 Ensure it's whitelisted here too!
+    'https://kasambahay-web.vercel.app'
   ],
   credentials: true,
 }));
@@ -32,7 +31,7 @@ app.use(express.json());
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log('✅ MongoDB Connected: Kasambahay Database is ready!')
-    
+
     // 🛠️ Auto-heal dirty district data (runs once on startup)
     const Kasambahay = require('./models/Kasambahay');
     Kasambahay.find({ district: { $in: ["1", "2", "3", "4", "5", "6"] } })
@@ -41,7 +40,8 @@ mongoose.connect(process.env.MONGO_URI)
           record.district = `District ${record.district}`;
           await record.save();
         }
-        if (dirtyRecords.length > 0) console.log(`✅ Automatically fixed ${dirtyRecords.length} dirty district records!`);
+        if (dirtyRecords.length > 0)
+          console.log(`✅ Automatically fixed ${dirtyRecords.length} dirty district records!`);
       }).catch(err => console.error(err));
   })
   .catch(err => {
@@ -52,11 +52,11 @@ mongoose.connect(process.env.MONGO_URI)
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.get('/', (req, res) => res.send('Kasambahay API is running!'));
-app.use('/api/auth',       authRoutes)
-app.use('/api/kasambahay', kasambahayRoutes)
-app.use('/api/users',      userRoutes)
+app.use('/api/auth',          authRoutes)
+app.use('/api/kasambahay',    kasambahayRoutes)
+app.use('/api/users',         userRoutes)
 app.use('/api/activity-logs', activityLogsRoute);
-app.use('/api/gip-profiles', gipRoutes);
+app.use('/api/gip-profiles',  gipRoutes);
 app.use('/api/spes-profiles', spesRoutes);
 
 // ─── 404 handler ─────────────────────────────────────────────────────────────
@@ -73,6 +73,6 @@ app.use((err, req, res, next) => {
 // ─── Start ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
   console.log(`   API ready at http://localhost:${PORT}/api`);
 });
