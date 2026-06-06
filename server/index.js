@@ -18,8 +18,6 @@ require('dotenv').config({ path: envPath });
 console.log('----------------------------------------');
 console.log('🔍 Looking for .env at:', envPath);
 console.log('📄 Does file exist here?:', fs.existsSync(envPath) ? 'YES' : 'NO (Check folder and filename!)');
-console.log('📧 EMAIL_USER loaded:', process.env.EMAIL_USER ? 'YES (' + process.env.EMAIL_USER + ')' : 'NO (Check your .env file!)');
-console.log('🔑 EMAIL_PASS loaded:', process.env.EMAIL_PASS ? 'YES (***)' : 'NO (Check your .env file!)');
 console.log('----------------------------------------');
 
 const app = express();
