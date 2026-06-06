@@ -2,19 +2,33 @@ const express      = require('express')
 const bcrypt       = require('bcrypt')
 const jwt          = require('jsonwebtoken')
 const nodemailer   = require('nodemailer')
+const net          = require('net')
 const User         = require('../models/User')
 const router       = express.Router()
 
-// ─── Gmail SMTP transporter ───────────────────────────────────────────────────
-// Uses the existing SMTP_* env vars. No domain verification needed — works for
-// ALL recipient emails, not just the account owner like Resend's test address.
+// ─── IPv4-forced Gmail SMTP transporter ──────────────────────────────────────
+// Render blocks outbound IPv6. We pass a custom socket factory that connects
+// via IPv4 explicitly, bypassing whatever IPv6 address DNS resolves to.
 const transporter = nodemailer.createTransport({
-  host:   process.env.SMTP_HOST,   // smtp.gmail.com
+  host:   process.env.SMTP_HOST,
   port:   Number(process.env.SMTP_PORT) || 587,
-  secure: false,                   // STARTTLS on port 587
+  secure: false,
   auth: {
     user: process.env.SMTP_EMAIL,
     pass: process.env.SMTP_PASSWORD,
+  },
+  // Force IPv4 connection
+  socketTimeout: 10000,
+  greetingTimeout: 10000,
+  connectionTimeout: 10000,
+  socket: undefined,
+  createConnection: (options, callback) => {
+    const socket = net.createConnection({
+      host:   options.host,
+      port:   options.port,
+      family: 4,           // ← IPv4 only
+    })
+    callback(null, socket)
   },
 })
 
@@ -29,7 +43,6 @@ transporter.verify((err) => {
 })
 
 // ─── OTP store (in-memory) ────────────────────────────────────────────────────
-// For production with multiple instances, replace this with Redis or a DB.
 const otpStore = {}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -72,7 +85,6 @@ async function sendOTPEmail(email, otp) {
 // Step 1: Validate credentials → send OTP
 router.post('/login', async (req, res) => {
   try {
-    // Normalize email to lowercase to match how it's stored
     const email    = req.body.email?.toLowerCase().trim()
     const password = req.body.password
 
@@ -86,9 +98,8 @@ router.post('/login', async (req, res) => {
     if (!isMatch) return res.status(400).json({ message: 'Invalid email or password' })
 
     const otp       = generateOTP()
-    const expiresAt = Date.now() + 5 * 60 * 1000 // 5 minutes
+    const expiresAt = Date.now() + 5 * 60 * 1000
 
-    // Key the OTP store by normalized email
     otpStore[email] = { otp, expiresAt, userId: user._id.toString(), role: user.role }
 
     await sendOTPEmail(email, otp)
