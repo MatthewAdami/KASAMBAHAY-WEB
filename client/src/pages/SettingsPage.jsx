@@ -380,6 +380,58 @@ function AccountInfoSection() {
   )
 }
 
+// ─── System Security Password Setting ─────────────────────────────────────────
+function SecurityPasswordSection({ toast }) {
+  const STORAGE_KEY = 'kasambahay_security_password'
+  const [secPw, setSecPw] = useState(() => localStorage.getItem(STORAGE_KEY) || '@Kasambahay_2026#')
+  const [saved, setSaved] = useState(false)
+  const [show, setShow] = useState(false)
+
+  const handleSave = () => {
+    if (!secPw.trim()) { toast('Security password cannot be empty.', 'error'); return }
+    localStorage.setItem(STORAGE_KEY, secPw)
+    setSaved(true)
+    toast('Security password updated.', 'success')
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  return (
+    <Section
+      icon="🛡️"
+      title="System Security Password"
+      adminOnly
+      tip="An extra layer of security. Users must enter this password during login. It applies to this device."
+    >
+      <p style={{ margin: '0 0 16px', fontSize: 13, color: '#666', lineHeight: 1.6 }}>
+        Update the secondary security password required for all users logging in from this device.
+      </p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', width: 240 }}>
+          <input
+            type={show ? 'text' : 'password'}
+            value={secPw}
+            onChange={e => setSecPw(e.target.value)}
+            style={{ width: '100%', height: 40, padding: '0 40px 0 12px', fontSize: 14, border: '1px solid #e4e4e7', borderRadius: 6, outline: 'none', boxSizing: 'border-box' }}
+          />
+          <button
+            type="button"
+            onClick={() => setShow(s => !s)}
+            style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#a09ec0', fontSize: 16, padding: 0 }}
+          >
+            {show ? '🙈' : '👁️'}
+          </button>
+        </div>
+        <button onClick={handleSave} style={Btn.primary}>
+          {saved ? '✓ Saved' : 'Save Password'}
+        </button>
+      </div>
+      <p style={{ margin: '12px 0 0', fontSize: 12, color: '#a09ec0' }}>
+        💡 Tip: The default is <strong>@Kasambahay_2026#</strong>. This setting is saved locally.
+      </p>
+    </Section>
+  )
+}
+
 // ─── Button styles ────────────────────────────────────────────────────────────
 const Btn = {
   primary: { padding: '9px 20px', background: '#534AB7', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontWeight: 600, fontSize: 13 },
@@ -408,6 +460,7 @@ export default function SettingsPage() {
 
       <AccountInfoSection />
       <ChangePasswordSection toast={showToast} />
+      <SecurityPasswordSection toast={showToast} />
       <ActiveYearSection toast={showToast} />
       <BarangayManagerSection toast={showToast} />
 

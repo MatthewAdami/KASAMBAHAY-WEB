@@ -9,7 +9,18 @@ if (typeof dns.setDefaultResultOrder === 'function') {
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-require('dotenv').config();
+const path = require('path');
+const fs = require('fs');
+
+const envPath = path.join(__dirname, '.env');
+require('dotenv').config({ path: envPath });
+
+console.log('----------------------------------------');
+console.log('🔍 Looking for .env at:', envPath);
+console.log('📄 Does file exist here?:', fs.existsSync(envPath) ? 'YES' : 'NO (Check folder and filename!)');
+console.log('📧 EMAIL_USER loaded:', process.env.EMAIL_USER ? 'YES (' + process.env.EMAIL_USER + ')' : 'NO (Check your .env file!)');
+console.log('🔑 EMAIL_PASS loaded:', process.env.EMAIL_PASS ? 'YES (***)' : 'NO (Check your .env file!)');
+console.log('----------------------------------------');
 
 const app = express();
 const authRoutes        = require('./routes/auth')

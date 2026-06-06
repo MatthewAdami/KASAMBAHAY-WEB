@@ -264,7 +264,7 @@ function AccountModal({ existing, onClose, onSave }) {
 }
 
 // ─── User Card ────────────────────────────────────────────────────────────────
-function UserCard({ user, colorIndex, isSelf, onEdit, onDelete }) {
+function UserCard({ user, colorIndex, isSelf, onEdit, onDelete, onResetPassword, isSending }) {
   const { bg, fg }    = AVATAR_COLORS[colorIndex % AVATAR_COLORS.length]
   const { bg: rpBg, fg: rpFg } = rolePill(user.role)
   const hasRestrictions = (user.assignedDistricts?.length > 0 || user.assignedYears?.length > 0)
@@ -328,15 +328,20 @@ function UserCard({ user, colorIndex, isSelf, onEdit, onDelete }) {
       )}
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: 6 }}>
-        <button onClick={onEdit} style={{ flex: 1, padding: '6px 0', borderRadius: 8, border: '1px solid #e4e4e7', background: 'transparent', fontSize: 12, cursor: 'pointer', color: '#534AB7', fontFamily: 'inherit' }}>
-          ✏️ Edit
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <button onClick={onResetPassword} disabled={isSending} style={{ width: '100%', padding: '6px 0', borderRadius: 8, border: '1px solid #bae6fd', background: isSending ? '#e0f2fe' : '#f0f9ff', fontSize: 12, cursor: isSending ? 'wait' : 'pointer', color: isSending ? '#7dd3fc' : '#0284c7', fontFamily: 'inherit', fontWeight: 500 }}>
+          {isSending ? '⏳ Sending...' : '📧 Send Reset Link'}
         </button>
-        {!isSelf && (
-          <button onClick={onDelete} style={{ flex: 1, padding: '6px 0', borderRadius: 8, border: '1px solid #fee2e2', background: '#fff5f5', fontSize: 12, cursor: 'pointer', color: '#ef4444', fontFamily: 'inherit' }}>
-            🗑️ Delete
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={onEdit} style={{ flex: 1, padding: '6px 0', borderRadius: 8, border: '1px solid #e4e4e7', background: 'transparent', fontSize: 12, cursor: 'pointer', color: '#534AB7', fontFamily: 'inherit' }}>
+            ✏️ Edit
           </button>
-        )}
+          {!isSelf && (
+            <button onClick={onDelete} style={{ flex: 1, padding: '6px 0', borderRadius: 8, border: '1px solid #fee2e2', background: '#fff5f5', fontSize: 12, cursor: 'pointer', color: '#ef4444', fontFamily: 'inherit' }}>
+              🗑️ Delete
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -350,6 +355,7 @@ export default function UserPage() {
   const [editTarget,   setEditTarget]   = useState(null)   // user being edited
   const [deleteTarget, setDeleteTarget] = useState(null)   // user to confirm delete
   const [toast,        setToast]        = useState('')
+  const [sendingId,    setSendingId]    = useState(null)
   const loggedUser = JSON.parse(localStorage.getItem('user') || '{}')
 
   useEffect(() => { fetchUsers() }, [])
@@ -431,6 +437,29 @@ export default function UserPage() {
     setDeleteTarget(null)
   }
 
+  // SEND RESET LINK
+  async function handleSendResetLink(user) {
+    if (!window.confirm(`Send password reset email to ${user.email}?`)) return
+    setSendingId(user.id)
+    const token = localStorage.getItem('token') || ''
+    try {
+      const res = await fetch(`${API_ENDPOINTS.USERS}/${user.id}/send-reset-link`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) {
+        showToast(`📧 Reset link sent to ${user.email}`)
+      } else {
+        const err = await res.json()
+        alert(`Error: ${err.message}`)
+      }
+    } catch (err) {
+      alert(`Error sending reset link: ${err.message}`)
+    } finally {
+      setSendingId(null)
+    }
+  }
+
   const filtered = activeTab === 'all'
     ? users
     : users.filter(u => u.role.toLowerCase() === activeTab)
@@ -509,6 +538,8 @@ export default function UserPage() {
                   isSelf={user.email === loggedUser.email}
                   onEdit={() => { setEditTarget(user); setShowModal(true) }}
                   onDelete={() => setDeleteTarget(user)}
+                  onResetPassword={() => handleSendResetLink(user)}
+                  isSending={sendingId === user.id}
                 />
               ))
           }
