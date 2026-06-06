@@ -1,19 +1,31 @@
-const express    = require('express')
-const bcrypt     = require('bcrypt')
-const jwt        = require('jsonwebtoken')
-const { Resend } = require('resend')
-const { Agent, fetch: undiciFetch } = require('undici')
-const User       = require('../models/User')
-const router     = express.Router()
+const express      = require('express')
+const bcrypt       = require('bcrypt')
+const jwt          = require('jsonwebtoken')
+const nodemailer   = require('nodemailer')
+const User         = require('../models/User')
+const router       = express.Router()
 
-// ─── IPv4-forced Resend client ────────────────────────────────────────────────
-// Render (and many cloud hosts) block outbound IPv6, causing:
-//   "connect ENETUNREACH <IPv6>:443"
-// We pass a custom undici Agent pinned to family:4 so Resend never tries IPv6.
-const ipv4Agent = new Agent({ connect: { family: 4 } })
+// ─── Gmail SMTP transporter ───────────────────────────────────────────────────
+// Uses the existing SMTP_* env vars. No domain verification needed — works for
+// ALL recipient emails, not just the account owner like Resend's test address.
+const transporter = nodemailer.createTransport({
+  host:   process.env.SMTP_HOST,   // smtp.gmail.com
+  port:   Number(process.env.SMTP_PORT) || 587,
+  secure: false,                   // STARTTLS on port 587
+  auth: {
+    user: process.env.SMTP_EMAIL,
+    pass: process.env.SMTP_PASSWORD,
+  },
+})
 
-const resend = new Resend(process.env.RESEND_API_KEY, {
-  fetch: (url, options) => undiciFetch(url, { ...options, dispatcher: ipv4Agent }),
+// Verify transporter config on startup
+transporter.verify((err) => {
+  if (err) {
+    console.error('❌ Gmail SMTP config error:', err.message)
+    console.error('   Check SMTP_EMAIL, SMTP_PASSWORD, SMTP_HOST, SMTP_PORT in .env')
+  } else {
+    console.log('✅ Gmail SMTP ready — OTP emails will send from:', process.env.SMTP_EMAIL)
+  }
 })
 
 // ─── OTP store (in-memory) ────────────────────────────────────────────────────
@@ -26,38 +38,33 @@ function generateOTP() {
 }
 
 async function sendOTPEmail(email, otp) {
-  try {
-    await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL,
-      to: email,
-      subject: 'Your Kasambahay Login OTP',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
-            <h2 style="margin: 0;">Kasambahay Management System</h2>
-          </div>
-          <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb;">
-            <p style="color: #374151; font-size: 14px; margin-bottom: 20px;">
-              You requested to sign in to your Kasambahay account. Use the code below to verify your identity:
-            </p>
-            <div style="background: white; border: 2px solid #e5e7eb; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
-              <p style="font-size: 32px; font-weight: 700; color: #667eea; letter-spacing: 4px; margin: 0;">${otp}</p>
-            </div>
-            <p style="color: #6b7280; font-size: 13px; margin-bottom: 20px;">
-              This code will expire in <strong>5 minutes</strong>.
-            </p>
-            <p style="color: #6b7280; font-size: 13px; margin: 0;">
-              If you didn't request this code, you can safely ignore this email.
-            </p>
-          </div>
+  await transporter.sendMail({
+    from: `"Kasambahay System" <${process.env.SMTP_EMAIL}>`,
+    to: email,
+    subject: 'Your Kasambahay Login OTP',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+          <h2 style="margin: 0;">Kasambahay Management System</h2>
         </div>
-      `,
-    })
-    console.log('✅ OTP email sent to:', email)
-  } catch (err) {
-    console.error('❌ Failed to send OTP email:', err)
-    throw err
-  }
+        <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb;">
+          <p style="color: #374151; font-size: 14px; margin-bottom: 20px;">
+            You requested to sign in to your Kasambahay account. Use the code below to verify your identity:
+          </p>
+          <div style="background: white; border: 2px solid #e5e7eb; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
+            <p style="font-size: 32px; font-weight: 700; color: #667eea; letter-spacing: 4px; margin: 0;">${otp}</p>
+          </div>
+          <p style="color: #6b7280; font-size: 13px; margin-bottom: 20px;">
+            This code will expire in <strong>5 minutes</strong>.
+          </p>
+          <p style="color: #6b7280; font-size: 13px; margin: 0;">
+            If you didn't request this code, you can safely ignore this email.
+          </p>
+        </div>
+      </div>
+    `,
+  })
+  console.log('✅ OTP email sent to:', email)
 }
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
@@ -65,7 +72,12 @@ async function sendOTPEmail(email, otp) {
 // Step 1: Validate credentials → send OTP
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body
+    // Normalize email to lowercase to match how it's stored
+    const email    = req.body.email?.toLowerCase().trim()
+    const password = req.body.password
+
+    if (!email || !password)
+      return res.status(400).json({ message: 'Email and password are required.' })
 
     const user = await User.findOne({ email })
     if (!user) return res.status(400).json({ message: 'Invalid email or password' })
@@ -76,6 +88,7 @@ router.post('/login', async (req, res) => {
     const otp       = generateOTP()
     const expiresAt = Date.now() + 5 * 60 * 1000 // 5 minutes
 
+    // Key the OTP store by normalized email
     otpStore[email] = { otp, expiresAt, userId: user._id.toString(), role: user.role }
 
     await sendOTPEmail(email, otp)
@@ -86,6 +99,7 @@ router.post('/login', async (req, res) => {
       requiresOTP: true,
     })
   } catch (err) {
+    console.error('Login error:', err)
     res.status(500).json({ message: err.message })
   }
 })
@@ -93,7 +107,8 @@ router.post('/login', async (req, res) => {
 // Step 2: Verify OTP → issue JWT
 router.post('/verify-otp', async (req, res) => {
   try {
-    const { email, otp } = req.body
+    const email = req.body.email?.toLowerCase().trim()
+    const otp   = req.body.otp
 
     if (!otpStore[email]) {
       return res.status(400).json({ message: 'OTP not found. Please login again.' })
@@ -134,6 +149,7 @@ router.post('/verify-otp', async (req, res) => {
       },
     })
   } catch (err) {
+    console.error('Verify OTP error:', err)
     res.status(500).json({ message: err.message })
   }
 })
@@ -141,7 +157,7 @@ router.post('/verify-otp', async (req, res) => {
 // Optional: Resend OTP
 router.post('/resend-otp', async (req, res) => {
   try {
-    const { email } = req.body
+    const email = req.body.email?.toLowerCase().trim()
 
     if (!otpStore[email]) {
       return res.status(400).json({ message: 'No active login session. Please login again.' })
@@ -155,6 +171,7 @@ router.post('/resend-otp', async (req, res) => {
 
     res.json({ message: 'OTP resent to your email.' })
   } catch (err) {
+    console.error('Resend OTP error:', err)
     res.status(500).json({ message: err.message })
   }
 })
