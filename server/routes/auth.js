@@ -1,16 +1,30 @@
-const express = require('express')
-const bcrypt = require('bcrypt')
-const jwt = require('jsonwebtoken')
+const express    = require('express')
+const bcrypt     = require('bcrypt')
+const jwt        = require('jsonwebtoken')
 const { Resend } = require('resend')
-const User = require('../models/User')
-const router = express.Router()
+const { Agent, fetch: undiciFetch } = require('undici')
+const User       = require('../models/User')
+const router     = express.Router()
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// ─── IPv4-forced Resend client ────────────────────────────────────────────────
+// Render (and many cloud hosts) block outbound IPv6, causing:
+//   "connect ENETUNREACH <IPv6>:443"
+// We pass a custom undici Agent pinned to family:4 so Resend never tries IPv6.
+const ipv4Agent = new Agent({ connect: { family: 4 } })
 
-// Store OTPs in memory with expiration (in production, use Redis or DB)
+const resend = new Resend(process.env.RESEND_API_KEY, {
+  fetch: (url, options) => undiciFetch(url, { ...options, dispatcher: ipv4Agent }),
+})
+
+// ─── OTP store (in-memory) ────────────────────────────────────────────────────
+// For production with multiple instances, replace this with Redis or a DB.
 const otpStore = {}
 
-// Send OTP email
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function generateOTP() {
+  return Math.floor(100000 + Math.random() * 900000).toString()
+}
+
 async function sendOTPEmail(email, otp) {
   try {
     await resend.emails.send({
@@ -41,17 +55,14 @@ async function sendOTPEmail(email, otp) {
     })
     console.log('✅ OTP email sent to:', email)
   } catch (err) {
-    console.error('Failed to send OTP email:', err)
+    console.error('❌ Failed to send OTP email:', err)
     throw err
   }
 }
 
-// Generate random OTP (6 digits)
-function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString()
-}
+// ─── Routes ───────────────────────────────────────────────────────────────────
 
-// Step 1: Login with email and password, send OTP
+// Step 1: Validate credentials → send OTP
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body
@@ -62,13 +73,11 @@ router.post('/login', async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password)
     if (!isMatch) return res.status(400).json({ message: 'Invalid email or password' })
 
-    // Generate OTP
-    const otp = generateOTP()
+    const otp       = generateOTP()
     const expiresAt = Date.now() + 5 * 60 * 1000 // 5 minutes
 
     otpStore[email] = { otp, expiresAt, userId: user._id.toString(), role: user.role }
 
-    // Send OTP email
     await sendOTPEmail(email, otp)
 
     res.json({
@@ -81,7 +90,7 @@ router.post('/login', async (req, res) => {
   }
 })
 
-// Step 2: Verify OTP and issue JWT token
+// Step 2: Verify OTP → issue JWT
 router.post('/verify-otp', async (req, res) => {
   try {
     const { email, otp } = req.body
@@ -92,18 +101,15 @@ router.post('/verify-otp', async (req, res) => {
 
     const stored = otpStore[email]
 
-    // Check if OTP expired
     if (Date.now() > stored.expiresAt) {
       delete otpStore[email]
       return res.status(400).json({ message: 'OTP has expired. Please login again.' })
     }
 
-    // Check if OTP matches
     if (stored.otp !== otp) {
       return res.status(400).json({ message: 'Invalid OTP. Please try again.' })
     }
 
-    // Get user and issue token
     const user = await User.findById(stored.userId)
     if (!user) {
       delete otpStore[email]
@@ -116,16 +122,15 @@ router.post('/verify-otp', async (req, res) => {
       { expiresIn: '1d' }
     )
 
-    // Clean up OTP
     delete otpStore[email]
 
     res.json({
       token,
       user: {
-        id: user._id,
-        name: user.name,
+        id:    user._id,
+        name:  user.name,
         email: user.email,
-        role: user.role,
+        role:  user.role,
       },
     })
   } catch (err) {
@@ -143,7 +148,7 @@ router.post('/resend-otp', async (req, res) => {
     }
 
     const otp = generateOTP()
-    otpStore[email].otp = otp
+    otpStore[email].otp       = otp
     otpStore[email].expiresAt = Date.now() + 5 * 60 * 1000
 
     await sendOTPEmail(email, otp)

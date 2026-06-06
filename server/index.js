@@ -1,3 +1,6 @@
+// ─── Force IPv4 DNS resolution FIRST before any other imports ────────────────
+// Fixes "connect ENETUNREACH <IPv6>" errors on deployed servers that don't
+// support outbound IPv6 (e.g. Render, Railway, Fly.io free tier).
 const dns = require('dns');
 if (typeof dns.setDefaultResultOrder === 'function') {
   dns.setDefaultResultOrder('ipv4first');
@@ -9,12 +12,12 @@ const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
-const authRoutes       = require('./routes/auth')
-const kasambahayRoutes = require('./routes/kasambahay')
-const userRoutes       = require('./routes/users')
+const authRoutes        = require('./routes/auth')
+const kasambahayRoutes  = require('./routes/kasambahay')
+const userRoutes        = require('./routes/users')
 const activityLogsRoute = require('./routes/activityLogs');
-const gipRoutes        = require('./routes/gip');
-const spesRoutes       = require('./routes/spes');
+const gipRoutes         = require('./routes/gip');
+const spesRoutes        = require('./routes/spes');
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(cors({
