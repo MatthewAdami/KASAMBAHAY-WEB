@@ -2,45 +2,43 @@ const express      = require('express')
 const bcrypt       = require('bcrypt')
 const jwt          = require('jsonwebtoken')
 const nodemailer   = require('nodemailer')
-const net          = require('net')
+const dns          = require('dns')
 const User         = require('../models/User')
 const router       = express.Router()
 
-// ─── IPv4-forced Gmail SMTP transporter ──────────────────────────────────────
-// Render blocks outbound IPv6. We pass a custom socket factory that connects
-// via IPv4 explicitly, bypassing whatever IPv6 address DNS resolves to.
-const transporter = nodemailer.createTransport({
-  host:   process.env.SMTP_HOST,
-  port:   Number(process.env.SMTP_PORT) || 587,
-  secure: false,
-  auth: {
-    user: process.env.SMTP_EMAIL,
-    pass: process.env.SMTP_PASSWORD,
-  },
-  // Force IPv4 connection
-  socketTimeout: 10000,
-  greetingTimeout: 10000,
-  connectionTimeout: 10000,
-  socket: undefined,
-  createConnection: (options, callback) => {
-    const socket = net.createConnection({
-      host:   options.host,
-      port:   options.port,
-      family: 4,           // ← IPv4 only
-    })
-    callback(null, socket)
-  },
-})
+// ─── Resolve smtp.gmail.com to IPv4 once at startup ──────────────────────────
+// Render's network can't reach Gmail's IPv6 addresses. We resolve the hostname
+// to an IPv4 address manually and connect directly to that IP instead.
+let gmailIPv4 = null
 
-// Verify transporter config on startup
-transporter.verify((err) => {
-  if (err) {
-    console.error('❌ Gmail SMTP config error:', err.message)
-    console.error('   Check SMTP_EMAIL, SMTP_PASSWORD, SMTP_HOST, SMTP_PORT in .env')
+dns.resolve4(process.env.SMTP_HOST || 'smtp.gmail.com', (err, addresses) => {
+  if (err || !addresses?.length) {
+    console.error('❌ Could not resolve SMTP host to IPv4:', err?.message)
   } else {
-    console.log('✅ Gmail SMTP ready — OTP emails will send from:', process.env.SMTP_EMAIL)
+    gmailIPv4 = addresses[0]
+    console.log(`✅ Resolved ${process.env.SMTP_HOST} → ${gmailIPv4} (IPv4)`)
   }
 })
+
+// ─── Build transporter (uses resolved IPv4 address) ──────────────────────────
+function getTransporter() {
+  return nodemailer.createTransport({
+    host:   gmailIPv4 || process.env.SMTP_HOST, // use IPv4 IP if resolved
+    port:   Number(process.env.SMTP_PORT) || 587,
+    secure: false,
+    auth: {
+      user: process.env.SMTP_EMAIL,
+      pass: process.env.SMTP_PASSWORD,
+    },
+    tls: {
+      // Gmail TLS checks the certificate against the hostname, not the IP.
+      // Since we connect via IP, we need to tell it the real servername.
+      servername: process.env.SMTP_HOST || 'smtp.gmail.com',
+    },
+    connectionTimeout: 10000,
+    socketTimeout:     10000,
+  })
+}
 
 // ─── OTP store (in-memory) ────────────────────────────────────────────────────
 const otpStore = {}
@@ -51,9 +49,23 @@ function generateOTP() {
 }
 
 async function sendOTPEmail(email, otp) {
+  // Re-resolve IPv4 each time in case the startup resolution failed
+  if (!gmailIPv4) {
+    await new Promise((resolve) => {
+      dns.resolve4(process.env.SMTP_HOST || 'smtp.gmail.com', (err, addresses) => {
+        if (!err && addresses?.length) {
+          gmailIPv4 = addresses[0]
+          console.log(`✅ Late-resolved SMTP host → ${gmailIPv4}`)
+        }
+        resolve()
+      })
+    })
+  }
+
+  const transporter = getTransporter()
   await transporter.sendMail({
     from: `"Kasambahay System" <${process.env.SMTP_EMAIL}>`,
-    to: email,
+    to:      email,
     subject: 'Your Kasambahay Login OTP',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
