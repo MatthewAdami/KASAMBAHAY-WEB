@@ -66,10 +66,22 @@ router.post('/', auth, requireRole('Admin'), async (req, res) => {
   }
 })
 
-// PUT update user — Admin only
-router.put('/:id', auth, requireRole('Admin'), async (req, res) => {
+// PUT update user — Admin or Self
+router.put('/:id', auth, async (req, res) => {
   try {
+    const isAdmin = req.user.role === 'Admin'
+    const isSelf = req.user.id === req.params.id
+
+    if (!isAdmin && !isSelf) {
+      return res.status(403).json({ message: 'Access denied.' })
+    }
+
     const { name, role, password, assignedDistricts, assignedYears } = req.body
+
+    if (!isAdmin && (role !== undefined || assignedDistricts !== undefined || assignedYears !== undefined || name !== undefined)) {
+      return res.status(403).json({ message: 'You only have permission to update your password.' })
+    }
+
     const validRoles = ['Admin', 'SPES', 'GIP', 'helper']
     if (role && !validRoles.includes(role))
       return res.status(400).json({ message: 'Invalid role.' })

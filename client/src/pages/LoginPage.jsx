@@ -83,13 +83,12 @@ export default function LoginPage() {
     }
   }
 
-  const handleStep2Submit = () => {
+  const handleStep2Submit = async () => {
     if (lockoutTime && Date.now() < lockoutTime) {
       setErrors({ securityPassword: `Locked. Try again in ${formatTime(timeLeft)}.` })
       return
     }
 
-    const storedSecPw = localStorage.getItem('kasambahay_security_password') || '@Kasambahay_2026#'
     let attempts = parseInt(localStorage.getItem('kasambahay_sec_attempts') || '0')
 
     if (!securityPassword) {
@@ -97,18 +96,32 @@ export default function LoginPage() {
       return
     }
 
-    if (securityPassword !== storedSecPw) {
-      attempts += 1
-      if (attempts >= 3) {
-        const until = Date.now() + 10 * 60 * 1000 // 10 minutes
-        localStorage.setItem('kasambahay_sec_lockout_until', until.toString())
-        localStorage.removeItem('kasambahay_sec_attempts')
-        setLockoutTime(until)
-        setErrors({ securityPassword: `Locked. Try again in 10 minutes.` })
-      } else {
-        localStorage.setItem('kasambahay_sec_attempts', attempts.toString())
-        setErrors({ securityPassword: `Incorrect security password. ${3 - attempts} attempt(s) remaining.` })
+    try {
+      setLoading(true)
+      const res = await fetch(API_ENDPOINTS.AUTH_LOGIN.replace('/login', '/verify-security'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: securityPassword }),
+      })
+
+      if (!res.ok) {
+        attempts += 1
+        if (attempts >= 3) {
+          const until = Date.now() + 10 * 60 * 1000 // 10 minutes
+          localStorage.setItem('kasambahay_sec_lockout_until', until.toString())
+          localStorage.removeItem('kasambahay_sec_attempts')
+          setLockoutTime(until)
+          setErrors({ securityPassword: `Locked. Try again in 10 minutes.` })
+        } else {
+          localStorage.setItem('kasambahay_sec_attempts', attempts.toString())
+          setErrors({ securityPassword: `Incorrect security password. ${3 - attempts} attempt(s) remaining.` })
+        }
+        setLoading(false)
+        return
       }
+    } catch (err) {
+      setErrors({ securityPassword: 'Network error. Please check your connection.' })
+      setLoading(false)
       return
     }
 

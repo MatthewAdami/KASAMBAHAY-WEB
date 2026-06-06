@@ -268,13 +268,13 @@ function ChangePasswordSection({ toast }) {
     if (form.newPass.length < 6) { toast('Password must be at least 6 characters.', 'error'); return }
     setLoading(true)
     try {
-      const loginRes = await fetch(`${BASE_URL}/auth/login`, {
+      const loginRes = await fetch(API_ENDPOINTS.AUTH_LOGIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: user.email, password: form.current }),
       })
       if (!loginRes.ok) { toast('Current password is incorrect.', 'error'); setLoading(false); return }
-      const res = await fetch(`${BASE_URL}/users/${user.id}`, {
+      const res = await fetch(`${API_ENDPOINTS.USERS}/${user.id}`, {
         method: 'PUT',
         headers: authHeader(),
         body: JSON.stringify({ password: form.newPass }),
@@ -382,17 +382,27 @@ function AccountInfoSection() {
 
 // ─── System Security Password Setting ─────────────────────────────────────────
 function SecurityPasswordSection({ toast }) {
-  const STORAGE_KEY = 'kasambahay_security_password'
-  const [secPw, setSecPw] = useState(() => localStorage.getItem(STORAGE_KEY) || '@Kasambahay_2026#')
-  const [saved, setSaved] = useState(false)
+  const [secPw, setSecPw] = useState('')
+  const [loading, setLoading] = useState(false)
   const [show, setShow] = useState(false)
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!secPw.trim()) { toast('Security password cannot be empty.', 'error'); return }
-    localStorage.setItem(STORAGE_KEY, secPw)
-    setSaved(true)
-    toast('Security password updated.', 'success')
-    setTimeout(() => setSaved(false), 2000)
+    setLoading(true)
+    try {
+      const res = await fetch(API_ENDPOINTS.AUTH_LOGIN.replace('/login', '/security-password'), {
+        method: 'PUT',
+        headers: authHeader(),
+        body: JSON.stringify({ password: secPw }),
+      })
+      if (!res.ok) throw new Error('Failed to update')
+      toast('Global security password updated for all users.', 'success')
+      setSecPw('')
+    } catch (err) {
+      toast('Failed to update security password.', 'error')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -400,10 +410,10 @@ function SecurityPasswordSection({ toast }) {
       icon="🛡️"
       title="System Security Password"
       adminOnly
-      tip="An extra layer of security. Users must enter this password during login. It applies to this device."
+      tip="An extra layer of security. Users must enter this password during login. This change takes effect globally across all devices."
     >
       <p style={{ margin: '0 0 16px', fontSize: 13, color: '#666', lineHeight: 1.6 }}>
-        Update the secondary security password required for all users logging in from this device.
+        Update the secondary security password required for all users logging into the system. This change applies globally across all devices instantly.
       </p>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', width: 240 }}>
@@ -411,6 +421,7 @@ function SecurityPasswordSection({ toast }) {
             type={show ? 'text' : 'password'}
             value={secPw}
             onChange={e => setSecPw(e.target.value)}
+            placeholder="Enter new security password"
             style={{ width: '100%', height: 40, padding: '0 40px 0 12px', fontSize: 14, border: '1px solid #e4e4e7', borderRadius: 6, outline: 'none', boxSizing: 'border-box' }}
           />
           <button
@@ -421,12 +432,12 @@ function SecurityPasswordSection({ toast }) {
             {show ? '🙈' : '👁️'}
           </button>
         </div>
-        <button onClick={handleSave} style={Btn.primary}>
-          {saved ? '✓ Saved' : 'Save Password'}
+        <button onClick={handleSave} disabled={loading} style={{ ...Btn.primary, opacity: loading ? 0.7 : 1 }}>
+          {loading ? 'Saving...' : 'Save Global Password'}
         </button>
       </div>
       <p style={{ margin: '12px 0 0', fontSize: 12, color: '#a09ec0' }}>
-        💡 Tip: The default is <strong>@Kasambahay_2026#</strong>. This setting is saved locally.
+        💡 Tip: The default is <strong>@Kasambahay_2026#</strong>. Changes take effect immediately.
       </p>
     </Section>
   )
