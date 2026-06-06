@@ -154,7 +154,9 @@ router.post('/:id/send-reset-link', auth, requireRole('Admin'), async (req, res)
 
     // 3. Send the email (ensure you have EMAIL_USER and EMAIL_PASS in your .env)
     const transporter = nodemailer.createTransport({
-      service: 'gmail', 
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true, // Use SSL/TLS
       auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
     });
 
