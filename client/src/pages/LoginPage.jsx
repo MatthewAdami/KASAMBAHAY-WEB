@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { API_ENDPOINTS } from '../utils/api';
+import { API_ENDPOINTS } from '../utils/api'
 
 const PHOTOS = [
   '/photo1.jpg',
@@ -9,17 +9,13 @@ const PHOTOS = [
   '/photo4.jpg',
 ]
 
-
 export default function LoginPage() {
-  const [email, setEmail]           = useState('')
-  const [password, setPassword]     = useState('')
-  const [otp, setOtp]               = useState('')
-  const [showPw, setShowPw]         = useState(false)
-  const [loading, setLoading]       = useState(false)
-  const [errors, setErrors]         = useState({})
+  const [email, setEmail]       = useState('')
+  const [password, setPassword] = useState('')
+  const [showPw, setShowPw]     = useState(false)
+  const [loading, setLoading]   = useState(false)
+  const [errors, setErrors]     = useState({})
   const [serverError, setServerError] = useState('')
-  const [otpSent, setOtpSent]       = useState(false)
-  const [otpTimer, setOtpTimer]     = useState(0)
   const navigate = useNavigate()
 
   const validate = () => {
@@ -32,17 +28,10 @@ export default function LoginPage() {
     return Object.keys(e).length === 0
   }
 
-  const validateOtp = () => {
-    const e = {}
-    if (!otp || otp.length !== 6 || !/^\d{6}$/.test(otp))
-      e.otp = 'Please enter a valid 6-digit OTP.'
-    setErrors(e)
-    return Object.keys(e).length === 0
-  }
-
   const handleSubmit = async () => {
     if (!validate()) return
-    setLoading(true); setServerError('')
+    setLoading(true)
+    setServerError('')
     try {
       const res = await fetch(API_ENDPOINTS.AUTH_LOGIN, {
         method: 'POST',
@@ -51,11 +40,10 @@ export default function LoginPage() {
       })
       const data = await res.json()
       if (!res.ok) { setServerError(data.message); return }
-      
-      // OTP sent successfully
-      setOtpSent(true)
-      setOtpTimer(300) // 5 minutes
-      startOtpCountdown()
+
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('user', JSON.stringify(data.user))
+      navigate('/admin')
     } catch {
       setServerError('Unable to connect. Please try again.')
     } finally {
@@ -63,73 +51,7 @@ export default function LoginPage() {
     }
   }
 
-  const startOtpCountdown = () => {
-    const interval = setInterval(() => {
-      setOtpTimer(prev => {
-        if (prev <= 1) {
-          clearInterval(interval)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-  }
-
-  const handleOtpSubmit = async () => {
-    if (!validateOtp()) return
-    setLoading(true); setServerError('')
-    try {
-      const res = await fetch(API_ENDPOINTS.AUTH_VERIFY_OTP, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp }),
-      })
-      const data = await res.json()
-      if (!res.ok) { setServerError(data.message); return }
-      
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('user', JSON.stringify(data.user))
-      navigate(data.user.role === 'Admin' ? '/admin/dashboard' : '/dashboard')
-    } catch {
-      setServerError('Unable to verify OTP. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleResendOtp = async () => {
-    setLoading(true); setServerError('')
-    try {
-      const res = await fetch(API_ENDPOINTS.AUTH_RESEND_OTP, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-      const data = await res.json()
-      if (!res.ok) { setServerError(data.message); return }
-      
-      setOtpTimer(300)
-      startOtpCountdown()
-      setServerError('')
-    } catch {
-      setServerError('Unable to resend OTP. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const onKey = (e) => { 
-    if (e.key === 'Enter') {
-      if (otpSent) handleOtpSubmit()
-      else handleSubmit()
-    }
-  }
-
-  const formatTimer = (seconds) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
+  const onKey = (e) => { if (e.key === 'Enter') handleSubmit() }
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', width: '100%', fontFamily: "'DM Sans', sans-serif" }}>
@@ -142,45 +64,34 @@ export default function LoginPage() {
         overflow: 'hidden',
       }} className="lp-left">
 
-        {/* Asymmetric grid tailored for 2 Portrait and 2 Landscape photos */}
         <div style={{
           position: 'absolute', inset: 0,
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(3, 1fr)', // 3-column system
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
           gridTemplateRows: 'repeat(2, 1fr)',
-          gap: '0px'
+          gap: '0px',
         }}>
-          {/* Photo 1: Portrait (Spans left column completely) */}
           <img src={PHOTOS[2]} alt="" style={{ gridRow: '1 / span 2', gridColumn: '1', width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'right center' }} />
-
-          {/* Photo 2: Landscape (Top Middle/Right) */}
           <img src={PHOTOS[1]} alt="" style={{ gridRow: '1', gridColumn: '2 / span 2', width: '100%', height: '100%', objectFit: 'cover' }} />
-
-          {/* Photo 3: Landscape (Bottom Middle) */}
           <img src={PHOTOS[3]} alt="" style={{ gridRow: '2', gridColumn: '2', width: '100%', height: '100%', objectFit: 'cover' }} />
-
-          {/* Photo 4: Portrait (Spans bottom-right grid cleanly) */}
           <img src={PHOTOS[0]} alt="" style={{ gridRow: '2', gridColumn: '3', width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
 
-        {/* Light blue gradient overlay */}
+        {/* Gradient overlay */}
         <div style={{
           position: 'absolute', inset: 0,
           background: 'linear-gradient(160deg, rgba(153,183,222,0.88) 0%, rgba(96,149,220,0.88) 40%, rgba(37,99,235,0.88) 100%)',
         }} />
 
-        {/* Content on top of overlay */}
+        {/* Content */}
         <div style={{
           position: 'relative', zIndex: 10,
           height: '100%',
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
-          padding: '48px',
-          textAlign: 'center',
+          padding: '48px', textAlign: 'center',
         }}>
           <div style={{ maxWidth: 420, width: '100%' }}>
-
-            {/* Logo container */}
             <div style={{ marginBottom: 32 }}>
               <img
                 src="/Kasambahay-Program-Logo-removebg-preview.png"
@@ -191,7 +102,6 @@ export default function LoginPage() {
                 }}
               />
             </div>
-            {/* Title */}
             <h1 style={{
               color: '#fff', fontSize: 32, fontWeight: 700,
               lineHeight: 1.25, marginBottom: 8,
@@ -199,7 +109,6 @@ export default function LoginPage() {
             }}>
               Kasambahay<br />Management System
             </h1>
-
             <p style={{
               color: 'rgba(219,234,254,0.95)', fontSize: 13,
               marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase',
@@ -212,15 +121,11 @@ export default function LoginPage() {
             }}>
               Public Employment Service Office
             </p>
-
-            {/* Divider */}
             <div style={{
               width: 64, height: 1,
               background: 'rgba(255,255,255,0.5)',
               margin: '0 auto 24px',
             }} />
-
-            {/* Description */}
             <p style={{
               color: 'rgba(255,255,255,0.9)', fontSize: 14,
               lineHeight: 1.75, marginBottom: 36,
@@ -229,8 +134,6 @@ export default function LoginPage() {
               trainings, and employment records<br />
               across all six districts.
             </p>
-
-            {/* Stats */}
             <div style={{ display: 'flex', justifyContent: 'center', gap: 40 }}>
               {[['6','Districts'],['3','Years'],['All','Records']].map(([v, l]) => (
                 <div key={l} style={{ textAlign: 'center' }}>
@@ -250,7 +153,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* ── RIGHT PANEL — clean white form ── */}
+      {/* ── RIGHT PANEL — login form ── */}
       <div style={{
         flex: '0 0 45%',
         minHeight: '100vh',
@@ -273,10 +176,10 @@ export default function LoginPage() {
               fontSize: 30, fontWeight: 700, color: '#111827',
               marginBottom: 8, fontFamily: "'DM Sans', sans-serif",
             }}>
-              {otpSent ? 'Verify OTP' : 'Sign in'}
+              Sign in
             </h2>
             <p style={{ fontSize: 14, color: '#6b7280' }}>
-              {otpSent ? 'Enter the code sent to your email' : 'Enter your credentials to continue'}
+              Enter your credentials to continue
             </p>
           </div>
 
@@ -294,159 +197,87 @@ export default function LoginPage() {
             </div>
           )}
 
-          {!otpSent ? (
-            <>
-              {/* Email */}
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: '#374151', marginBottom: 8 }}>
-                  Email address
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => { setEmail(e.target.value); setErrors(v => ({ ...v, email: '' })) }}
-                  onKeyDown={onKey}
-                  placeholder="your@email.com"
-                  style={{
-                    width: '100%', padding: '12px 16px', fontSize: 14, color: '#111827',
-                    border: errors.email ? '1px solid #f87171' : '1px solid #d1d5db',
-                    borderRadius: 8, background: errors.email ? '#fff8f8' : '#f9fafb',
-                    outline: 'none', boxSizing: 'border-box',
-                  }}
-                  autoComplete="email"
-                />
-                {errors.email && <span style={{ display: 'block', marginTop: 5, fontSize: 12, color: '#ef4444' }}>{errors.email}</span>}
-              </div>
+          {/* Email */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: '#374151', marginBottom: 8 }}>
+              Email address
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => { setEmail(e.target.value); setErrors(v => ({ ...v, email: '' })) }}
+              onKeyDown={onKey}
+              placeholder="your@email.com"
+              style={{
+                width: '100%', padding: '12px 16px', fontSize: 14, color: '#111827',
+                border: errors.email ? '1px solid #f87171' : '1px solid #d1d5db',
+                borderRadius: 8, background: errors.email ? '#fff8f8' : '#f9fafb',
+                outline: 'none', boxSizing: 'border-box',
+              }}
+              autoComplete="email"
+            />
+            {errors.email && <span style={{ display: 'block', marginTop: 5, fontSize: 12, color: '#ef4444' }}>{errors.email}</span>}
+          </div>
 
-              {/* Password */}
-              <div style={{ marginBottom: 28 }}>
-                <label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: '#374151', marginBottom: 8 }}>
-                  Password
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type={showPw ? 'text' : 'password'}
-                    value={password}
-                    onChange={e => { setPassword(e.target.value); setErrors(v => ({ ...v, password: '' })) }}
-                    onKeyDown={onKey}
-                    placeholder="••••••••"
-                    style={{
-                      width: '100%', padding: '12px 48px 12px 16px', fontSize: 14, color: '#111827',
-                      border: errors.password ? '1px solid #f87171' : '1px solid #d1d5db',
-                      borderRadius: 8, background: errors.password ? '#fff8f8' : '#f9fafb',
-                      outline: 'none', boxSizing: 'border-box',
-                    }}
-                    autoComplete="current-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPw(v => !v)}
-                    style={{
-                      position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      color: '#6b7280', display: 'flex', alignItems: 'center', padding: 0,
-                    }}
-                  >
-                    {showPw ? (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                    ) : (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                    )}
-                  </button>
-                </div>
-                {errors.password && <span style={{ display: 'block', marginTop: 5, fontSize: 12, color: '#ef4444' }}>{errors.password}</span>}
-              </div>
-
-              {/* Submit */}
-              <button
-                onClick={handleSubmit}
-                disabled={loading}
+          {/* Password */}
+          <div style={{ marginBottom: 28 }}>
+            <label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: '#374151', marginBottom: 8 }}>
+              Password
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPw ? 'text' : 'password'}
+                value={password}
+                onChange={e => { setPassword(e.target.value); setErrors(v => ({ ...v, password: '' })) }}
+                onKeyDown={onKey}
+                placeholder="••••••••"
                 style={{
-                  width: '100%', padding: '13px', fontSize: 15, fontWeight: 600,
-                  color: '#fff', background: loading ? '#fca5a5' : '#b91c1c',
-                  border: 'none', borderRadius: 8, cursor: loading ? 'not-allowed' : 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  marginBottom: 24, transition: 'background 0.15s',
-                  fontFamily: "'DM Sans', sans-serif",
-                  boxShadow: '0 4px 12px rgba(185,28,28,0.3)',
+                  width: '100%', padding: '12px 48px 12px 16px', fontSize: 14, color: '#111827',
+                  border: errors.password ? '1px solid #f87171' : '1px solid #d1d5db',
+                  borderRadius: 8, background: errors.password ? '#fff8f8' : '#f9fafb',
+                  outline: 'none', boxSizing: 'border-box',
+                }}
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw(v => !v)}
+                style={{
+                  position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: '#6b7280', display: 'flex', alignItems: 'center', padding: 0,
                 }}
               >
-                {loading ? (
-                  <span style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
+                {showPw ? (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                 ) : (
-                  <>Sign in <span style={{ fontSize: 18, lineHeight: 1 }}>→</span></>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 )}
               </button>
-            </>
-          ) : (
-            <>
-              {/* OTP Input */}
-              <div style={{ marginBottom: 28 }}>
-                <label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: '#374151', marginBottom: 8 }}>
-                  Verification Code
-                </label>
-                <input
-                  type="text"
-                  value={otp}
-                  onChange={e => { setOtp(e.target.value.replace(/\D/g, '').slice(0, 6)); setErrors(v => ({ ...v, otp: '' })) }}
-                  onKeyDown={onKey}
-                  placeholder="000000"
-                  style={{
-                    width: '100%', padding: '12px 16px', fontSize: 18, color: '#111827',
-                    letterSpacing: '8px', textAlign: 'center',
-                    border: errors.otp ? '1px solid #f87171' : '1px solid #d1d5db',
-                    borderRadius: 8, background: errors.otp ? '#fff8f8' : '#f9fafb',
-                    outline: 'none', boxSizing: 'border-box', fontWeight: 600,
-                  }}
-                  maxLength="6"
-                />
-                {errors.otp && <span style={{ display: 'block', marginTop: 5, fontSize: 12, color: '#ef4444' }}>{errors.otp}</span>}
-              </div>
+            </div>
+            {errors.password && <span style={{ display: 'block', marginTop: 5, fontSize: 12, color: '#ef4444' }}>{errors.password}</span>}
+          </div>
 
-              {/* OTP Timer */}
-              <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                <p style={{ fontSize: 12, color: '#6b7280' }}>
-                  Code expires in <span style={{ fontWeight: 600, color: otpTimer < 60 ? '#dc2626' : '#374151' }}>{formatTimer(otpTimer)}</span>
-                </p>
-              </div>
-
-              {/* Verify Button */}
-              <button
-                onClick={handleOtpSubmit}
-                disabled={loading || otp.length !== 6}
-                style={{
-                  width: '100%', padding: '13px', fontSize: 15, fontWeight: 600,
-                  color: '#fff', background: (loading || otp.length !== 6) ? '#9ca3af' : '#059669',
-                  border: 'none', borderRadius: 8, cursor: (loading || otp.length !== 6) ? 'not-allowed' : 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  marginBottom: 12, transition: 'background 0.15s',
-                  fontFamily: "'DM Sans', sans-serif",
-                  boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
-                }}
-              >
-                {loading ? (
-                  <span style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
-                ) : (
-                  <>Verify <span style={{ fontSize: 18, lineHeight: 1 }}>→</span></>
-                )}
-              </button>
-
-              {/* Resend OTP */}
-              <button
-                onClick={handleResendOtp}
-                disabled={loading || otpTimer > 0}
-                style={{
-                  width: '100%', padding: '10px', fontSize: 13, fontWeight: 500,
-                  color: otpTimer > 0 ? '#aaa' : '#3b82f6',
-                  background: 'none', border: '1px solid #d1d5db', borderRadius: 8,
-                  cursor: (loading || otpTimer > 0) ? 'not-allowed' : 'pointer',
-                  fontFamily: "'DM Sans', sans-serif",
-                }}
-              >
-                {otpTimer > 0 ? `Resend in ${formatTimer(otpTimer)}` : 'Resend Code'}
-              </button>
-            </>
-          )}
+          {/* Submit */}
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            style={{
+              width: '100%', padding: '13px', fontSize: 15, fontWeight: 600,
+              color: '#fff', background: loading ? '#fca5a5' : '#b91c1c',
+              border: 'none', borderRadius: 8, cursor: loading ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              marginBottom: 24, transition: 'background 0.15s',
+              fontFamily: "'DM Sans', sans-serif",
+              boxShadow: '0 4px 12px rgba(185,28,28,0.3)',
+            }}
+          >
+            {loading ? (
+              <span style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
+            ) : (
+              <>Sign in <span style={{ fontSize: 18, lineHeight: 1 }}>→</span></>
+            )}
+          </button>
 
           <p style={{ fontSize: 12, color: '#5d6066', textAlign: 'center', lineHeight: 1.5, marginTop: 20 }}>
             For account issues, contact your system administrator.
