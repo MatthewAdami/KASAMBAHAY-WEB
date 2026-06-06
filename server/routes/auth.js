@@ -1,44 +1,22 @@
 const express      = require('express')
 const bcrypt       = require('bcrypt')
 const jwt          = require('jsonwebtoken')
-const nodemailer   = require('nodemailer')
-const dns          = require('dns')
+const { Resend }   = require('resend')
+const { Agent, fetch: undiciFetch } = require('undici')
 const User         = require('../models/User')
 const router       = express.Router()
 
-// ─── Resolve smtp.gmail.com to IPv4 once at startup ──────────────────────────
-// Render's network can't reach Gmail's IPv6 addresses. We resolve the hostname
-// to an IPv4 address manually and connect directly to that IP instead.
-let gmailIPv4 = null
+// ─── IPv4-forced Resend client ────────────────────────────────────────────────
+// Render blocks outbound SMTP (ports 25, 465, 587) and also blocks IPv6.
+// Resend uses HTTPS (port 443) which Render allows — but we still need to
+// pin to IPv4 to avoid the "connect ENETUNREACH <IPv6>" error.
+const ipv4Agent = new Agent({ connect: { family: 4 } })
 
-dns.resolve4(process.env.SMTP_HOST || 'smtp.gmail.com', (err, addresses) => {
-  if (err || !addresses?.length) {
-    console.error('❌ Could not resolve SMTP host to IPv4:', err?.message)
-  } else {
-    gmailIPv4 = addresses[0]
-    console.log(`✅ Resolved ${process.env.SMTP_HOST} → ${gmailIPv4} (IPv4)`)
-  }
+const resend = new Resend(process.env.RESEND_API_KEY, {
+  fetch: (url, options) => undiciFetch(url, { ...options, dispatcher: ipv4Agent }),
 })
 
-// ─── Build transporter (uses resolved IPv4 address) ──────────────────────────
-function getTransporter() {
-  return nodemailer.createTransport({
-    host:   gmailIPv4 || process.env.SMTP_HOST, // use IPv4 IP if resolved
-    port:   Number(process.env.SMTP_PORT) || 587,
-    secure: false,
-    auth: {
-      user: process.env.SMTP_EMAIL,
-      pass: process.env.SMTP_PASSWORD,
-    },
-    tls: {
-      // Gmail TLS checks the certificate against the hostname, not the IP.
-      // Since we connect via IP, we need to tell it the real servername.
-      servername: process.env.SMTP_HOST || 'smtp.gmail.com',
-    },
-    connectionTimeout: 10000,
-    socketTimeout:     10000,
-  })
-}
+console.log('✅ Resend client ready (IPv4-forced, from:', process.env.RESEND_FROM_EMAIL + ')')
 
 // ─── OTP store (in-memory) ────────────────────────────────────────────────────
 const otpStore = {}
@@ -49,22 +27,8 @@ function generateOTP() {
 }
 
 async function sendOTPEmail(email, otp) {
-  // Re-resolve IPv4 each time in case the startup resolution failed
-  if (!gmailIPv4) {
-    await new Promise((resolve) => {
-      dns.resolve4(process.env.SMTP_HOST || 'smtp.gmail.com', (err, addresses) => {
-        if (!err && addresses?.length) {
-          gmailIPv4 = addresses[0]
-          console.log(`✅ Late-resolved SMTP host → ${gmailIPv4}`)
-        }
-        resolve()
-      })
-    })
-  }
-
-  const transporter = getTransporter()
-  await transporter.sendMail({
-    from: `"Kasambahay System" <${process.env.SMTP_EMAIL}>`,
+  const { data, error } = await resend.emails.send({
+    from:    process.env.RESEND_FROM_EMAIL,
     to:      email,
     subject: 'Your Kasambahay Login OTP',
     html: `
@@ -89,7 +53,13 @@ async function sendOTPEmail(email, otp) {
       </div>
     `,
   })
-  console.log('✅ OTP email sent to:', email)
+
+  if (error) {
+    console.error('❌ Resend error:', error)
+    throw new Error(error.message)
+  }
+
+  console.log('✅ OTP email sent to:', email, '| id:', data?.id)
 }
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
