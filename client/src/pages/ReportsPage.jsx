@@ -166,7 +166,7 @@ const EDU_LEVELS = [
 ]
 
 function classifyEdu(raw) {
-  if (!raw) return 'Not Specified'
+  if (!raw) return 'Not Applicable'
   const v = raw.trim().toLowerCase()
   if (v.includes('voc') || v.includes('tesda')) return 'Vocational / TESDA'
   if (v.includes('college') || v.includes('bachelor') || v.includes('bs ') || v.includes('ab ') || v.includes('university') || v.includes('master') || v.includes('phd') || v.includes('post-grad')) {
@@ -178,19 +178,19 @@ function classifyEdu(raw) {
   if (v.includes('elem') || v.includes('grade')) {
     return 'Elementary Level'
   }
-  return 'Not Specified'
+  return 'Not Applicable'
 }
 
 function buildEducation(records) {
   const totals = {}
   EDU_LEVELS.forEach(l => { totals[l.key] = 0 })
-  totals['Not Specified'] = 0
+  totals['Not Applicable'] = 0
 
   const distMap = {}
   DISTRICTS.forEach(d => {
     distMap[d] = {}
     EDU_LEVELS.forEach(l => { distMap[d][l.key] = 0 })
-    distMap[d]['Not Specified'] = 0
+    distMap[d]['Not Applicable'] = 0
   })
 
   for (const r of records) {
@@ -200,7 +200,7 @@ function buildEducation(records) {
   }
 
   const total = records.length
-  const order = [...EDU_LEVELS.map(l => l.key), 'Not Specified']
+  const order = [...EDU_LEVELS.map(l => l.key), 'Not Applicable']
   const overview = Object.entries(totals)
     .map(([level, count]) => ({ level, count, pct: total ? +((count / total) * 100).toFixed(1) : 0 }))
     .filter(x => x.count > 0)
@@ -209,11 +209,11 @@ function buildEducation(records) {
   const byDistrict = DISTRICTS.map(d => {
     const row = { name: d.replace('District ', 'D'), label: d }
     EDU_LEVELS.forEach(l => { row[l.key] = distMap[d][l.key] })
-    row['Not Specified'] = distMap[d]['Not Specified']
+    row['Not Applicable'] = distMap[d]['Not Applicable']
     return row
   })
 
-  const chartLevels = [...EDU_LEVELS.map(l => l.key), 'Not Specified']
+  const chartLevels = [...EDU_LEVELS.map(l => l.key), 'Not Applicable']
 
   return { overview, byDistrict, chartLevels }
 }
@@ -662,7 +662,7 @@ export default function ReportsPage() {
               {[
                 { label: 'From NCR',      val: birthPlace.ncr.toLocaleString(),   sub: `${birthPlace.overview.find(x => x.name === 'NCR')?.pct ?? 0}% of total`, color: '#2EC4B6' },
                 { label: 'From Province', val: birthPlace.province.toLocaleString(), sub: `${birthPlace.overview.find(x => x.name === 'Province')?.pct ?? 0}% of total`, color: '#F4A261' },
-                { label: 'Not Specified', val: birthPlace.unknown.toLocaleString(),  sub: 'blank birth place', color: '#999' },
+                { label: 'Not Applicable', val: birthPlace.unknown.toLocaleString(),  sub: 'blank birth place', color: '#999' },
               ].map(m => (
                 <div key={m.label} style={S.metric}>
                   <div style={S.mLabel}>{m.label}</div>

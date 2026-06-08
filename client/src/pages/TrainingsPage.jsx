@@ -17,6 +17,7 @@ const TRAININGS = [
   { key: 'kasambahayDay',               label: 'Kasambahay Day',                   field: 'kasDay'       },
   { key: 'disasterPreparedness',        label: 'Disaster Preparedness',            field: 'disaster'     },
   { key: 'qcCareOrientation',           label: 'QC Care Orientation',              field: 'qcCare'       },
+  { key: 'isKapsaMember',               label: 'KAPSA',                            field: 'kapsa'        },
 ]
 
 async function fetchAll(token) {

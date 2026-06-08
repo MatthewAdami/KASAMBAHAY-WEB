@@ -7,6 +7,36 @@ function authHeader() {
   return { Authorization: `Bearer ${localStorage.getItem('token')}` }
 }
 
+const TRAININGS = [
+  { key: 'kasambahayOrientation',       label: 'Kasambahay Orientation' },
+  { key: 'kasambahayOrganizing',        label: 'Kasambahay Organizing' },
+  { key: 'occupationalSafetyAndHealth', label: 'Occupational Safety & Health' },
+  { key: 'genderSensitivityTraining',   label: 'Gender Sensitivity Training' },
+  { key: 'basicFirstAidTraining',       label: 'Basic First Aid Training' },
+  { key: 'homeSecurityAwareness',       label: 'Home Security Awareness' },
+  { key: 'kasambahayGeneralAssembly',   label: 'General Assembly' },
+  { key: 'kasambahayDay',               label: 'Kasambahay Day' },
+  { key: 'disasterPreparedness',        label: 'Disaster Preparedness' },
+  { key: 'qcCareOrientation',           label: 'QC Care Orientation' },
+  { key: 'isKapsaMember',               label: 'KAPSA' },
+]
+
+async function fetchAll(token) {
+  let page = 1, all = []
+  while (true) {
+    const res = await fetch(`${API_ENDPOINTS.KASAMBAHAY}?limit=500&page=${page}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) throw new Error(`API error ${res.status}`)
+    const json = await res.json()
+    all = all.concat(json.data || json || [])
+    const { totalPages } = json.pagination || {}
+    if (!totalPages || page >= totalPages) break
+    page++
+  }
+  return all
+}
+
 // ─── NAV CARD COMPONENT (Centered Version) ───────────────────────────────────
 function NavCard({ label, value, sub, accentColor, icon, onClick, c }) {
   return (
@@ -122,8 +152,18 @@ export default function AdminDashboard() {
           byYear[yr] += b.count
         })
 
+        // Fetch all records for programs overview
+        const allRecords = await fetchAll(localStorage.getItem('token'))
+        const trainingCounts = {}
+        TRAININGS.forEach(t => trainingCounts[t.key] = 0)
+        allRecords.forEach(r => {
+          TRAININGS.forEach(t => {
+            if (r[t.key]) trainingCounts[t.key]++
+          })
+        })
+
         if (isMounted) {
-          setStats({ total, byYear })
+          setStats({ total, byYear, trainingCounts, totalRecords: allRecords.length })
         }
       } catch {
         if (isMounted) setError('Failed to load. Is the server running?')
@@ -245,11 +285,14 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* ── SECTION 2: Active Kasambahay Summary (National Summary Style) ── */}
+            {/* ── SECTION 2: Overviews ── */}
             <div style={{ 
-              maxWidth: '500px',
-              margin: '0 auto'
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+              gap: 24,
+              alignItems: 'start'
             }}>
+              {/* Active Kasambahay Summary */}
               <div style={{
                 background: c.bgCard, 
                 border: `1px solid ${c.border}`,
@@ -280,6 +323,41 @@ export default function AdminDashboard() {
                       </span>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* Programs & Trainings Overview */}
+              <div style={{
+                background: c.bgCard,
+                border: `1px solid ${c.border}`,
+                borderRadius: 10,
+                padding: '16px 18px',
+              }}>
+                <SectionHeader title="Programs & Trainings Overview" c={c} />
+                
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, textAlign: 'left' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ padding: '6px 8px', borderBottom: `2px solid ${c.border}`, color: c.textMuted }}>Program / Training</th>
+                        <th style={{ padding: '6px 8px', borderBottom: `2px solid ${c.border}`, color: c.textMuted, textAlign: 'center' }}>Total</th>
+                        <th style={{ padding: '6px 8px', borderBottom: `2px solid ${c.border}`, color: c.textMuted, textAlign: 'center' }}>%</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {TRAININGS.map((t, i) => {
+                        const count = stats.trainingCounts[t.key] || 0
+                        const pct = stats.totalRecords ? ((count / stats.totalRecords) * 100).toFixed(1) + '%' : '0%'
+                        return (
+                          <tr key={t.key} style={{ background: i % 2 === 0 ? 'transparent' : `${c.border}22` }}>
+                            <td style={{ padding: '6px 8px', borderBottom: `1px solid ${c.border}`, color: c.text, fontWeight: 500 }}>{t.label}</td>
+                            <td style={{ padding: '6px 8px', borderBottom: `1px solid ${c.border}`, color: c.text, textAlign: 'center', fontWeight: 600 }}>{count.toLocaleString()}</td>
+                            <td style={{ padding: '6px 8px', borderBottom: `1px solid ${c.border}`, color: c.accent || '#534AB7', textAlign: 'center', fontWeight: 600 }}>{pct}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
