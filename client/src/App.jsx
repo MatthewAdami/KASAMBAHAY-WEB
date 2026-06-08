@@ -33,7 +33,14 @@ const AccessDenied = () => (
 // ─── Auth guard — checks token exists ─────────────────────────────────────────
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('token')
-  if (!token) return <Navigate to="/login" replace />
+  const expiresAt = parseInt(localStorage.getItem('token_expires_at') || '0')
+
+  if (!token || Date.now() > expiresAt) {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    localStorage.removeItem('token_expires_at')
+    return <Navigate to="/login" replace />
+  }
   return children
 }
 

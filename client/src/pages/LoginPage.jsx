@@ -129,6 +129,7 @@ export default function LoginPage() {
     setErrors({})
     localStorage.setItem('token', tempAuthData.token)
     localStorage.setItem('user', JSON.stringify(tempAuthData.user))
+    localStorage.setItem('token_expires_at', Date.now() + 6 * 60 * 60 * 1000)
     navigate('/admin')
   }
 
