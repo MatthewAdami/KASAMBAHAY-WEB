@@ -166,7 +166,7 @@ const EDU_LEVELS = [
 ]
 
 function classifyEdu(raw) {
-  if (!raw) return 'Not Applicable'
+  if (!raw) return 'Not Specified'
   const v = raw.trim().toLowerCase()
   if (v.includes('voc') || v.includes('tesda')) return 'Vocational / TESDA'
   if (v.includes('college') || v.includes('bachelor') || v.includes('bs ') || v.includes('ab ') || v.includes('university') || v.includes('master') || v.includes('phd') || v.includes('post-grad')) {
@@ -178,19 +178,19 @@ function classifyEdu(raw) {
   if (v.includes('elem') || v.includes('grade')) {
     return 'Elementary Level'
   }
-  return 'Not Applicable'
+  return 'Not Specified'
 }
 
 function buildEducation(records) {
   const totals = {}
   EDU_LEVELS.forEach(l => { totals[l.key] = 0 })
-  totals['Not Applicable'] = 0
+  totals['Not Specified'] = 0
 
   const distMap = {}
   DISTRICTS.forEach(d => {
     distMap[d] = {}
     EDU_LEVELS.forEach(l => { distMap[d][l.key] = 0 })
-    distMap[d]['Not Applicable'] = 0
+    distMap[d]['Not Specified'] = 0
   })
 
   for (const r of records) {
@@ -200,7 +200,7 @@ function buildEducation(records) {
   }
 
   const total = records.length
-  const order = [...EDU_LEVELS.map(l => l.key), 'Not Applicable']
+  const order = [...EDU_LEVELS.map(l => l.key), 'Not Specified']
   const overview = Object.entries(totals)
     .map(([level, count]) => ({ level, count, pct: total ? +((count / total) * 100).toFixed(1) : 0 }))
     .filter(x => x.count > 0)
@@ -209,11 +209,11 @@ function buildEducation(records) {
   const byDistrict = DISTRICTS.map(d => {
     const row = { name: d.replace('District ', 'D'), label: d }
     EDU_LEVELS.forEach(l => { row[l.key] = distMap[d][l.key] })
-    row['Not Applicable'] = distMap[d]['Not Applicable']
+    row['Not Specified'] = distMap[d]['Not Specified']
     return row
   })
 
-  const chartLevels = [...EDU_LEVELS.map(l => l.key), 'Not Applicable']
+  const chartLevels = [...EDU_LEVELS.map(l => l.key), 'Not Specified']
 
   return { overview, byDistrict, chartLevels }
 }
@@ -349,6 +349,8 @@ function buildLengthOfService(records) {
 // ─── Build barangay distribution ──────────────────────────────────────────────
 function buildBarangayStats(records) {
   const counts = {}
+  const distCounts = {}
+  DISTRICTS.forEach(d => { distCounts[d] = 0 })
   let total = 0
   for (const r of records) {
     let raw = r.barangay || '';
@@ -357,11 +359,23 @@ function buildBarangayStats(records) {
       counts[b] = (counts[b] || 0) + 1
       total++
     }
+    if (r.district && distCounts[r.district] !== undefined) {
+      distCounts[r.district]++
+    }
   }
   const list = Object.entries(counts)
     .map(([barangay, count]) => ({ barangay, count, pct: total ? +((count / total) * 100).toFixed(1) : 0 }))
     .sort((a, b) => b.count - a.count)
-  return { list, total }
+
+  const totalRecords = records.length
+  const byDistrict = DISTRICTS.map(d => ({
+    name: d.replace('District ', 'D'),
+    label: d,
+    count: distCounts[d],
+    pct: totalRecords ? +((distCounts[d] / totalRecords) * 100).toFixed(1) : 0,
+  })).sort((a, b) => b.count - a.count)
+
+  return { list, total, byDistrict }
 }
 
 // ─── Export to Excel ──────────────────────────────────────────────────────────
@@ -662,7 +676,7 @@ export default function ReportsPage() {
               {[
                 { label: 'From NCR',      val: birthPlace.ncr.toLocaleString(),   sub: `${birthPlace.overview.find(x => x.name === 'NCR')?.pct ?? 0}% of total`, color: '#2EC4B6' },
                 { label: 'From Province', val: birthPlace.province.toLocaleString(), sub: `${birthPlace.overview.find(x => x.name === 'Province')?.pct ?? 0}% of total`, color: '#F4A261' },
-                { label: 'Not Applicable', val: birthPlace.unknown.toLocaleString(),  sub: 'blank birth place', color: '#999' },
+                { label: 'Not Specified', val: birthPlace.unknown.toLocaleString(),  sub: 'blank birth place', color: '#999' },
               ].map(m => (
                 <div key={m.label} style={S.metric}>
                   <div style={S.mLabel}>{m.label}</div>
@@ -941,6 +955,63 @@ export default function ReportsPage() {
         {/* ── Barangays Sub Tab ── */}
         {subTab === 'barangay' && barangayStats && (
           <div style={{ padding: 20 }}>
+
+            {/* ── Kasambahay by District ── */}
+            <p style={S.sectionHead}>Kasambahay Count by District</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, marginBottom: 28 }}>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={barangayStats.byDistrict} margin={{ top: 24, right: 20, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(v, n, p) => [v.toLocaleString(), p.payload.label]} />
+                  <Bar dataKey="count" radius={[4, 4, 0, 0]} name="Kasambahay">
+                    {barangayStats.byDistrict.map((entry, i) => (
+                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    ))}
+                    <LabelList dataKey="count" position="top" formatter={(v) => v.toLocaleString()} style={{ fontSize: 11, fill: '#333', fontWeight: 600 }} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+
+              {/* District ranking table */}
+              <div>
+                <table style={S.tbl}>
+                  <thead>
+                    <tr>
+                      <th style={S.thL}>District</th>
+                      <th style={S.th}>Count</th>
+                      <th style={S.th}>% of Total</th>
+                      <th style={{ ...S.th, minWidth: 120 }}>Share</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {barangayStats.byDistrict.map((r, i) => (
+                      <tr key={r.label} style={{ background: i % 2 === 0 ? '#fff' : '#faf9fe' }}>
+                        <td style={{ ...S.tdL, display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ width: 10, height: 10, borderRadius: 2, background: COLORS[i % COLORS.length], flexShrink: 0, display: 'inline-block' }} />
+                          {r.label}
+                        </td>
+                        <td style={S.td}>{r.count.toLocaleString()}</td>
+                        <td style={{ ...S.td, fontWeight: 600, color: COLORS[i % COLORS.length] }}>{r.pct}%</td>
+                        <td style={S.td}>
+                          <div style={{ ...S.bar, margin: 0 }}>
+                            <div style={{ height: '100%', width: `${Math.min(100, r.pct)}%`, background: COLORS[i % COLORS.length], borderRadius: 4, transition: 'width 0.5s' }} />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    <tr style={S.tot}>
+                      <td style={{ ...S.tdL, ...S.tot }}>TOTAL</td>
+                      <td style={{ ...S.td, ...S.tot }}>{barangayStats.byDistrict.reduce((s, r) => s + r.count, 0).toLocaleString()}</td>
+                      <td style={{ ...S.td, ...S.tot }}>100%</td>
+                      <td style={{ ...S.td, ...S.tot }} />
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
             <p style={S.sectionHead}>Top 20 Barangays with Most Kasambahay</p>
             <ResponsiveContainer width="100%" height={320}>
               <BarChart data={barangayStats.list.slice(0, 20)} margin={{ top: 20, right: 20, left: 0, bottom: 80 }}>
