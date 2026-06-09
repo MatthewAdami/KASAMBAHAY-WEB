@@ -21,15 +21,31 @@ const TRAININGS = [
   { key: 'isKapsaMember',               label: 'KAPSA' },
 ]
 
+// ─── Shared Age Calculator ───────────────────────────────────────────────────
+function calculateAge(record) {
+  const dob = record.dateOfBirth || record.birthday || record.birthDate;
+  if (!dob) return record.age;
+  const d = new Date(dob);
+  if (isNaN(d.getTime())) return record.age;
+  const today = new Date();
+  let age = today.getFullYear() - d.getFullYear();
+  const m = today.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) {
+    age--;
+  }
+  return age;
+}
+
 async function fetchAll(token) {
   let page = 1, all = []
   while (true) {
-    const res = await fetch(`${API_ENDPOINTS.KASAMBAHAY}?limit=500&page=${page}`, {
+    const res = await fetch(`${API_ENDPOINTS.KASAMBAHAY}?limit=500&page=${page}&isDeleted=false`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     if (!res.ok) throw new Error(`API error ${res.status}`)
     const json = await res.json()
-    all = all.concat(json.data || json || [])
+    const rows = (json.data || json || []).map(r => ({ ...r, age: calculateAge(r) }));
+    all = all.concat(rows)
     const { totalPages } = json.pagination || {}
     if (!totalPages || page >= totalPages) break
     page++
@@ -138,34 +154,35 @@ export default function AdminDashboard() {
     async function load() {
       setLoading(true); setError('')
       try {
-        const statsRes = await fetch(`${API_ENDPOINTS.KASAMBAHAY}/stats`, { headers: authHeader() })
-        if (statsRes.status === 401) { localStorage.clear(); window.location.href = '/login'; return }
-        if (!statsRes.ok) { if (isMounted) setError('Failed to load stats'); setLoading(false); return }
-        
-        const { total, breakdown } = await statsRes.json()
+        const token = localStorage.getItem('token')
+        if (!token) { localStorage.clear(); window.location.href = '/login'; return }
 
-        // Pag-build ng Yearly totals para sa pinasimpleng summary sa baba
+        // Fetch all records to guarantee exact consistency with Masterlist/Excel exports
+        const allRecords = await fetchAll(token)
+
         const byYear = {}
-        breakdown.forEach(b => {
-          const yr = b._id.year
-          if (!byYear[yr]) byYear[yr] = 0
-          byYear[yr] += b.count
-        })
-
-        // Fetch all records for programs overview
-        const allRecords = await fetchAll(localStorage.getItem('token'))
         const trainingCounts = {}
         TRAININGS.forEach(t => trainingCounts[t.key] = 0)
+        
         allRecords.forEach(r => {
+          // Tally yearly breakdown dynamically
+          const yr = r.year ? Number(r.year) : 'Unknown'
+          if (!byYear[yr]) byYear[yr] = 0
+          byYear[yr]++
+
+          // Tally trainings
           TRAININGS.forEach(t => {
             if (r[t.key]) trainingCounts[t.key]++
           })
         })
 
         if (isMounted) {
-          setStats({ total, byYear, trainingCounts, totalRecords: allRecords.length })
+          setStats({ total: allRecords.length, byYear, trainingCounts, totalRecords: allRecords.length })
         }
-      } catch {
+      } catch (err) {
+        if (err.message.includes('401')) {
+          localStorage.clear(); window.location.href = '/login'; return
+        }
         if (isMounted) setError('Failed to load. Is the server running?')
       } finally {
         if (isMounted) setLoading(false)

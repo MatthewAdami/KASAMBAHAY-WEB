@@ -17,6 +17,21 @@ const DATE_FIELDS = [
   'trainingDate0','trainingDate1','trainingDate2','trainingDate3',
 ]
 
+// ─── Shared Age Calculator ───────────────────────────────────────────────────
+function calculateAge(record) {
+  const dob = record.dateOfBirth || record.birthday || record.birthDate;
+  if (!dob) return record.age;
+  const d = new Date(dob);
+  if (isNaN(d.getTime())) return record.age;
+  const today = new Date();
+  let age = today.getFullYear() - d.getFullYear();
+  const m = today.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) {
+    age--;
+  }
+  return age;
+}
+
 // ─── Column definitions ───────────────────────────────────────────────────────
 const ALL_COLUMNS = [
   { key: '#',                       label: '#',                      render: (k, i, page) => ((page - 1) * LIMIT) + i + 1, width: 50 },
@@ -847,7 +862,6 @@ function create2026TestData() {
   return {
     ...makeBlankForm(),
     year: 2026,
-    registrationNo: '2026-001',
     dateRegistered: '2026-01-15',
     lastName: 'Dela Cruz',
     firstName: 'Juana',
@@ -877,6 +891,15 @@ function applyNA(payload) {
     if (typeof payload[key] === 'string' && payload[key].trim() === '') {
       if (!DATE_FIELDS.includes(key) && !numberFields.includes(key)) {
         payload[key] = 'N/A'
+      }
+    }
+    // Safely remove numeric fields if they are invalid, blank, or strings to prevent Mongoose CastErrors
+    if (numberFields.includes(key)) {
+      const val = payload[key];
+      if (val === '' || val === null || val === undefined || (typeof val === 'string' && val.trim() === '') || isNaN(Number(val))) {
+        delete payload[key];
+      } else {
+        payload[key] = Number(val);
       }
     }
   }
@@ -1577,7 +1600,8 @@ function KasambahayData() {
       const res  = await fetch(`${API_ENDPOINTS.KASAMBAHAY}?${params}`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
       const json = await res.json()
       if (!res.ok) { setError(json.message); return }
-      setData(json.data); setPagination(json.pagination); setCheckedItems([]); setSearched(true); setPage(pageNum)
+      const recordsWithDynamicAge = (json.data || []).map(r => ({ ...r, age: calculateAge(r) }))
+      setData(recordsWithDynamicAge); setPagination(json.pagination); setCheckedItems([]); setSearched(true); setPage(pageNum)
     } catch { setError('Failed to fetch data.') }
     finally { setLoading(false) }
   }, [year, district, viewDeleted])
@@ -1664,7 +1688,7 @@ function KasambahayData() {
 
         const record = {
           year: currentYear || getVal('YEAR') || 2026,
-          registrationNo: getVal('REGISTRATION NO', 'UNNAMED: 0', '__EMPTY'),
+          registrationNo: getVal('REGISTRATION NO', 'REGISTRATION NUMBER'),
           dateRegistered: toDateStr(getVal('DATE REGISTERED')),
           lastName: getVal('LAST NAME'),
           firstName: getVal('FIRST NAME'),

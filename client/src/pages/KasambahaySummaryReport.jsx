@@ -116,9 +116,10 @@ function buildSummary(records, groupBy = 'district') {
     const d = map[key];
 
     d.subtotal++;
-    if (r.year === 2024) d.enc2024++;
-    if (r.year === 2025) d.enc2025++;
-    if (r.year === 2026) d.enc2026++;
+    const yVal = Number(r.year);
+    if (yVal === 2024) d.enc2024++;
+    if (yVal === 2025) d.enc2025++;
+    if (yVal === 2026) d.enc2026++;
     if (r.sss)        d.sss++;
     if (r.philhealth) d.philhealth++;
     if (r.pagIbig)    d.pagibig++;
@@ -978,16 +979,31 @@ function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName, gr
   XLSX.writeFile(wb, `${fileName || 'Kasambahay_Summary_Report'}.xlsx`);
 }
 
+// ─── Shared Age Calculator ───────────────────────────────────────────────────
+function calculateAge(record) {
+  const dob = record.dateOfBirth || record.birthday || record.birthDate;
+  if (!dob) return record.age;
+  const d = new Date(dob);
+  if (isNaN(d.getTime())) return record.age;
+  const today = new Date();
+  let age = today.getFullYear() - d.getFullYear();
+  const m = today.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) {
+    age--;
+  }
+  return age;
+}
+
 // ─── Fetch ALL pages ──────────────────────────────────────────────────────────
 async function fetchAll(token) {
   let page = 1, all = [];
   while (true) {
-    const res = await fetch(`${API_URL}?limit=500&page=${page}`, {
+    const res = await fetch(`${API_URL}?limit=500&page=${page}&isDeleted=false`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) throw new Error(`API error ${res.status}`);
     const json = await res.json();
-    const rows = json.data || json || [];
+    const rows = (json.data || json || []).map(r => ({ ...r, age: calculateAge(r) }));
     all = all.concat(rows);
     const { totalPages } = json.pagination || {};
     if (!totalPages || page >= totalPages) break;

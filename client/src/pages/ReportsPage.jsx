@@ -13,16 +13,32 @@ const currentYear = new Date().getFullYear()
 const YEARS = Array.from({ length: currentYear - 2023 }, (_, i) => 2024 + i)
 const COLORS    = ['#534AB7','#9FE1CB','#F4A261','#E76F51','#6A4C93','#2EC4B6','#A8DADC','#457B9D']
 
+// ─── Shared Age Calculator ───────────────────────────────────────────────────
+function calculateAge(record) {
+  const dob = record.dateOfBirth || record.birthday || record.birthDate;
+  if (!dob) return record.age;
+  const d = new Date(dob);
+  if (isNaN(d.getTime())) return record.age;
+  const today = new Date();
+  let age = today.getFullYear() - d.getFullYear();
+  const m = today.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) {
+    age--;
+  }
+  return age;
+}
+
 // ─── Fetch all paginated records ──────────────────────────────────────────────
 async function fetchAll(token) {
   let page = 1, all = []
   while (true) {
-    const res  = await fetch(`${API_URL}?limit=500&page=${page}`, {
+    const res  = await fetch(`${API_URL}?limit=500&page=${page}&isDeleted=false`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     if (!res.ok) throw new Error(`API error ${res.status}`)
     const json = await res.json()
-    all = all.concat(json.data || json || [])
+    const rows = (json.data || json || []).map(r => ({ ...r, age: calculateAge(r) }));
+    all = all.concat(rows)
     const { totalPages } = json.pagination || {}
     if (!totalPages || page >= totalPages) break
     page++
@@ -52,7 +68,8 @@ function buildBenefits(records, groupBy = 'district') {
 
   // Also track any years in the data beyond our YEARS array
   for (const r of records) {
-    if (r.year && !yearMap[r.year]) yearMap[r.year] = { total: 0, sss: 0, pagibig: 0, philhealth: 0, qcid: 0 }
+    const yVal = r.year ? Number(r.year) : null;
+    if (yVal && !yearMap[yVal]) yearMap[yVal] = { total: 0, sss: 0, pagibig: 0, philhealth: 0, qcid: 0 }
     
     let key;
     if (groupBy === 'district') {
@@ -65,7 +82,7 @@ function buildBenefits(records, groupBy = 'district') {
     if (!distMap[key]) distMap[key] = { total: 0, sss: 0, pagibig: 0, philhealth: 0, qcid: 0 }
 
     const d = distMap[key]
-    const y = yearMap[r.year]
+    const y = yearMap[yVal]
     const hasSss        = r.sss        && r.sss        !== 'No'
     const hasPagibig    = r.pagIbig    && r.pagIbig    !== 'No'
     const hasPhilhealth = r.philhealth && r.philhealth !== 'No'

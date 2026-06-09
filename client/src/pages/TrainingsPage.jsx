@@ -23,7 +23,7 @@ const TRAININGS = [
 async function fetchAll(token) {
   let page = 1, all = []
   while (true) {
-    const res = await fetch(`${API_URL}?limit=500&page=${page}`, {
+    const res = await fetch(`${API_URL}?limit=500&page=${page}&isDeleted=false`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     if (!res.ok) throw new Error(`API error ${res.status}`)
@@ -106,7 +106,7 @@ export default function TrainingsPage() {
 
   const applyAndSet = (records, year, district) => {
     let filtered = records
-    if (year)     filtered = filtered.filter(r => r.year === Number(year))
+    if (year)     filtered = filtered.filter(r => Number(r.year) === Number(year))
     if (district) filtered = filtered.filter(r => r.district === district)
     const built = buildTrainingData(filtered)
     setRows(built)
