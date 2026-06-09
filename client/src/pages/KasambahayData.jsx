@@ -20,10 +20,9 @@ const DATE_FIELDS = [
 // ─── Column definitions ───────────────────────────────────────────────────────
 const ALL_COLUMNS = [
   { key: '#',                       label: '#',                      render: (k, i, page) => ((page - 1) * LIMIT) + i + 1, width: 50 },
-  { key: 'registrationNo',          label: 'Reg. No.',               render: k => k.registrationNo || '—', width: 80 },
   { key: 'dateRegistered',          label: 'Date Registered',        render: k => k.dateRegistered ? new Date(k.dateRegistered).toLocaleDateString() : '—', width: 120 },
-  { key: 'lastName',                label: 'Last Name',              render: k => k.lastName || '—', width: 130, bold: true },
-  { key: 'firstName',               label: 'First Name',             render: k => k.firstName || '—', width: 130 },
+  { key: 'lastName',                label: 'Last Name',              render: k => k.lastName || '—', width: 130, bold: true, sticky: true },
+  { key: 'firstName',               label: 'First Name',             render: k => k.firstName || '—', width: 130, sticky: true },
   { key: 'middleName',              label: 'Middle Name',            render: k => k.middleName || '—', width: 130 },
   { key: 'barangay',                label: 'Barangay',               render: k => k.barangay || '—', width: 140 },
   { key: 'district',                label: 'District',               render: k => k.district || '—', width: 100, badge: () => 'purple' },
@@ -254,11 +253,6 @@ function KasambahayForm({ formData, handleChange, handleGender, formId, onSubmit
         <div style={formStyles.officialHeaderText}>
           <p style={formStyles.officialHeaderTitle}>Quezon City Public Employment Service Office</p>
           <p style={formStyles.officialHeaderSub}>Kasambahay Registration Form</p>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 11, color: '#c8a84b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Reg. No.</div>
-          <input type="number" name="registrationNo" value={formData.registrationNo} onChange={handleChange}
-            style={{ ...formStyles.fieldInput, width: 110, background: '#fff', borderColor: '#c8a84b', textAlign: 'center', fontWeight: 700 }} />
         </div>
       </div>
 
@@ -1251,7 +1245,6 @@ function ViewKasambahayModal({ item, onClose }) {
           <div style={sh}>Personal na Impormasyon</div>
           <div style={{ padding: '14px 16px', borderBottom: '1px solid #e0e0e0' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
-              {field('Reg. No.', item.registrationNo)}
               {field('Date Registered', item.dateRegistered ? new Date(item.dateRegistered).toLocaleDateString('en-PH') : '')}
               {field('Year', item.year)}
               {field('District', item.district)}
@@ -1942,15 +1935,23 @@ function KasambahayData() {
                   <th style={{ padding: '10px 14px', textAlign: 'center', borderBottom: '2px solid #1a3a6b', borderRight: '1px solid #dde3f0', position: 'sticky', top: 0, left: 0, background: '#eef2fa', zIndex: 3, width: 40 }}>
                     <input type="checkbox" checked={sortedData.length > 0 && checkedItems.length === sortedData.length} onChange={e => setCheckedItems(e.target.checked ? sortedData.map(d => d._id) : [])} />
                   </th>
-                  {ALL_COLUMNS.map(col => (
-                    <th key={col.key} onClick={() => col.key !== '#' && handleSort(col.key)}
-                      style={{ padding: '10px 14px', textAlign: col.center ? 'center' : 'left', fontSize: 11, fontWeight: 700, color: '#1a3a6b', borderBottom: '2px solid #1a3a6b', borderRight: '1px solid #dde3f0', minWidth: col.width, maxWidth: col.width, position: 'sticky', top: 0, background: '#eef2fa', zIndex: 1, cursor: col.key !== '#' ? 'pointer' : 'default', userSelect: 'none', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: col.center ? 'center' : 'flex-start', gap: 4 }}>
-                        {col.label}
-                        {sortKey === col.key && <span style={{ fontSize: 10, color: '#c8a84b' }}>{sortDir === 'asc' ? '▲' : '▼'}</span>}
-                      </div>
-                    </th>
-                  ))}
+                  {(() => {
+                    let stickyLeft = 54 // checkbox col width + padding
+                    return ALL_COLUMNS.map(col => {
+                      const isSticky = col.sticky
+                      const leftVal = isSticky ? stickyLeft : undefined
+                      if (isSticky) stickyLeft += col.width
+                      return (
+                        <th key={col.key} onClick={() => col.key !== '#' && handleSort(col.key)}
+                          style={{ padding: '10px 14px', textAlign: col.center ? 'center' : 'left', fontSize: 11, fontWeight: 700, color: '#1a3a6b', borderBottom: '2px solid #1a3a6b', borderRight: '1px solid #dde3f0', minWidth: col.width, maxWidth: col.width, position: 'sticky', top: 0, ...(isSticky ? { left: leftVal, zIndex: 3, boxShadow: '2px 0 4px rgba(0,0,0,0.06)' } : { zIndex: 1 }), background: '#eef2fa', cursor: col.key !== '#' ? 'pointer' : 'default', userSelect: 'none', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: col.center ? 'center' : 'flex-start', gap: 4 }}>
+                            {col.label}
+                            {sortKey === col.key && <span style={{ fontSize: 10, color: '#c8a84b' }}>{sortDir === 'asc' ? '▲' : '▼'}</span>}
+                          </div>
+                        </th>
+                      )
+                    })
+                  })()}
                 </tr>
               </thead>
               <tbody>
@@ -1958,24 +1959,32 @@ function KasambahayData() {
                   <tr><td colSpan={ALL_COLUMNS.length + 1} style={{ padding: 48, textAlign: 'center', color: '#aaa', fontSize: 14 }}>Loading...</td></tr>
                 ) : sortedData.length === 0 ? (
                   <tr><td colSpan={ALL_COLUMNS.length + 1} style={{ padding: 48, textAlign: 'center', color: '#aaa', fontSize: 14 }}>No records found.</td></tr>
-                ) : sortedData.map((k, i) => (
-                  <tr key={k._id} style={{ borderBottom: '1px solid #eef2fa' }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#f5f7fb'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <td className='sticky-cb' style={{ padding: '10px 14px', textAlign: 'center', borderRight: '1px solid #dde3f0', position: 'sticky', left: 0, zIndex: 1, boxShadow: '2px 0 4px rgba(0,0,0,0.06)' }}>
-                      <input type="checkbox" checked={checkedItems.includes(k._id)} onChange={() => setCheckedItems(prev => prev.includes(k._id) ? prev.filter(id => id !== k._id) : [...prev, k._id])} />
+                ) : sortedData.map((k, i) => {
+                  const isSelected = checkedItems.includes(k._id)
+                  const rowBg = isSelected ? '#dbeafe' : 'transparent'
+                  let stickyLeft = 54
+                  return (
+                  <tr key={k._id} style={{ borderBottom: '1px solid #eef2fa', background: rowBg }}
+                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f5f7fb' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = isSelected ? '#dbeafe' : 'transparent' }}>
+                    <td className='sticky-cb' style={{ padding: '10px 14px', textAlign: 'center', borderRight: '1px solid #dde3f0', position: 'sticky', left: 0, zIndex: 1, background: isSelected ? '#dbeafe' : '#fff', boxShadow: '2px 0 4px rgba(0,0,0,0.06)' }}>
+                      <input type="checkbox" checked={isSelected} onChange={() => setCheckedItems(prev => prev.includes(k._id) ? prev.filter(id => id !== k._id) : [...prev, k._id])} />
                     </td>
                     {ALL_COLUMNS.map(col => {
                       const value      = col.render(k, i, page)
                       const badgeColor = col.badge ? col.badge(k) : null
+                      const isSticky   = col.sticky
+                      const leftVal    = isSticky ? stickyLeft : undefined
+                      if (isSticky) stickyLeft += col.width
                       return (
-                        <td key={col.key} style={{ padding: '10px 14px', color: col.bold ? '#1a3a6b' : '#444', fontWeight: col.bold ? 600 : 400, textAlign: col.center ? 'center' : 'left', borderRight: '1px solid #f0f0f0', minWidth: col.width, maxWidth: col.width, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <td key={col.key} style={{ padding: '10px 14px', color: col.bold ? '#1a3a6b' : '#444', fontWeight: col.bold ? 600 : 400, textAlign: col.center ? 'center' : 'left', borderRight: '1px solid #f0f0f0', minWidth: col.width, maxWidth: col.width, overflow: 'hidden', textOverflow: 'ellipsis', ...(isSticky ? { position: 'sticky', left: leftVal, zIndex: 1, background: isSelected ? '#dbeafe' : '#fff', boxShadow: '2px 0 4px rgba(0,0,0,0.06)' } : {}) }}>
                           {badgeColor ? <Badge color={badgeColor}>{value}</Badge> : value}
                         </td>
                       )
                     })}
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -2004,6 +2013,7 @@ function KasambahayData() {
     <style>{`
         tr:hover td.sticky-cb { background: #f5f7fb !important; }
         tr td.sticky-cb { background: #fff; }
+        tr.selected td.sticky-cb { background: #dbeafe !important; }
       `}</style>
     </div>
   )

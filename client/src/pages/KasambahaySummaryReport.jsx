@@ -1431,7 +1431,7 @@ const KasambahaySummaryReport = () => {
                     <div style={{ background: '#534AB7', color: '#fff', padding: '8px 12px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontWeight: '700', fontSize: '12px' }}>{d}</span>
-                        <span style={{ fontSize: '11px', opacity: 0.85 }}>COUNTA of KASAMBAHAY</span>
+                        <span style={{ fontSize: '11px', opacity: 0.85 }}>No. of KASAMBAHAY</span>
                       </div>
                       <div style={{ fontSize: '10px', opacity: 0.75, marginTop: '2px' }}>
                         {withData} of {brgyList.length} barangays with records
