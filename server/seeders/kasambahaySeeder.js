@@ -6,12 +6,19 @@
  * records into MongoDB.
  *
  * Handles sheet name formats:
- *   ✅ '2024 DISTRICT 5'  → year=2024, district='District 5'
+ *   ✅ '2026 DISTRICT 1'  → year=2026, district='District 1'
  *   ✅ '2025 DISTRICT 5'  → year=2025, district='District 5'
  *   ✅ '2024 DISTRICT 4'  → year=2024, district='District 4'
- *   ⛔ 'DISTRICT 4'       → blocked (ambiguous year, likely duplicate of 2024 DISTRICT 4)
+ *   ⛔ 'DISTRICT 4'       → blocked (ambiguous year, likely duplicate of 2024)
  *   ⛔ 'Copy of ...'      → blocked (draft copies)
- *   ⏭ 'NEW MASTERLIST SUMMARY', 'MASTERLIST' → skipped (no year+district)
+ *   ⏭  Everything else    → skipped (summaries, pivot tables, etc.)
+ *
+ * UPDATED for: database_UPDATED_RECORD_of_EDIT_NEW_KASAMBAHAY_MASTERLIS.xlsx
+ *   - Added year 2026 (Districts 1–6)
+ *   - Added new field: qcCareOrientation  (column: 'QC CARE ORIENTATION')
+ *   - Fixed: 'COOK' column (was lowercase 'cook' in older sheets — both handled)
+ *   - Fixed: 'EX OFW' column (was 'EX  OFW' with double space — both handled)
+ *   - Fixed: 'NO' column (was 'NO.' — both handled)
  *
  * Usage:
  *   node kasambahaySeeder.js             → seeds all sheets
@@ -38,22 +45,44 @@ const CLEAR_FIRST = args.includes('--clear')
 // ─── EXCEL FILE PATH ──────────────────────────────────────────────────────────
 const EXCEL_FILE = path.join(
   __dirname,
-  '../Copy4 of  EDIT NEW KASAMBAHAY MASTERLIS  GIP.xlsx'
+  '../database UPDATED RECORD of EDIT NEW KASAMBAHAY MASTERLIS.xlsx'
 )
 
 // ─── BLOCKED SHEETS ───────────────────────────────────────────────────────────
-// Excluded to prevent duplicate records:
-//   - 'DISTRICT X' (no year) overlap with '2024 DISTRICT X'
-//   - 'Copy of ...' sheets are drafts/duplicates
+// Excluded to prevent duplicate records or irrelevant data:
+//   - 'DISTRICT X'       → no year; overlaps with 2024 sheets
+//   - 'Copy of ...'      → drafts/duplicates
+//   - Pivot tables, summary sheets, activity sheets → not kasambahay records
 const SKIP_SHEETS = new Set([
+  // Year-ambiguous district sheets (overlap with 2024)
   'DISTRICT 1',
   'DISTRICT 2',
   'DISTRICT 3',
   'DISTRICT 4',
   'DISTRICT 5',
   'DISTRICT 6',
+  // Draft/copy sheets
   'Copy of 2024 DISTRICT 1',
   'Copy of Copy of 2024 DISTRICT 1',
+  // Non-record sheets
+  ' SUMMARY REPORT',
+  'MASTERLIST',
+  '2024 MASTERLIST',
+  '2025 MASTERLIST',
+  'SUMMARY OF BARANGAY',
+  'EDUCATIONAL ATTAINMENT',
+  'K.AVALID PROGRAM AND SERVICES 2',
+  'GAD & OSH Aug. 16, 2025',
+  'GAD & OSH AVAILED PROGRAM',
+  'stay-in k day JULY 5,2025',
+  'K. ACTIVITY',
+  'SPD KASAMBAHAY PROGRAM',
+  'Pivot Table 21',
+  'Pivot Table 33',
+  'Pivot Table 40',
+  'Pivot Table 41',
+  'Sheet34',
+  'Sheet35',
 ])
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -129,7 +158,10 @@ const isYearOnlySheet = (sheetName) => {
 // ─── ROW MAPPER ───────────────────────────────────────────────────────────────
 
 const mapRow = (row, district, year) => ({
+  // 'NO' in 2026 sheets, 'NO.' in older sheets — handle both
   registrationNo: toNum(
+    row['NO'] ??
+    row['NO.'] ??
     row['REGISTRATION NO'] ??
     row['Unnamed: 0'] ??
     row['__EMPTY'] ??
@@ -158,7 +190,8 @@ const mapRow = (row, district, year) => ({
 
   monthlySalary: toNum(row['MONTHLY SALARY']),
 
-  isExOfw:                toBool(row['EX  OFW']),
+  // 'EX OFW' in 2026 sheets, 'EX  OFW' (double space) in older sheets
+  isExOfw:                toBool(row['EX OFW'] ?? row['EX  OFW']),
   isSoloParent:           toBool(row['SOLO PARENT']),
   isPersonWithDisability: toBool(row['PERSON WITH DISABILITY']),
   isSeniorCitizen:        toBool(row['SENIOR CITIZEN']),
@@ -180,7 +213,8 @@ const mapRow = (row, district, year) => ({
   isOnCall:  toBool(row['ON CALL']),
 
   isGeneralHousehelp: toBool(row['GENERAL HOUSEHELP']),
-  isCook:             toBool(row['cook']),
+  // 'COOK' in 2026 sheets, 'cook' (lowercase) in older sheets
+  isCook:             toBool(row['COOK'] ?? row['cook']),
   isLaundryPerson:    toBool(row['LAUNDRY PERSON']),
   isYaya:             toBool(row['YAYA']),
   isGardener:         toBool(row['GARDENER']),
@@ -192,6 +226,9 @@ const mapRow = (row, district, year) => ({
   workOfEmployer:         toStr(row["WORK OF EMPLOYER'S"]),
   isKapsaMember:          toBool(row['KAPSA  Member']),
   isBcoopMember:          toBool(row['BCOOP Member']),
+
+  // ── NEW field added in 2026 sheets ───────────────────────────────────────
+  qcCareOrientation: toBool(row['QC CARE ORIENTATION']),
 
   district,
   year,
@@ -282,7 +319,7 @@ const seed = async () => {
 
       // ── Blocklist check ───────────────────────────────────────────────────
       if (SKIP_SHEETS.has(name)) {
-        console.log(`⛔ Blocked sheet: "${name}" (duplicate/copy — skipping)`)
+        console.log(`⛔ Blocked sheet: "${name}" (duplicate/copy/summary — skipping)`)
         totalSkippedSheets++
         continue
       }
@@ -290,14 +327,14 @@ const seed = async () => {
       const year     = getYear(name)
       const district = getDistrict(name)
 
-      // ── Case 1: Year + District in name  (e.g. '2024 DISTRICT 5') ──────────
+      // ── Case 1: Year + District in name  (e.g. '2026 DISTRICT 1') ──────────
       if (year && district) {
         contextYear = year
         totalInserted += await processSheet(workbook, name, year, district, sheetSummary)
         continue
       }
 
-      // ── Case 2: Year-only sheet  (e.g. '2024') ────────────────────────────
+      // ── Case 2: Year-only sheet  (e.g. '2024', '2025', '2026') ────────────
       if (isYearOnlySheet(name)) {
         contextYear = getYear(name)
         console.log(`🗓  Year-context sheet: "${name}" → contextYear set to ${contextYear}\n`)
