@@ -1536,6 +1536,7 @@ function KasambahayData() {
   const [year, setYear]               = useState('')
   const [district, setDistrict]       = useState('')
   const [category, setCategory]       = useState('')
+  const [genderFilter, setGenderFilter] = useState('')
   const [data, setData]               = useState([])
   const [loading, setLoading]         = useState(false)
   const [error, setError]             = useState('')
@@ -1741,13 +1742,18 @@ function KasambahayData() {
   const handleSearchKey = (e) => { if (e.key === 'Enter') handleSearch() }
 
   const filteredData = data.filter(k => {
-    if (!category) return true
-    if (category === 'Househelp') return k.isGeneralHousehelp
-    if (category === 'Cook')      return k.isCook
-    if (category === 'Laundry')   return k.isLaundryPerson
-    if (category === 'Yaya')      return k.isYaya
-    if (category === 'Gardener')  return k.isGardener
-    if (category === 'Others')    return k.isOthers
+    if (category) {
+      if (category === 'Househelp' && !k.isGeneralHousehelp) return false
+      if (category === 'Cook'      && !k.isCook) return false
+      if (category === 'Laundry'   && !k.isLaundryPerson) return false
+      if (category === 'Yaya'      && !k.isYaya) return false
+      if (category === 'Gardener'  && !k.isGardener) return false
+      if (category === 'Others'    && !k.isOthers) return false
+    }
+    if (genderFilter) {
+      if (genderFilter === 'female' && !k.isFemale) return false
+      if (genderFilter === 'male'   && !k.isMale) return false
+    }
     return true
   })
 
@@ -1867,12 +1873,20 @@ function KasambahayData() {
             <option value="Others">Others</option>
           </select>
         </div>
+        <div style={{ width: 140, flexShrink: 0 }}>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#1a3a6b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Gender</label>
+          <select value={genderFilter} onChange={e => setGenderFilter(e.target.value)} style={{ ...sel, width: '100%' }}>
+            <option value="">All Genders</option>
+            <option value="female">Female</option>
+            <option value="male">Male</option>
+          </select>
+        </div>
         <button onClick={handleSearch} disabled={loading}
           style={{ height: 42, padding: '0 22px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
           {loading ? 'Loading...' : 'Apply Filters'}
         </button>
-        {(year || district || search || searchInput || category) && (
-          <button onClick={() => { setYear(''); setDistrict(''); setSearch(''); setSearchInput(''); setCategory(''); fetchData(1, '', '', '') }}
+        {(year || district || search || searchInput || category || genderFilter) && (
+          <button onClick={() => { setYear(''); setDistrict(''); setSearch(''); setSearchInput(''); setCategory(''); setGenderFilter(''); fetchData(1, '', '', '') }}
             style={{ height: 42, padding: '0 16px', background: '#f0f0f0', color: '#555', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer', flexShrink: 0 }}>
             Clear
           </button>

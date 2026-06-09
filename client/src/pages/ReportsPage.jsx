@@ -45,16 +45,26 @@ function classifyBirthPlace(raw) {
 }
 
 // ─── Build benefit % data by district and by year ────────────────────────────
-function buildBenefits(records) {
+function buildBenefits(records, groupBy = 'district') {
   const distMap = {}
-  DISTRICTS.forEach(d => { distMap[d] = { total: 0, sss: 0, pagibig: 0, philhealth: 0, qcid: 0 } })
   const yearMap = {}
   YEARS.forEach(y => { yearMap[y] = { total: 0, sss: 0, pagibig: 0, philhealth: 0, qcid: 0 } })
 
   // Also track any years in the data beyond our YEARS array
   for (const r of records) {
     if (r.year && !yearMap[r.year]) yearMap[r.year] = { total: 0, sss: 0, pagibig: 0, philhealth: 0, qcid: 0 }
-    const d = distMap[r.district]
+    
+    let key;
+    if (groupBy === 'district') {
+      key = r.district || 'Unknown District';
+    } else {
+      let raw = r.barangay || '';
+      key = raw.toUpperCase().replace(/^(BRGY\.|BRGY|BARANGAY)\s*/, '').replace(/[-.]/g, ' ').replace(/\s+/g, ' ').trim() || 'Unknown Barangay';
+    }
+
+    if (!distMap[key]) distMap[key] = { total: 0, sss: 0, pagibig: 0, philhealth: 0, qcid: 0 }
+
+    const d = distMap[key]
     const y = yearMap[r.year]
     const hasSss        = r.sss        && r.sss        !== 'No'
     const hasPagibig    = r.pagIbig    && r.pagIbig    !== 'No'
@@ -79,7 +89,7 @@ function buildBenefits(records) {
 
   const pct = (n, t) => t ? +((n / t) * 100).toFixed(1) : 0
 
-  const byDistrict = DISTRICTS.map(d => {
+  const byGroup = Object.keys(distMap).sort((a,b) => a.localeCompare(b)).map(d => {
     const v = distMap[d]
     return {
       name: d.replace('District ', 'D'),
@@ -107,19 +117,27 @@ function buildBenefits(records) {
       rawSss: v.sss, rawPagibig: v.pagibig, rawPhilhealth: v.philhealth, rawQcid: v.qcid,
     }))
 
-  return { byDistrict, byYear }
+  return { byGroup, byYear }
 }
 
 // ─── Build birth place data ───────────────────────────────────────────────────
-function buildBirthPlace(records) {
+function buildBirthPlace(records, groupBy = 'district') {
   let ncr = 0, province = 0, unknown = 0
   const placeCount = {}
   const distMap = {}
-  DISTRICTS.forEach(d => { distMap[d] = { NCR: 0, Province: 0, Unknown: 0 } })
 
   for (const r of records) {
+    let key;
+    if (groupBy === 'district') {
+      key = r.district || 'Unknown District';
+    } else {
+      let raw = r.barangay || '';
+      key = raw.toUpperCase().replace(/^(BRGY\.|BRGY|BARANGAY)\s*/, '').replace(/[-.]/g, ' ').replace(/\s+/g, ' ').trim() || 'Unknown Barangay';
+    }
+    if (!distMap[key]) distMap[key] = { NCR: 0, Province: 0, Unknown: 0 }
+
     const cls = classifyBirthPlace(r.birthPlace)
-    if (distMap[r.district]) distMap[r.district][cls]++
+    distMap[key][cls]++
     if (cls === 'NCR') ncr++
     else if (cls === 'Province') province++
     else unknown++
@@ -142,7 +160,7 @@ function buildBirthPlace(records) {
     .sort((a, b) => b.count - a.count)
     .slice(0, 20)
 
-  const byDistrict = DISTRICTS.map(d => {
+  const byGroup = Object.keys(distMap).sort((a,b) => a.localeCompare(b)).map(d => {
     const v = distMap[d]
     return {
       name: d.replace('District ', 'D'),
@@ -154,7 +172,7 @@ function buildBirthPlace(records) {
     }
   })
 
-  return { overview, topPlaces, ncr, province, unknown, total, byDistrict }
+  return { overview, topPlaces, ncr, province, unknown, total, byGroup }
 }
 
 // ─── Build educational attainment data ───────────────────────────────────────
@@ -181,22 +199,30 @@ function classifyEdu(raw) {
   return 'Not Specified'
 }
 
-function buildEducation(records) {
+function buildEducation(records, groupBy = 'district') {
   const totals = {}
   EDU_LEVELS.forEach(l => { totals[l.key] = 0 })
   totals['Not Specified'] = 0
 
   const distMap = {}
-  DISTRICTS.forEach(d => {
-    distMap[d] = {}
-    EDU_LEVELS.forEach(l => { distMap[d][l.key] = 0 })
-    distMap[d]['Not Specified'] = 0
-  })
 
   for (const r of records) {
+    let key;
+    if (groupBy === 'district') {
+      key = r.district || 'Unknown District';
+    } else {
+      let raw = r.barangay || '';
+      key = raw.toUpperCase().replace(/^(BRGY\.|BRGY|BARANGAY)\s*/, '').replace(/[-.]/g, ' ').replace(/\s+/g, ' ').trim() || 'Unknown Barangay';
+    }
+    if (!distMap[key]) {
+      distMap[key] = {}
+      EDU_LEVELS.forEach(l => { distMap[key][l.key] = 0 })
+      distMap[key]['Not Specified'] = 0
+    }
+
     const cls = classifyEdu(r.educationalAttainment)
     totals[cls] = (totals[cls] || 0) + 1
-    if (distMap[r.district]) distMap[r.district][cls] = (distMap[r.district][cls] || 0) + 1
+    distMap[key][cls] = (distMap[key][cls] || 0) + 1
   }
 
   const total = records.length
@@ -206,44 +232,82 @@ function buildEducation(records) {
     .filter(x => x.count > 0)
     .sort((a, b) => order.indexOf(a.level) - order.indexOf(b.level))
 
-  const byDistrict = DISTRICTS.map(d => {
+  const byGroup = Object.keys(distMap).sort((a,b) => a.localeCompare(b)).map(d => {
     const row = { name: d.replace('District ', 'D'), label: d }
-    EDU_LEVELS.forEach(l => { row[l.key] = distMap[d][l.key] })
+    let total = 0
+    EDU_LEVELS.forEach(l => { row[l.key] = distMap[d][l.key]; total += distMap[d][l.key] })
     row['Not Specified'] = distMap[d]['Not Specified']
+    total += distMap[d]['Not Specified']
+    row.total = total
     return row
   })
 
   const chartLevels = [...EDU_LEVELS.map(l => l.key), 'Not Specified']
 
-  return { overview, byDistrict, chartLevels }
+  return { overview, byGroup, chartLevels }
 }
 
 // ─── Build demographics data ──────────────────────────────────────────────────
-function buildGenderStats(records) {
+function buildGenderStats(records, groupBy = 'district') {
   let male = 0, female = 0, total = records.length
+  const distMap = {}
+
   for (const r of records) {
     if (r.isMale) male++
     else if (r.isFemale) female++
+
+    let key;
+    if (groupBy === 'district') {
+      key = r.district || 'Unknown District';
+    } else {
+      let raw = r.barangay || '';
+      key = raw.toUpperCase().replace(/^(BRGY\.|BRGY|BARANGAY)\s*/, '').replace(/[-.]/g, ' ').replace(/\s+/g, ' ').trim() || 'Unknown Barangay';
+    }
+    if (!distMap[key]) distMap[key] = { Male: 0, Female: 0, total: 0 }
+    
+    distMap[key].total++
+    if (r.isMale) distMap[key].Male++
+    else if (r.isFemale) distMap[key].Female++
   }
   const pieData = [
     { name: 'Female', value: female, pct: total ? +((female / total) * 100).toFixed(1) : 0 },
     { name: 'Male', value: male, pct: total ? +((male / total) * 100).toFixed(1) : 0 },
   ].filter(x => x.value > 0)
-  return { pieData, male, female, total }
+
+  const byGroup = Object.keys(distMap).sort((a,b) => a.localeCompare(b)).map(d => {
+    const v = distMap[d]
+    return {
+      name: d.replace('District ', 'D'),
+      label: d,
+      Male: v.Male,
+      Female: v.Female,
+      total: v.total,
+    }
+  })
+
+  return { pieData, male, female, total, byGroup }
 }
 
-function buildAge(records) {
+function buildAge(records, groupBy = 'district') {
   const brackets = {
     '15 and below': 0, '16-30': 0, '31-45': 0, 
     '46 and above': 0, 'Unknown': 0
   }
   const distMap = {}
-  DISTRICTS.forEach(d => { distMap[d] = { '15 and below': 0, '16-30': 0, '31-45': 0, '46 and above': 0, 'Unknown': 0 } })
 
   let total = 0
   for (const r of records) {
     total++
     const ageStr = String(r.age).trim()
+    let key;
+    if (groupBy === 'district') {
+      key = r.district || 'Unknown District';
+    } else {
+      let raw = r.barangay || '';
+      key = raw.toUpperCase().replace(/^(BRGY\.|BRGY|BARANGAY)\s*/, '').replace(/[-.]/g, ' ').replace(/\s+/g, ' ').trim() || 'Unknown Barangay';
+    }
+    if (!distMap[key]) distMap[key] = { '15 and below': 0, '16-30': 0, '31-45': 0, '46 and above': 0, 'Unknown': 0 }
+
     const age = parseInt(ageStr)
     let bucket = 'Unknown'
     if (isNaN(age) || ageStr.toLowerCase() === 'n/a' || ageStr === '' || age <= 0) {
@@ -254,20 +318,22 @@ function buildAge(records) {
     else bucket = '46 and above'
 
     brackets[bucket]++
-    if (distMap[r.district]) distMap[r.district][bucket]++
+    distMap[key][bucket]++
   }
   const order = ['15 and below', '16-30', '31-45', '46 and above', 'Unknown']
   const list = Object.entries(brackets)
     .map(([range, count]) => ({ range, count, pct: total ? +((count/total)*100).toFixed(1) : 0 }))
     .sort((a, b) => order.indexOf(a.range) - order.indexOf(b.range))
 
-  const byDistrict = DISTRICTS.map(d => {
+  const byGroup = Object.keys(distMap).sort((a,b) => a.localeCompare(b)).map(d => {
     const row = { name: d.replace('District ', 'D'), label: d }
-    order.forEach(range => { row[range] = distMap[d][range] })
+    let total = 0
+    order.forEach(range => { row[range] = distMap[d][range]; total += distMap[d][range] })
+    row.total = total
     return row
   })
 
-  return { list, total, byDistrict }
+  return { list, total, byGroup }
 }
 
 function buildReligion(records) {
@@ -291,18 +357,26 @@ function buildReligion(records) {
   return { list, total }
 }
 
-function buildLengthOfService(records) {
+function buildLengthOfService(records, groupBy = 'district') {
   const brackets = {
     'Below 1 year': 0, '1-3 years': 0, '3-5 years': 0,
     '5-10 years': 0, '10-20 years': 0, '20+ years': 0, 'Unknown': 0
   }
   const distMap = {}
-  DISTRICTS.forEach(d => { distMap[d] = { 'Below 1 year': 0, '1-3 years': 0, '3-5 years': 0, '5-10 years': 0, '10-20 years': 0, '20+ years': 0, 'Unknown': 0 } })
 
   let total = 0
   for (const r of records) {
     total++
     const los = r.lengthOfService || r.yearsOfService
+    let key;
+    if (groupBy === 'district') {
+      key = r.district || 'Unknown District';
+    } else {
+      let raw = r.barangay || '';
+      key = raw.toUpperCase().replace(/^(BRGY\.|BRGY|BARANGAY)\s*/, '').replace(/[-.]/g, ' ').replace(/\s+/g, ' ').trim() || 'Unknown Barangay';
+    }
+    if (!distMap[key]) distMap[key] = { 'Below 1 year': 0, '1-3 years': 0, '3-5 years': 0, '5-10 years': 0, '10-20 years': 0, '20+ years': 0, 'Unknown': 0 }
+
     let bucket = 'Unknown'
     if (!los || String(los).trim().toLowerCase() === 'n/a') {
       bucket = 'Unknown'
@@ -329,7 +403,7 @@ function buildLengthOfService(records) {
       }
     }
     brackets[bucket]++
-    if (distMap[r.district]) distMap[r.district][bucket]++
+    distMap[key][bucket]++
   }
   const order = ['Below 1 year', '1-3 years', '3-5 years', '5-10 years', '10-20 years', '20+ years', 'Unknown']
   const list = Object.entries(brackets)
@@ -337,20 +411,21 @@ function buildLengthOfService(records) {
     .filter(x => x.count > 0)
     .sort((a, b) => order.indexOf(a.range) - order.indexOf(b.range))
 
-  const byDistrict = DISTRICTS.map(d => {
+  const byGroup = Object.keys(distMap).sort((a,b) => a.localeCompare(b)).map(d => {
     const row = { name: d.replace('District ', 'D'), label: d }
-    order.forEach(range => { row[range] = distMap[d][range] })
+    let total = 0
+    order.forEach(range => { row[range] = distMap[d][range]; total += distMap[d][range] })
+    row.total = total
     return row
   })
 
-  return { list, total, byDistrict }
+  return { list, total, byGroup }
 }
 
 // ─── Build barangay distribution ──────────────────────────────────────────────
-function buildBarangayStats(records) {
+function buildBarangayStats(records, groupBy = 'district') {
   const counts = {}
-  const distCounts = {}
-  DISTRICTS.forEach(d => { distCounts[d] = 0 })
+  const groupCounts = {}
   let total = 0
   for (const r of records) {
     let raw = r.barangay || '';
@@ -359,27 +434,31 @@ function buildBarangayStats(records) {
       counts[b] = (counts[b] || 0) + 1
       total++
     }
-    if (r.district && distCounts[r.district] !== undefined) {
-      distCounts[r.district]++
+    let key;
+    if (groupBy === 'district') {
+      key = r.district || 'Unknown District';
+    } else {
+      key = b || 'Unknown Barangay';
     }
+    groupCounts[key] = (groupCounts[key] || 0) + 1
   }
   const list = Object.entries(counts)
     .map(([barangay, count]) => ({ barangay, count, pct: total ? +((count / total) * 100).toFixed(1) : 0 }))
     .sort((a, b) => b.count - a.count)
 
   const totalRecords = records.length
-  const byDistrict = DISTRICTS.map(d => ({
-    name: d.replace('District ', 'D'),
-    label: d,
-    count: distCounts[d],
-    pct: totalRecords ? +((distCounts[d] / totalRecords) * 100).toFixed(1) : 0,
+  const allGroups = Object.entries(groupCounts).map(([key, count]) => ({
+    name: key.replace('District ', 'D'),
+    label: key,
+    count,
+    pct: totalRecords ? +((count / totalRecords) * 100).toFixed(1) : 0,
   })).sort((a, b) => b.count - a.count)
 
-  return { list, total, byDistrict }
+  return { list, total, allGroups }
 }
 
 // ─── Export to Excel ──────────────────────────────────────────────────────────
-function exportToExcel(benefits, birthPlace, education, genderStats, barangayStats, ageStats, religionStats, losStats) {
+function exportToExcel(benefits, birthPlace, education, genderStats, barangayStats, ageStats, losStats, groupBy) {
   const wb = XLSX.utils.book_new()
   const autoW = data => data[0]?.map((_, ci) => ({ wch: Math.max(...data.map(r => String(r[ci] ?? '').length), 10) }))
 
@@ -387,12 +466,14 @@ function exportToExcel(benefits, birthPlace, education, genderStats, barangaySta
     const data = [header, ...rows]
     const ws = XLSX.utils.aoa_to_sheet(data)
     ws['!cols'] = autoW(data)
-    XLSX.utils.book_append_sheet(wb, ws, title)
+    XLSX.utils.book_append_sheet(wb, ws, title.substring(0, 31))
   }
 
-  buildSheet('Benefits by District', 
-    ['District', 'Total', 'SSS #', 'SSS %', 'Pag-IBIG #', 'Pag-IBIG %', 'PhilHealth #', 'PhilHealth %', 'QCID #', 'QCID %'],
-    benefits.byDistrict.map(r => [r.label, r.total, r.rawSss, `${r['SSS']}%`, r.rawPagibig, `${r['Pag-IBIG']}%`, r.rawPhilhealth, `${r['PhilHealth']}%`, r.rawQcid, `${r['QCID']}%`])
+  const gLabel = groupBy === 'district' ? 'District' : 'Barangay'
+
+  buildSheet(`Benefits by ${gLabel}`, 
+    [gLabel, 'Total', 'SSS #', 'SSS %', 'Pag-IBIG #', 'Pag-IBIG %', 'PhilHealth #', 'PhilHealth %', 'QCID #', 'QCID %'],
+    benefits.byGroup.map(r => [r.label, r.total, r.rawSss, `${r['SSS']}%`, r.rawPagibig, `${r['Pag-IBIG']}%`, r.rawPhilhealth, `${r['PhilHealth']}%`, r.rawQcid, `${r['QCID']}%`])
   )
   buildSheet('Benefits by Year', 
     ['Year', 'Total', 'SSS #', 'SSS %', 'Pag-IBIG #', 'Pag-IBIG %', 'PhilHealth #', 'PhilHealth %', 'QCID #', 'QCID %'],
@@ -415,6 +496,10 @@ function exportToExcel(benefits, birthPlace, education, genderStats, barangaySta
     ['Gender', 'Count', 'Percentage'],
     genderStats.pieData.map(r => [r.name, r.value, `${r.pct}%`])
   )
+  buildSheet(`Gender by ${gLabel}`,
+    [gLabel, 'Total', 'Female', 'Male'],
+    genderStats.byGroup.map(r => [r.label, r.total, r.Female, r.Male])
+  )
   buildSheet('Age',
     ['Age Bracket', 'Count', 'Percentage'],
     ageStats.list.map(r => [r.range, r.count, `${r.pct}%`])
@@ -428,7 +513,7 @@ function exportToExcel(benefits, birthPlace, education, genderStats, barangaySta
     barangayStats.list.map(r => [r.barangay, r.count, `${r.pct}%`])
   )
 
-  XLSX.writeFile(wb, 'Kasambahay_Analytics_Report.xlsx')
+  XLSX.writeFile(wb, `Kasambahay_Analytics_${groupBy === 'district' ? 'District' : 'Barangay'}.xlsx`)
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -440,8 +525,8 @@ const S = {
   subTabBar: { display: 'flex', background: '#faf9fe', padding: '12px 16px', borderBottom: '1px solid #e4e2f5', flexWrap: 'wrap', gap: 8 },
   subTab: (a) => ({ padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: a ? 700 : 500, color: a ? '#fff' : '#534AB7', background: a ? '#534AB7' : '#eef', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }),
   tbl:    { width: '100%', borderCollapse: 'collapse', fontSize: 12 },
-  th:     { background: '#f0eefb', color: '#534AB7', fontWeight: 600, padding: '8px 12px', textAlign: 'center', borderBottom: '2px solid #d5d0f0', borderRight: '1px solid #e0dcf5', whiteSpace: 'nowrap', fontSize: 11 },
-  thL:    { background: '#f0eefb', color: '#534AB7', fontWeight: 600, padding: '8px 12px', textAlign: 'left',   borderBottom: '2px solid #d5d0f0', borderRight: '1px solid #e0dcf5', whiteSpace: 'nowrap', fontSize: 11 },
+  th:     { position: 'sticky', top: 0, zIndex: 1, background: '#f0eefb', color: '#534AB7', fontWeight: 600, padding: '8px 12px', textAlign: 'center', borderBottom: '2px solid #d5d0f0', borderRight: '1px solid #e0dcf5', whiteSpace: 'nowrap', fontSize: 11 },
+  thL:    { position: 'sticky', top: 0, zIndex: 1, background: '#f0eefb', color: '#534AB7', fontWeight: 600, padding: '8px 12px', textAlign: 'left',   borderBottom: '2px solid #d5d0f0', borderRight: '1px solid #e0dcf5', whiteSpace: 'nowrap', fontSize: 11 },
   td:     { padding: '7px 12px', textAlign: 'center', borderBottom: '1px solid #eeeaf8', borderRight: '1px solid #f0ecf9', color: '#333' },
   tdL:    { padding: '7px 12px', textAlign: 'left',   borderBottom: '1px solid #eeeaf8', borderRight: '1px solid #f0ecf9', color: '#333', fontWeight: 600 },
   tot:    { background: '#edeaf9', fontWeight: 700, color: '#3c3289' },
@@ -474,23 +559,31 @@ export default function ReportsPage() {
   const [genderStats,  setGenderStats]  = useState(null)
   const [barangayStats,setBarangayStats]= useState(null)
   const [ageStats,     setAgeStats]     = useState(null)
-  const [religionStats,setReligionStats]= useState(null)
   const [losStats,     setLosStats]     = useState(null)
   const [rawCount,     setRawCount]     = useState(0)
+
+  const [groupBy,      setGroupBy]      = useState('district')
+  const [showAllBarangays, setShowAllBarangays] = useState(false)
+  const [allRecords,   setAllRecords]   = useState([])
+
+  const rebuildAll = (records, gb) => {
+    setBenefits(buildBenefits(records, gb))
+    setBirthPlace(buildBirthPlace(records, gb))
+    setEducation(buildEducation(records, gb))
+    setGenderStats(buildGenderStats(records, gb))
+    setBarangayStats(buildBarangayStats(records, gb))
+    setAgeStats(buildAge(records, gb))
+    setLosStats(buildLengthOfService(records, gb))
+  }
 
   useEffect(() => {
     const load = async () => {
       try {
         const token   = localStorage.getItem('token')
         const records = await fetchAll(token)
+        setAllRecords(records)
         setRawCount(records.length)
-        setBenefits(buildBenefits(records))
-        setBirthPlace(buildBirthPlace(records))
-        setEducation(buildEducation(records))
-        setGenderStats(buildGenderStats(records))
-        setBarangayStats(buildBarangayStats(records))
-        setAgeStats(buildAge(records))
-        setLosStats(buildLengthOfService(records))
+        rebuildAll(records, groupBy)
       } catch (e) {
         setError(e.message)
       } finally {
@@ -499,6 +592,14 @@ export default function ReportsPage() {
     }
     load()
   }, [])
+
+  useEffect(() => {
+    if (allRecords.length > 0) {
+      rebuildAll(allRecords, groupBy)
+    }
+  }, [groupBy])
+  
+  const getChartWidth = (dataLen) => (groupBy === 'barangay' && showAllBarangays) ? Math.max(1000, dataLen * 35) : '100%'
 
   if (loading) return (
     <div style={{ ...S.page, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
@@ -530,9 +631,47 @@ export default function ReportsPage() {
             {rawCount.toLocaleString()} total records · Generated: {new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
-        <button onClick={() => exportToExcel(benefits, birthPlace, education, genderStats, barangayStats, ageStats, losStats)} style={{ ...S.btn, background: '#10b981' }} className="hide-on-print">
-          📊 Export to Excel
-        </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap' }} className="hide-on-print">
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ fontSize: '10px', fontWeight: '700', color: '#7874a7', marginBottom: '3px' }}>Group By</div>
+            <div style={{ display: 'flex', border: '1px solid #d5d0f0', borderRadius: '6px', overflow: 'hidden' }}>
+              <button 
+                onClick={() => { setGroupBy('district'); setShowAllBarangays(false); }} 
+                style={{ padding: '4px 10px', fontSize: '12px', border: 'none', cursor: 'pointer', background: groupBy === 'district' ? '#534AB7' : '#fff', color: groupBy === 'district' ? '#fff' : '#534AB7', fontWeight: groupBy === 'district' ? 700 : 400 }}
+              >
+                District
+              </button>
+              <button 
+                onClick={() => setGroupBy('barangay')} 
+                style={{ padding: '4px 10px', fontSize: '12px', border: 'none', cursor: 'pointer', background: groupBy === 'barangay' ? '#534AB7' : '#fff', color: groupBy === 'barangay' ? '#fff' : '#534AB7', fontWeight: groupBy === 'barangay' ? 700 : 400 }}
+              >
+                Barangay
+              </button>
+            </div>
+          </div>
+          {groupBy === 'barangay' && (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ fontSize: '10px', fontWeight: '700', color: '#7874a7', marginBottom: '3px' }}>Limit</div>
+              <div style={{ display: 'flex', border: '1px solid #d5d0f0', borderRadius: '6px', overflow: 'hidden' }}>
+                <button 
+                  onClick={() => setShowAllBarangays(false)} 
+                  style={{ padding: '4px 10px', fontSize: '12px', border: 'none', cursor: 'pointer', background: !showAllBarangays ? '#534AB7' : '#fff', color: !showAllBarangays ? '#fff' : '#534AB7', fontWeight: !showAllBarangays ? 700 : 400 }}
+                >
+                  Top 20
+                </button>
+                <button 
+                  onClick={() => setShowAllBarangays(true)} 
+                  style={{ padding: '4px 10px', fontSize: '12px', border: 'none', cursor: 'pointer', background: showAllBarangays ? '#534AB7' : '#fff', color: showAllBarangays ? '#fff' : '#534AB7', fontWeight: showAllBarangays ? 700 : 400 }}
+                >
+                  All
+                </button>
+              </div>
+            </div>
+          )}
+          <button onClick={() => exportToExcel(benefits, birthPlace, education, genderStats, barangayStats, ageStats, losStats, groupBy)} style={{ ...S.btn, background: '#10b981' }}>
+            📊 Export to Excel
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -567,9 +706,9 @@ export default function ReportsPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
               {[
                 ...Object.entries(BENEFIT_COLORS).map(([b, color]) => {
-                  const totalAll  = benefits.byDistrict.reduce((s, r) => s + r.total, 0)
+                  const totalAll  = benefits.byGroup.reduce((s, r) => s + r.total, 0)
                   const rawKey    = { 'SSS': 'rawSss', 'Pag-IBIG': 'rawPagibig', 'PhilHealth': 'rawPhilhealth', 'QCID': 'rawQcid' }[b]
-                  const totalHave = benefits.byDistrict.reduce((s, r) => s + r[rawKey], 0)
+                  const totalHave = benefits.byGroup.reduce((s, r) => s + r[rawKey], 0)
                   const pct       = totalAll ? +((totalHave / totalAll) * 100).toFixed(1) : 0
                   return { label: b, val: `${pct}%`, sub: `${totalHave.toLocaleString()} of ${totalAll.toLocaleString()}`, color }
                 })
@@ -582,27 +721,31 @@ export default function ReportsPage() {
               ))}
             </div>
 
-            <p style={S.sectionHead}>Benefits Coverage % by District</p>
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={benefits.byDistrict} margin={{ top: 20, right: 20, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tickFormatter={v => `${v}%`} domain={[0, 100]} tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(val) => `${val}%`} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                {Object.entries(BENEFIT_COLORS).map(([b, color]) => (
-                  <Bar key={b} dataKey={b} fill={color} radius={[3, 3, 0, 0]}>
-                    <LabelList dataKey={b} position="top" formatter={(v) => `${v}%`} style={{ fontSize: 10, fill: '#555', fontWeight: 600 }} />
-                  </Bar>
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
+            <p style={S.sectionHead}>Benefits Coverage % by {groupBy === 'district' ? 'District' : 'Barangay'} {groupBy === 'barangay' ? (showAllBarangays ? '(All)' : '(Top 20)') : ''}</p>
+            <div style={{ overflowX: 'auto', width: '100%' }}>
+              <div style={{ width: getChartWidth(benefits.byGroup.length), height: 260 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={groupBy === 'district' ? benefits.byGroup : [...benefits.byGroup].sort((a,b) => b.total - a.total).slice(0, showAllBarangays ? undefined : 20)} margin={{ top: 20, right: 20, left: 0, bottom: groupBy === 'barangay' ? 60 : 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
+                    <XAxis dataKey="name" tick={{ fontSize: groupBy === 'barangay' ? 10 : 12 }} angle={groupBy === 'barangay' ? -45 : 0} textAnchor={groupBy === 'barangay' ? "end" : "middle"} interval={0} height={groupBy === 'barangay' ? 80 : 30} />
+                    <YAxis tickFormatter={v => `${v}%`} domain={[0, 100]} tick={{ fontSize: 11 }} />
+                    <Tooltip formatter={(val) => `${val}%`} />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    {Object.entries(BENEFIT_COLORS).map(([b, color]) => (
+                      <Bar key={b} dataKey={b} fill={color} radius={[3, 3, 0, 0]}>
+                        <LabelList dataKey={b} position="top" formatter={(v) => `${v}%`} style={{ fontSize: 10, fill: '#555', fontWeight: 600 }} />
+                      </Bar>
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
 
-            <div style={{ overflowX: 'auto', marginTop: 20 }}>
+            <div style={{ overflowX: 'auto', marginTop: 20, maxHeight: 400, borderBottom: '1px solid #eeeaf8' }}>
               <table style={S.tbl}>
                 <thead>
                   <tr>
-                    <th style={S.thL}>District</th>
+                    <th style={S.thL}>{groupBy === 'district' ? 'District' : 'Barangay'}</th>
                     <th style={S.th}>Total</th>
                     {Object.keys(BENEFIT_COLORS).flatMap(b => [
                       <th key={`${b}n`} style={S.th}>{b} #</th>,
@@ -611,7 +754,7 @@ export default function ReportsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {benefits.byDistrict.map((r, i) => (
+                  {benefits.byGroup.map((r, i) => (
                     <tr key={r.label} style={{ background: i % 2 === 0 ? '#fff' : '#faf9fe' }}>
                       <td style={S.tdL}>{r.label}</td>
                       <td style={S.td}>{r.total.toLocaleString()}</td>
@@ -622,7 +765,7 @@ export default function ReportsPage() {
                     </tr>
                   ))}
                   {(() => {
-                    const tot = benefits.byDistrict.reduce((acc, r) => {
+                    const tot = benefits.byGroup.reduce((acc, r) => {
                       acc.total += r.total; acc.rawSss += r.rawSss; acc.rawPagibig += r.rawPagibig; acc.rawPhilhealth += r.rawPhilhealth; acc.rawQcid += r.rawQcid; return acc
                     }, { total: 0, rawSss: 0, rawPagibig: 0, rawPhilhealth: 0, rawQcid: 0 })
                     return (
@@ -740,21 +883,25 @@ export default function ReportsPage() {
               </>
             )}
             <div style={{ marginTop: 24 }}>
-              <p style={{ ...S.sectionHead, marginTop: 8 }}>Birth Place Breakdown by District</p>
-              <ResponsiveContainer width="100%" height={340}>
-                <BarChart data={birthPlace.byDistrict} margin={{ top: 20, right: 20, left: 0, bottom: 20 }} barCategoryGap="20%" barGap={6}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(value) => value.toLocaleString()} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  {['NCR','Province','Unknown'].map((key, i) => (
-                    <Bar key={key} dataKey={key} fill={['#2EC4B6','#F4A261','#999'][i]} radius={[3, 3, 0, 0]} barSize={18}>
-                      <LabelList dataKey={key} position="top" formatter={(v) => v > 0 ? v.toLocaleString() : ''} style={{ fontSize: 9, fill: '#333', fontWeight: 600 }} />
-                    </Bar>
-                  ))}
-                </BarChart>
-              </ResponsiveContainer>
+              <p style={{ ...S.sectionHead, marginTop: 8 }}>Birth Place Breakdown by {groupBy === 'district' ? 'District' : 'Barangay'} {groupBy === 'barangay' ? (showAllBarangays ? '(All)' : '(Top 20)') : ''}</p>
+              <div style={{ overflowX: 'auto', width: '100%' }}>
+                <div style={{ width: getChartWidth(birthPlace.byGroup.length), height: groupBy === 'barangay' ? 400 : 340 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={groupBy === 'district' ? birthPlace.byGroup : [...birthPlace.byGroup].sort((a,b) => b.total - a.total).slice(0, showAllBarangays ? undefined : 20)} margin={{ top: 20, right: 20, left: 0, bottom: groupBy === 'barangay' ? 60 : 20 }} barCategoryGap="20%" barGap={6}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
+                      <XAxis dataKey="name" tick={{ fontSize: groupBy === 'barangay' ? 10 : 12 }} angle={groupBy === 'barangay' ? -45 : 0} textAnchor={groupBy === 'barangay' ? "end" : "middle"} interval={0} height={groupBy === 'barangay' ? 80 : 30} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={(value) => value.toLocaleString()} />
+                      <Legend wrapperStyle={{ fontSize: 12 }} />
+                      {['NCR','Province','Unknown'].map((key, i) => (
+                        <Bar key={key} dataKey={key} fill={['#2EC4B6','#F4A261','#999'][i]} radius={[3, 3, 0, 0]} barSize={18}>
+                          <LabelList dataKey={key} position="top" formatter={(v) => v > 0 ? v.toLocaleString() : ''} style={{ fontSize: 9, fill: '#333', fontWeight: 600 }} />
+                        </Bar>
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -771,7 +918,7 @@ export default function ReportsPage() {
                 </div>
               ))}
             </div>
-          <div style={{ marginBottom: 24 }}>
+          <div style={{ marginBottom: 24, overflowX: 'auto', maxHeight: 400, borderBottom: '1px solid #eeeaf8' }}>
             <p style={S.sectionHead}>Numbers & Percentage</p>
                 <table style={S.tbl}>
                   <thead>
@@ -792,21 +939,25 @@ export default function ReportsPage() {
                   </tbody>
                 </table>
             </div>
-            <p style={{ ...S.sectionHead, marginTop: 8 }}>Educational Level by District</p>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={education.byDistrict} margin={{ top: 30, right: 20, left: 0, bottom: 5 }} barCategoryGap="20%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(value) => value.toLocaleString()} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                {education.chartLevels.map((levelKey, i) => (
-                  <Bar key={levelKey} dataKey={levelKey} fill={COLORS[i % COLORS.length]} radius={[3, 3, 0, 0]} barSize={18}>
-                    <LabelList dataKey={levelKey} position="top" formatter={(v) => v > 0 ? v.toLocaleString() : ''} style={{ fontSize: 9, fill: '#333', fontWeight: 600 }} />
-                  </Bar>
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
+            <p style={{ ...S.sectionHead, marginTop: 8 }}>Educational Level by {groupBy === 'district' ? 'District' : 'Barangay'} {groupBy === 'barangay' ? (showAllBarangays ? '(All)' : '(Top 20)') : ''}</p>
+            <div style={{ overflowX: 'auto', width: '100%' }}>
+              <div style={{ width: getChartWidth(education.byGroup.length), height: groupBy === 'barangay' ? 380 : 300 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={groupBy === 'district' ? education.byGroup : [...education.byGroup].sort((a,b) => b.total - a.total).slice(0, showAllBarangays ? undefined : 20)} margin={{ top: 30, right: 20, left: 0, bottom: groupBy === 'barangay' ? 60 : 5 }} barCategoryGap="20%">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
+                    <XAxis dataKey="name" tick={{ fontSize: groupBy === 'barangay' ? 10 : 12 }} angle={groupBy === 'barangay' ? -45 : 0} textAnchor={groupBy === 'barangay' ? "end" : "middle"} interval={0} height={groupBy === 'barangay' ? 80 : 30} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip formatter={(value) => value.toLocaleString()} />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    {education.chartLevels.map((levelKey, i) => (
+                      <Bar key={levelKey} dataKey={levelKey} fill={COLORS[i % COLORS.length]} radius={[3, 3, 0, 0]} barSize={18}>
+                        <LabelList dataKey={levelKey} position="top" formatter={(v) => v > 0 ? v.toLocaleString() : ''} style={{ fontSize: 9, fill: '#333', fontWeight: 600 }} />
+                      </Bar>
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
         )}
 
@@ -817,7 +968,7 @@ export default function ReportsPage() {
               <div style={S.metric}><div style={S.mLabel}>Female</div><div style={{ ...S.mVal, color: '#d4537e' }}>{genderStats.female.toLocaleString()}</div><div style={S.mSub}>{genderStats.pieData.find(x => x.name === 'Female')?.pct || 0}%</div></div>
               <div style={S.metric}><div style={S.mLabel}>Male</div><div style={{ ...S.mVal, color: '#3b82f6' }}>{genderStats.male.toLocaleString()}</div><div style={S.mSub}>{genderStats.pieData.find(x => x.name === 'Male')?.pct || 0}%</div></div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, marginBottom: 24 }}>
               <div>
                 <p style={S.sectionHead}>Gender Distribution</p>
                 <ResponsiveContainer width="100%" height={300}>
@@ -829,6 +980,28 @@ export default function ReportsPage() {
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
+              </div>
+            </div>
+            
+            <div style={{ marginTop: 20 }}>
+              <p style={{ ...S.sectionHead, marginTop: 24 }}>Gender Distribution by {groupBy === 'district' ? 'District' : 'Barangay'} {groupBy === 'barangay' ? (showAllBarangays ? '(All)' : '(Top 20)') : ''}</p>
+              <div style={{ overflowX: 'auto', width: '100%' }}>
+                <div style={{ width: getChartWidth(genderStats.byGroup.length), height: groupBy === 'barangay' ? 400 : 340 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={groupBy === 'district' ? genderStats.byGroup : [...genderStats.byGroup].sort((a,b) => b.total - a.total).slice(0, showAllBarangays ? undefined : 20)} margin={{ top: 20, right: 20, left: 0, bottom: groupBy === 'barangay' ? 60 : 20 }} barCategoryGap="20%" barGap={6}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
+                      <XAxis dataKey="name" tick={{ fontSize: groupBy === 'barangay' ? 10 : 12 }} angle={groupBy === 'barangay' ? -45 : 0} textAnchor={groupBy === 'barangay' ? "end" : "middle"} interval={0} height={groupBy === 'barangay' ? 80 : 30} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={(value) => value.toLocaleString()} />
+                      <Legend wrapperStyle={{ fontSize: 12 }} />
+                      {['Female', 'Male'].map((gender, i) => (
+                        <Bar key={gender} dataKey={gender} fill={gender === 'Female' ? '#d4537e' : '#3b82f6'} radius={[3, 3, 0, 0]} barSize={18}>
+                          <LabelList dataKey={gender} position="top" formatter={(v) => v > 0 ? v.toLocaleString() : ''} style={{ fontSize: 9, fill: '#333', fontWeight: 600 }} />
+                        </Bar>
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
           </div>
@@ -852,7 +1025,7 @@ export default function ReportsPage() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-              <div>
+              <div style={{ overflowX: 'auto', maxHeight: 300, borderBottom: '1px solid #eeeaf8' }}>
                 <table style={S.tbl}>
                   <thead>
                     <tr>
@@ -874,21 +1047,25 @@ export default function ReportsPage() {
               </div>
             </div>
             <div style={{ marginTop: 20 }}>
-              <p style={{ ...S.sectionHead, marginTop: 24 }}>Age Range by District</p>
-              <ResponsiveContainer width="100%" height={340}>
-                <BarChart data={ageStats.byDistrict} margin={{ top: 20, right: 20, left: 0, bottom: 20 }} barCategoryGap="20%" barGap={6}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(value) => value.toLocaleString()} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  {['15 and below','16-30','31-45','46 and above','Unknown'].map((range, i) => (
-                    <Bar key={range} dataKey={range} fill={COLORS[i % COLORS.length]} radius={[3, 3, 0, 0]} barSize={18}>
-                      <LabelList dataKey={range} position="top" formatter={(v) => v > 0 ? v.toLocaleString() : ''} style={{ fontSize: 9, fill: '#333', fontWeight: 600 }} />
-                    </Bar>
-                  ))}
-                </BarChart>
-              </ResponsiveContainer>
+              <p style={{ ...S.sectionHead, marginTop: 24 }}>Age Range by {groupBy === 'district' ? 'District' : 'Barangay'} {groupBy === 'barangay' ? (showAllBarangays ? '(All)' : '(Top 20)') : ''}</p>
+              <div style={{ overflowX: 'auto', width: '100%' }}>
+                <div style={{ width: getChartWidth(ageStats.byGroup.length), height: groupBy === 'barangay' ? 400 : 340 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={groupBy === 'district' ? ageStats.byGroup : [...ageStats.byGroup].sort((a,b) => b.total - a.total).slice(0, showAllBarangays ? undefined : 20)} margin={{ top: 20, right: 20, left: 0, bottom: groupBy === 'barangay' ? 60 : 20 }} barCategoryGap="20%" barGap={6}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
+                      <XAxis dataKey="name" tick={{ fontSize: groupBy === 'barangay' ? 10 : 12 }} angle={groupBy === 'barangay' ? -45 : 0} textAnchor={groupBy === 'barangay' ? "end" : "middle"} interval={0} height={groupBy === 'barangay' ? 80 : 30} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={(value) => value.toLocaleString()} />
+                      <Legend wrapperStyle={{ fontSize: 12 }} />
+                      {['15 and below','16-30','31-45','46 and above','Unknown'].map((range, i) => (
+                        <Bar key={range} dataKey={range} fill={COLORS[i % COLORS.length]} radius={[3, 3, 0, 0]} barSize={18}>
+                          <LabelList dataKey={range} position="top" formatter={(v) => v > 0 ? v.toLocaleString() : ''} style={{ fontSize: 9, fill: '#333', fontWeight: 600 }} />
+                        </Bar>
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -911,7 +1088,7 @@ export default function ReportsPage() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-              <div>
+              <div style={{ overflowX: 'auto', maxHeight: 300, borderBottom: '1px solid #eeeaf8' }}>
                 <table style={S.tbl}>
                   <thead>
                     <tr>
@@ -933,21 +1110,25 @@ export default function ReportsPage() {
               </div>
             </div>
             <div style={{ marginTop: 20 }}>
-              <p style={{ ...S.sectionHead, marginTop: 24 }}>Length of Service by District</p>
-              <ResponsiveContainer width="100%" height={340}>
-                <BarChart data={losStats.byDistrict} margin={{ top: 20, right: 20, left: 0, bottom: 20 }} barCategoryGap="20%" barGap={6}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(value) => value.toLocaleString()} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  {['Below 1 year','1-3 years','3-5 years','5-10 years','10-20 years','20+ years','Unknown'].map((range, i) => (
-                    <Bar key={range} dataKey={range} fill={COLORS[i % COLORS.length]} radius={[3, 3, 0, 0]} barSize={18}>
-                      <LabelList dataKey={range} position="top" formatter={(v) => v > 0 ? v.toLocaleString() : ''} style={{ fontSize: 9, fill: '#333', fontWeight: 600 }} />
-                    </Bar>
-                  ))}
-                </BarChart>
-              </ResponsiveContainer>
+              <p style={{ ...S.sectionHead, marginTop: 24 }}>Length of Service by {groupBy === 'district' ? 'District' : 'Barangay'} {groupBy === 'barangay' ? (showAllBarangays ? '(All)' : '(Top 20)') : ''}</p>
+              <div style={{ overflowX: 'auto', width: '100%' }}>
+                <div style={{ width: getChartWidth(losStats.byGroup.length), height: groupBy === 'barangay' ? 400 : 340 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={groupBy === 'district' ? losStats.byGroup : [...losStats.byGroup].sort((a,b) => b.total - a.total).slice(0, showAllBarangays ? undefined : 20)} margin={{ top: 20, right: 20, left: 0, bottom: groupBy === 'barangay' ? 60 : 20 }} barCategoryGap="20%" barGap={6}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
+                      <XAxis dataKey="name" tick={{ fontSize: groupBy === 'barangay' ? 10 : 12 }} angle={groupBy === 'barangay' ? -45 : 0} textAnchor={groupBy === 'barangay' ? "end" : "middle"} interval={0} height={groupBy === 'barangay' ? 80 : 30} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={(value) => value.toLocaleString()} />
+                      <Legend wrapperStyle={{ fontSize: 12 }} />
+                      {['Below 1 year','1-3 years','3-5 years','5-10 years','10-20 years','20+ years','Unknown'].map((range, i) => (
+                        <Bar key={range} dataKey={range} fill={COLORS[i % COLORS.length]} radius={[3, 3, 0, 0]} barSize={18}>
+                          <LabelList dataKey={range} position="top" formatter={(v) => v > 0 ? v.toLocaleString() : ''} style={{ fontSize: 9, fill: '#333', fontWeight: 600 }} />
+                        </Bar>
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -956,37 +1137,41 @@ export default function ReportsPage() {
         {subTab === 'barangay' && barangayStats && (
           <div style={{ padding: 20 }}>
 
-            {/* ── Kasambahay by District ── */}
-            <p style={S.sectionHead}>Kasambahay Count by District</p>
+            {/* ── Kasambahay by Group ── */}
+            <p style={S.sectionHead}>Kasambahay Count by {groupBy === 'district' ? 'District' : 'Barangay'} {groupBy === 'barangay' ? (showAllBarangays ? '(All)' : '(Top 20)') : ''}</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, marginBottom: 28 }}>
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={barangayStats.byDistrict} margin={{ top: 24, right: 20, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(v, n, p) => [v.toLocaleString(), p.payload.label]} />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]} name="Kasambahay">
-                    {barangayStats.byDistrict.map((entry, i) => (
-                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                    ))}
-                    <LabelList dataKey="count" position="top" formatter={(v) => v.toLocaleString()} style={{ fontSize: 11, fill: '#333', fontWeight: 600 }} />
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              <div style={{ overflowX: 'auto', width: '100%' }}>
+                <div style={{ width: getChartWidth(barangayStats.allGroups.length), height: groupBy === 'barangay' ? 320 : 260 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={groupBy === 'district' ? barangayStats.allGroups : barangayStats.allGroups.slice(0, showAllBarangays ? undefined : 20)} margin={{ top: 24, right: 20, left: 0, bottom: groupBy === 'barangay' ? 60 : 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
+                      <XAxis dataKey="name" tick={{ fontSize: groupBy === 'barangay' ? 10 : 12 }} angle={groupBy === 'barangay' ? -45 : 0} textAnchor={groupBy === 'barangay' ? "end" : "middle"} interval={0} height={groupBy === 'barangay' ? 80 : 30} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={(v, n, p) => [v.toLocaleString(), p.payload.label]} />
+                      <Bar dataKey="count" radius={[4, 4, 0, 0]} name="Kasambahay">
+                        {barangayStats.allGroups.slice(0, groupBy === 'barangay' && !showAllBarangays ? 20 : undefined).map((entry, i) => (
+                          <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                        ))}
+                        <LabelList dataKey="count" position="top" formatter={(v) => v.toLocaleString()} style={{ fontSize: 11, fill: '#333', fontWeight: 600 }} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
 
               {/* District ranking table */}
-              <div>
+              <div style={{ maxHeight: '400px', overflowY: 'auto', borderBottom: '1px solid #eeeaf8' }}>
                 <table style={S.tbl}>
                   <thead>
                     <tr>
-                      <th style={S.thL}>District</th>
+                      <th style={S.thL}>{groupBy === 'district' ? 'District' : 'Barangay'}</th>
                       <th style={S.th}>Count</th>
                       <th style={S.th}>% of Total</th>
                       <th style={{ ...S.th, minWidth: 120 }}>Share</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {barangayStats.byDistrict.map((r, i) => (
+                    {barangayStats.allGroups.map((r, i) => (
                       <tr key={r.label} style={{ background: i % 2 === 0 ? '#fff' : '#faf9fe' }}>
                         <td style={{ ...S.tdL, display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ width: 10, height: 10, borderRadius: 2, background: COLORS[i % COLORS.length], flexShrink: 0, display: 'inline-block' }} />
@@ -1003,7 +1188,7 @@ export default function ReportsPage() {
                     ))}
                     <tr style={S.tot}>
                       <td style={{ ...S.tdL, ...S.tot }}>TOTAL</td>
-                      <td style={{ ...S.td, ...S.tot }}>{barangayStats.byDistrict.reduce((s, r) => s + r.count, 0).toLocaleString()}</td>
+                      <td style={{ ...S.td, ...S.tot }}>{barangayStats.allGroups.reduce((s, r) => s + r.count, 0).toLocaleString()}</td>
                       <td style={{ ...S.td, ...S.tot }}>100%</td>
                       <td style={{ ...S.td, ...S.tot }} />
                     </tr>
@@ -1012,18 +1197,22 @@ export default function ReportsPage() {
               </div>
             </div>
 
-            <p style={S.sectionHead}>Top 20 Barangays with Most Kasambahay</p>
-            <ResponsiveContainer width="100%" height={320}>
-              <BarChart data={barangayStats.list.slice(0, 20)} margin={{ top: 20, right: 20, left: 0, bottom: 80 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
-                <XAxis dataKey="barangay" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(val) => val.toLocaleString()} />
-                <Bar dataKey="count" fill="#2EC4B6" radius={[3, 3, 0, 0]} name="Kasambahay Count">
-                  <LabelList dataKey="count" position="top" formatter={(v) => v.toLocaleString()} style={{ fontSize: 9, fill: '#333', fontWeight: 600 }} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <p style={S.sectionHead}>{showAllBarangays ? 'All' : 'Top 20'} Barangays with Most Kasambahay</p>
+            <div style={{ overflowX: 'auto', width: '100%' }}>
+              <div style={{ width: showAllBarangays ? Math.max(1000, barangayStats.list.length * 35) : '100%', height: 320 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={barangayStats.list.slice(0, showAllBarangays ? undefined : 20)} margin={{ top: 20, right: 20, left: 0, bottom: 80 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ede9f9" />
+                    <XAxis dataKey="barangay" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip formatter={(val) => val.toLocaleString()} />
+                    <Bar dataKey="count" fill="#2EC4B6" radius={[3, 3, 0, 0]} name="Kasambahay Count">
+                      <LabelList dataKey="count" position="top" formatter={(v) => v.toLocaleString()} style={{ fontSize: 9, fill: '#333', fontWeight: 600 }} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
             <p style={{ ...S.sectionHead, marginTop: 30 }}>All Barangays Breakdown</p>
             <div style={{ maxHeight: 400, overflowY: 'auto', border: '1px solid #e4e2f5', borderRadius: 8 }}>
               <table style={S.tbl}>

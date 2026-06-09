@@ -8,7 +8,7 @@ import * as XLSX from 'xlsx';
 import { API_ENDPOINTS } from '../utils/api'
 const API_URL = API_ENDPOINTS.KASAMBAHAY
 const DISTRICTS = ['District 1','District 2','District 3','District 4','District 5','District 6'];
-const YEARS     = [2024, 2025];
+const YEARS     = [2024, 2025, 2026];
 
 // ─── Official Barangays per District ─────────────────────────────────────────
 const DISTRICT_BARANGAYS = {
@@ -81,10 +81,10 @@ function applyFilters(records, { year, district, sex, arrangement }) {
 }
 
 // ─── Aggregate all records into the summary shape ────────────────────────────
-function buildSummary(records) {
+function buildSummary(records, groupBy = 'district') {
   const blank = () => ({
     subtotal: 0,
-    enc2024: 0, enc2025: 0,
+    enc2024: 0, enc2025: 0, enc2026: 0,
     sss: 0, philhealth: 0, pagibig: 0, qcid: 0,
     female: 0, male: 0,
     liveIn: 0, liveOut: 0, onCall: 0,
@@ -96,14 +96,29 @@ function buildSummary(records) {
   });
 
   const map = {};
-  DISTRICTS.forEach(d => { map[d] = { district: d, ...blank() }; });
+  if (groupBy === 'district') {
+    DISTRICTS.forEach(d => { map[d] = { name: d, district: d, ...blank() }; });
+  } else {
+    BARANGAY_OFFICIAL_NAMES.forEach(b => { map[b] = { name: b, district: null, ...blank() }; });
+  }
 
   for (const r of records) {
-    const d = map[r.district];
-    if (!d) continue;
+    let key = null;
+    if (groupBy === 'district') {
+      key = r.district || 'Unknown District';
+    } else {
+      key = normalizeBarangayName(r.barangay) || 'Unknown Barangay';
+    }
+    
+    if (!map[key]) {
+      map[key] = { name: key, district: r.district || null, ...blank() };
+    }
+    const d = map[key];
+
     d.subtotal++;
     if (r.year === 2024) d.enc2024++;
     if (r.year === 2025) d.enc2025++;
+    if (r.year === 2026) d.enc2026++;
     if (r.sss)        d.sss++;
     if (r.philhealth) d.philhealth++;
     if (r.pagIbig)    d.pagibig++;
@@ -135,11 +150,22 @@ function buildSummary(records) {
     else                d.age45above++;
   }
 
-  return DISTRICTS.map(d => map[d]);
+  if (groupBy === 'district') {
+    const known = DISTRICTS.map(d => map[d]).filter(d => d);
+    const unknown = Object.values(map).filter(d => !DISTRICTS.includes(d.name) && d.subtotal > 0);
+    return [...known, ...unknown];
+  } else {
+    const knownNames = new Set(BARANGAY_OFFICIAL_NAMES);
+    const known = Array.from(knownNames).map(b => map[b]).filter(d => d && d.subtotal > 0);
+    const unknown = Object.values(map).filter(d => !knownNames.has(d.name) && d.subtotal > 0);
+    unknown.sort((a, b) => a.name.localeCompare(b.name));
+    return [...known, ...unknown];
+  }
 }
 
 function buildTotals(rows) {
-  const keys = Object.keys(rows[0]).filter(k => k !== 'district');
+  if (!rows || rows.length === 0) return { name: 'TOTAL' };
+  const keys = Object.keys(rows[0]).filter(k => k !== 'district' && k !== 'name');
   const t = { district: 'TOTAL' };
   for (const k of keys) t[k] = rows.reduce((s, r) => s + (r[k] || 0), 0);
   return t;
@@ -147,7 +173,7 @@ function buildTotals(rows) {
 
 function buildPct(rows) {
   return rows.map(r => ({
-    district:   r.district,
+    name:       r.name || r.district,
     sss:        r.subtotal ? +((r.sss        / r.subtotal) * 100).toFixed(2) : 0,
     philhealth: r.subtotal ? +((r.philhealth / r.subtotal) * 100).toFixed(2) : 0,
     pagibig:    r.subtotal ? +((r.pagibig    / r.subtotal) * 100).toFixed(2) : 0,
@@ -507,8 +533,9 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   const fa24   = cnt(r => r.basicFirstAidTraining);
   const hs24   = cnt(r => r.homeSecurityAwareness);
 
-  const rows   = buildSummary(rawRecords);
+  const rows   = buildSummary(rawRecords, 'district');
   const totals = buildTotals(rows);
+  const pctRows = buildPct(rows);
 
   // HEADER
   y = 12;
@@ -783,19 +810,19 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   drawSectionHeader('DISTRICT SUMMARY – REGISTERED KASAMBAHAYS');
   drawFigCaption('District Overview: Encoded Records & Demographics');
   autoTable(
-    [['District', 'Enc\n2024', 'Enc\n2025', 'Sub\nTotal', 'Female', 'Male', 'Live-In', 'Live-Out', 'On-Call']],
+    [['District', 'Enc\n2024', 'Enc\n2025', 'Enc\n2026', 'Sub\nTotal', 'Female', 'Male', 'Live-In', 'Live-Out', 'On-Call']],
     [
-      ...rows.map(r => [r.district, n(r.enc2024), n(r.enc2025), n(r.subtotal), n(r.female), n(r.male), n(r.liveIn), n(r.liveOut), n(r.onCall)]),
-      ['TOTAL', n(totals.enc2024), n(totals.enc2025), n(totals.subtotal), n(totals.female), n(totals.male), n(totals.liveIn), n(totals.liveOut), n(totals.onCall)],
+      ...rows.map(r => [r.name || r.district, n(r.enc2024), n(r.enc2025), n(r.enc2026), n(r.subtotal), n(r.female), n(r.male), n(r.liveIn), n(r.liveOut), n(r.onCall)]),
+      ['TOTAL', n(totals.enc2024), n(totals.enc2025), n(totals.enc2026), n(totals.subtotal), n(totals.female), n(totals.male), n(totals.liveIn), n(totals.liveOut), n(totals.onCall)],
     ],
-    { columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 28 }, 3: { fontStyle: 'bold' } }, styles: { fontSize: 7 }, ...totalRowCb(rows.length) }
+    { columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 28 }, 4: { fontStyle: 'bold' } }, styles: { fontSize: 7 }, ...totalRowCb(rows.length) }
   );
 
   drawFigCaption('District Training & Work Type');
   autoTable(
     [['District', 'Orientation', 'Organizing', 'OSH', 'Gender\nSens.', 'First Aid', 'Home\nSec.', 'Gen.\nHousehelp', 'Cook', 'Laundry', 'Yaya', 'Gardener']],
     [
-      ...rows.map(r => [r.district, n(r.orientation), n(r.organizing), n(r.osh), n(r.genderSens), n(r.firstAid), n(r.homeSec), n(r.genHouse), n(r.cook), n(r.laundry), n(r.yaya), n(r.gardener)]),
+      ...rows.map(r => [r.name || r.district, n(r.orientation), n(r.organizing), n(r.osh), n(r.genderSens), n(r.firstAid), n(r.homeSec), n(r.genHouse), n(r.cook), n(r.laundry), n(r.yaya), n(r.gardener)]),
       ['TOTAL', n(totals.orientation), n(totals.organizing), n(totals.osh), n(totals.genderSens), n(totals.firstAid), n(totals.homeSec), n(totals.genHouse), n(totals.cook), n(totals.laundry), n(totals.yaya), n(totals.gardener)],
     ],
     { columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 28 } }, styles: { fontSize: 7 }, ...totalRowCb(rows.length) }
@@ -809,7 +836,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
     { label: '45 and above', key: 'age45above' },
   ];
   autoTable(
-    [['Age Bracket', ...DISTRICTS, 'TOTAL']],
+    [['Age Bracket', ...rows.map(r => r.name || r.district), 'TOTAL']],
     [
       ...ageBracketsDist.map(({ label, key }) => [label, ...rows.map(r => n(r[key])), n(rows.reduce((s, r) => s + (r[key] || 0), 0))]),
       ['SUBTOTAL', ...rows.map(r => n(r.subtotal)), n(totals.subtotal)],
@@ -818,11 +845,10 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   );
 
   drawFigCaption('Benefits Coverage % per District');
-  const pctRows = buildPct(rows);
   autoTable(
     [['District', 'SSS %', 'PhilHealth %', 'Pag-IBIG %', 'QCID %']],
     [
-      ...pctRows.map(r => [r.district, `${r.sss.toFixed(2)}%`, `${r.philhealth.toFixed(2)}%`, `${r.pagibig.toFixed(2)}%`, `${r.qcid.toFixed(2)}%`]),
+      ...pctRows.map(r => [r.name || r.district, `${r.sss.toFixed(2)}%`, `${r.philhealth.toFixed(2)}%`, `${r.pagibig.toFixed(2)}%`, `${r.qcid.toFixed(2)}%`]),
       ['All Districts', `${totals.subtotal ? ((totals.sss/totals.subtotal)*100).toFixed(2) : 0}%`, `${totals.subtotal ? ((totals.philhealth/totals.subtotal)*100).toFixed(2) : 0}%`, `${totals.subtotal ? ((totals.pagibig/totals.subtotal)*100).toFixed(2) : 0}%`, `${totals.subtotal ? ((totals.qcid/totals.subtotal)*100).toFixed(2) : 0}%`],
     ],
     { columnStyles: { 0: { halign: 'left', fontStyle: 'bold' } }, ...totalRowCb(pctRows.length) }
@@ -848,7 +874,7 @@ async function exportGeneralAnalysisPDF(rawRecords) {
 }
 
 // ─── Export to Excel ─────────────────────────────────────────────────────────
-function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName) {
+function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName, groupBy = 'district') {
   const wb = XLSX.utils.book_new();
   const autoWidth = (data) =>
     data[0]?.map((_, ci) => ({
@@ -887,23 +913,23 @@ function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName) {
   XLSX.utils.book_append_sheet(wb, wsMaster, 'Masterlist');
 
   const ovHeaders = [
-    'District','Encoded 2024','Encoded 2025','Sub Total',
+    groupBy === 'barangay' ? 'Barangay' : 'District', 'Encoded 2024','Encoded 2025','Encoded 2026','Sub Total',
     'Female','Male','Live-In','Live-Out','On-Call',
     'Senior','Solo Parent','Ex-OFW','PWD',
   ];
   const ovData = [
     ovHeaders,
-    ...rows.map(r => [r.district,r.enc2024,r.enc2025,r.subtotal,r.female,r.male,r.liveIn,r.liveOut,r.onCall,r.senior,r.soloParent,r.exOfw,r.pwd]),
-    ['TOTAL',totals.enc2024,totals.enc2025,totals.subtotal,totals.female,totals.male,totals.liveIn,totals.liveOut,totals.onCall,totals.senior,totals.soloParent,totals.exOfw,totals.pwd],
+    ...rows.map(r => [r.name || r.district,r.enc2024,r.enc2025,r.enc2026,r.subtotal,r.female,r.male,r.liveIn,r.liveOut,r.onCall,r.senior,r.soloParent,r.exOfw,r.pwd]),
+    ['TOTAL',totals.enc2024,totals.enc2025,totals.enc2026,totals.subtotal,totals.female,totals.male,totals.liveIn,totals.liveOut,totals.onCall,totals.senior,totals.soloParent,totals.exOfw,totals.pwd],
   ];
   const ws1 = XLSX.utils.aoa_to_sheet(ovData);
   ws1['!cols'] = autoWidth(ovData);
-  XLSX.utils.book_append_sheet(wb, ws1, 'District Overview');
+  XLSX.utils.book_append_sheet(wb, ws1, groupBy === 'barangay' ? 'Barangay Overview' : 'District Overview');
 
-  const wkHeaders = ['District','Kasambahay Orientation','Kasambahay Organizing','Occupational Safety','Gender Sensitivity','Basic First Aid','Home Security','General Househelp','Cook','Laundry','Yaya','Gardener'];
+  const wkHeaders = [groupBy === 'barangay' ? 'Barangay' : 'District','Kasambahay Orientation','Kasambahay Organizing','Occupational Safety','Gender Sensitivity','Basic First Aid','Home Security','General Househelp','Cook','Laundry','Yaya','Gardener'];
   const wkData = [
     wkHeaders,
-    ...rows.map(r => [r.district,r.orientation,r.organizing,r.osh,r.genderSens,r.firstAid,r.homeSec,r.genHouse,r.cook,r.laundry,r.yaya,r.gardener]),
+    ...rows.map(r => [r.name || r.district,r.orientation,r.organizing,r.osh,r.genderSens,r.firstAid,r.homeSec,r.genHouse,r.cook,r.laundry,r.yaya,r.gardener]),
     ['TOTAL',totals.orientation,totals.organizing,totals.osh,totals.genderSens,totals.firstAid,totals.homeSec,totals.genHouse,totals.cook,totals.laundry,totals.yaya,totals.gardener],
   ];
   const ws2 = XLSX.utils.aoa_to_sheet(wkData);
@@ -917,7 +943,7 @@ function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName) {
     { label: '45 and above', key: 'age45above' },
   ];
   const ageData = [
-    ['Age Bracket', ...DISTRICTS, 'TOTAL'],
+    ['Age Bracket', ...rows.map(r => r.name || r.district), 'TOTAL'],
     ...ageBrackets.map(({ label, key }) => [label, ...rows.map(r => r[key] || 0), rows.reduce((s, r) => s + (r[key] || 0), 0)]),
     ['SUBTOTAL', ...rows.map(r => r.subtotal), totals.subtotal],
   ];
@@ -926,8 +952,8 @@ function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName) {
   XLSX.utils.book_append_sheet(wb, ws3, 'Age Brackets');
 
   const pctData = [
-    ['District','SSS %','PhilHealth %','Pag-IBIG %','QCID %'],
-    ...pctRows.map(r => [r.district,`${r.sss.toFixed(2)}%`,`${r.philhealth.toFixed(2)}%`,`${r.pagibig.toFixed(2)}%`,`${r.qcid.toFixed(2)}%`]),
+    [groupBy === 'barangay' ? 'Barangay' : 'District','SSS %','PhilHealth %','Pag-IBIG %','QCID %'],
+    ...pctRows.map(r => [r.name || r.district,`${r.sss.toFixed(2)}%`,`${r.philhealth.toFixed(2)}%`,`${r.pagibig.toFixed(2)}%`,`${r.qcid.toFixed(2)}%`]),
   ];
   const ws4 = XLSX.utils.aoa_to_sheet(pctData);
   ws4['!cols'] = autoWidth(pctData);
@@ -1003,9 +1029,10 @@ const OvRow = ({ r, isT, even }) => {
   const ts = isT ? S.tot : { background: even === false ? '#faf9fe' : '#fff' };
   return (
     <tr style={ts}>
-      <td style={{ ...S.tdL, ...ts }}>{r.district}</td>
+      <td style={{ ...S.tdL, ...ts }}>{r.name || r.district}</td>
       <td style={{ ...S.td,  ...ts }}>{n(r.enc2024)}</td>
       <td style={{ ...S.td,  ...ts }}>{n(r.enc2025)}</td>
+      <td style={{ ...S.td,  ...ts }}>{n(r.enc2026)}</td>
       <td style={{ ...S.td,  ...ts, fontWeight: '700' }}>{n(r.subtotal)}</td>
       <td style={{ ...S.td,  ...ts, color: isT ? '#3c3289' : '#993556' }}>{n(r.female)}</td>
       <td style={{ ...S.td,  ...ts, color: isT ? '#3c3289' : '#185fa5' }}>{n(r.male)}</td>
@@ -1024,7 +1051,7 @@ const WkRow = ({ r, isT, even }) => {
   const ts = isT ? S.tot : { background: even === false ? '#faf9fe' : '#fff' };
   return (
     <tr style={ts}>
-      <td style={{ ...S.tdL, ...ts }}>{r.district}</td>
+      <td style={{ ...S.tdL, ...ts }}>{r.name || r.district}</td>
       <td style={{ ...S.td,  ...ts, fontWeight: '700' }}>{n(r.genHouse)}</td>
       <td style={{ ...S.td,  ...ts }}>{n(r.cook)}</td>
       <td style={{ ...S.td,  ...ts }}>{n(r.laundry)}</td>
@@ -1041,6 +1068,7 @@ const KasambahaySummaryReport = () => {
   const [error,      setError]      = useState('');
   const [tab,        setTab]        = useState('overview');
   const [genPdfLoading, setGenPdfLoading] = useState(false);
+  const [groupBy,    setGroupBy]    = useState('district');
 
   const [filterYear,        setFilterYear]        = useState('');
   const [filterDistrict,    setFilterDistrict]    = useState('');
@@ -1078,12 +1106,12 @@ const KasambahaySummaryReport = () => {
   const displayRecords = hasFilter ? applyFilters(rawRecords, activeFilters) : rawRecords;
   const resetFilters   = () => { setFilterYear(''); setFilterDistrict(''); setFilterSex(''); setFilterArrangement(''); };
 
-  const rows    = buildSummary(displayRecords);
+  const rows    = buildSummary(displayRecords, groupBy);
   const totals  = rows.length ? buildTotals(rows) : null;
   const tot     = totals || {};
   const pctRows = totals
     ? [...buildPct(rows), {
-        district:   'All Districts',
+        name:       `All ${groupBy === 'barangay' ? 'Barangays' : 'Districts'}`,
         sss:        tot.subtotal ? +((tot.sss        / tot.subtotal) * 100).toFixed(2) : 0,
         philhealth: tot.subtotal ? +((tot.philhealth / tot.subtotal) * 100).toFixed(2) : 0,
         pagibig:    tot.subtotal ? +((tot.pagibig    / tot.subtotal) * 100).toFixed(2) : 0,
@@ -1091,8 +1119,6 @@ const KasambahaySummaryReport = () => {
       }]
     : [];
   const barangay     = buildBarangay(displayRecords);
-  const encChartData = rows.map(r => ({ name: r.district.replace('District ', 'D'), '2024': r.enc2024, '2025': r.enc2025 }));
-  const ageChartData = rows.map(r => ({ name: r.district.replace('District ', 'D'), '18–30': r.age1830, '31–45': r.age3145, '45+': r.age45above }));
 
   const ageTableRows = [
     { label: '15 and below', key: 'age15below' },
@@ -1138,7 +1164,7 @@ const KasambahaySummaryReport = () => {
             Kasambahay Summary Report
           </h2>
           <p style={{ margin: 0, color: '#888', fontSize: '12px' }}>
-            All 6 Districts · Combined 2024 &amp; 2025 ·
+            All 6 Districts · Combined 2024 to 2026 ·
             Generated: {new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}
             {hasFilter && (
               <span style={{ marginLeft: '8px', color: '#e67e22', fontWeight: '600' }}>
@@ -1165,9 +1191,9 @@ const KasambahaySummaryReport = () => {
 
           <button
             onClick={() => {
-              const allRows = buildSummary(rawRecords);
+              const allRows = buildSummary(rawRecords, groupBy);
               const allTots = buildTotals(allRows);
-              exportToExcel(allRows, allTots, buildPct(allRows), buildBarangay(rawRecords), rawRecords, 'Kasambahay_Masterlist_and_Summary');
+              exportToExcel(allRows, allTots, buildPct(allRows), buildBarangay(rawRecords), rawRecords, 'Kasambahay_Masterlist_and_Summary', groupBy);
             }}
             style={{ ...S.btn, background: '#10b981' }}
           >
@@ -1176,7 +1202,7 @@ const KasambahaySummaryReport = () => {
 
           {hasFilter && (
             <button
-              onClick={() => exportToExcel(rows, totals, pctRows, barangay, displayRecords, `Kasambahay_Filtered_${filterLabel}`)}
+              onClick={() => exportToExcel(rows, totals, pctRows, barangay, displayRecords, `Kasambahay_Filtered_${filterLabel}`, groupBy)}
               style={{ ...S.btn, background: '#e67e22' }}
             >
               🔽 Export Filtered ({displayRecords.length.toLocaleString()})
@@ -1196,6 +1222,7 @@ const KasambahaySummaryReport = () => {
             { label: 'Total Registered', val: n(tot.subtotal)   },
             { label: 'Encoded 2024',     val: n(tot.enc2024)    },
             { label: 'Encoded 2025',     val: n(tot.enc2025)    },
+            { label: 'Encoded 2026',     val: n(tot.enc2026)    },
             { label: 'SSS Covered',      val: n(tot.sss)        },
             { label: 'PhilHealth',       val: n(tot.philhealth) },
             { label: 'Pag-IBIG',         val: n(tot.pagibig)    },
@@ -1226,9 +1253,27 @@ const KasambahaySummaryReport = () => {
             🔍 Filters:
           </span>
 
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ fontSize: '10px', fontWeight: '700', color: '#7874a7', marginBottom: '3px' }}>Group By</div>
+            <div style={{ display: 'flex', border: '1px solid #d5d0f0', borderRadius: '6px', overflow: 'hidden' }}>
+              <button 
+                onClick={() => setGroupBy('district')} 
+                style={{ padding: '4px 10px', fontSize: '12px', border: 'none', cursor: 'pointer', background: groupBy === 'district' ? '#534AB7' : '#fff', color: groupBy === 'district' ? '#fff' : '#534AB7', fontWeight: groupBy === 'district' ? 700 : 400 }}
+              >
+                District
+              </button>
+              <button 
+                onClick={() => setGroupBy('barangay')} 
+                style={{ padding: '4px 10px', fontSize: '12px', border: 'none', cursor: 'pointer', background: groupBy === 'barangay' ? '#534AB7' : '#fff', color: groupBy === 'barangay' ? '#fff' : '#534AB7', fontWeight: groupBy === 'barangay' ? 700 : 400 }}
+              >
+                Barangay
+              </button>
+            </div>
+          </div>
+
           {[
             { label: 'Year',        value: filterYear,        setter: setFilterYear,
-              options: [['','All Years'],  ['2024','2024'], ['2025','2025']] },
+              options: [['','All Years'],  ['2024','2024'], ['2025','2025'], ['2026','2026']] },
             { label: 'District',    value: filterDistrict,    setter: setFilterDistrict,
               options: [['','All Districts'], ...DISTRICTS.map(d => [d, d])] },
             { label: 'Sex',         value: filterSex,         setter: setFilterSex,
@@ -1262,7 +1307,7 @@ const KasambahaySummaryReport = () => {
         {/* Tab Bar */}
         <div style={S.tabBar}>
           {[
-            { key: 'overview',  label: 'District Overview'    },
+            { key: 'overview',  label: groupBy === 'district' ? 'District Overview' : 'Barangay Overview' },
             { key: 'work',      label: 'Training & Work Type' },
             { key: 'age',       label: 'Age Brackets'         },
             { key: 'benefits',  label: 'Benefits Coverage %'   },
@@ -1280,7 +1325,7 @@ const KasambahaySummaryReport = () => {
             <table style={{ ...S.tbl, tableLayout: 'fixed', minWidth: '1000px' }}>
               <colgroup>
                 <col style={{ width: '90px' }} />
-                {Array(3).fill(0).map((_, i) => <col key={i} style={{ width: '72px' }} />)}
+                {Array(4).fill(0).map((_, i) => <col key={i} style={{ width: '72px' }} />)}
                 <col style={{ width: '68px' }} /><col style={{ width: '58px' }} />
                 {Array(3).fill(0).map((_, i) => <col key={`a${i}`} style={{ width: '68px' }} />)}
                 <col style={{ width: '60px' }} /><col style={{ width: '78px' }} />
@@ -1288,9 +1333,10 @@ const KasambahaySummaryReport = () => {
               </colgroup>
               <thead>
                 <tr>
-                  <th style={S.thL} rowSpan={2}>District</th>
+                  <th style={S.thL} rowSpan={2}>{groupBy === 'district' ? 'District' : 'Barangay'}</th>
                   <th style={S.th}  rowSpan={2}>Encoded 2024</th>
                   <th style={S.th}  rowSpan={2}>Encoded 2025</th>
+                  <th style={S.th}  rowSpan={2}>Encoded 2026</th>
                   <th style={S.th}  rowSpan={2}>Sub Total</th>
                   <th style={{ ...S.th, background: '#fce8f0', color: '#993556' }} colSpan={2}>Gender</th>
                   <th style={S.th}  colSpan={3}>Working Arrangements</th>
@@ -1309,7 +1355,7 @@ const KasambahaySummaryReport = () => {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r, i) => <OvRow key={r.district} r={r} isT={false} even={i % 2 === 0} />)}
+                {rows.map((r, i) => <OvRow key={r.name || r.district} r={r} isT={false} even={i % 2 === 0} />)}
                 {totals && <OvRow r={totals} isT={true} />}
               </tbody>
             </table>
@@ -1326,14 +1372,14 @@ const KasambahaySummaryReport = () => {
               </colgroup>
               <thead>
                 <tr>
-                  <th style={S.thL}>District</th>
+                  <th style={S.thL}>{groupBy === 'district' ? 'District' : 'Barangay'}</th>
                   {['General Househelp','Cook','Laundry','Yaya','Gardener'].map(h => (
                     <th key={h} style={{ ...S.th, background: '#fef5e0', color: '#854f0b' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r, i) => <WkRow key={r.district} r={r} isT={false} even={i % 2 === 0} />)}
+                {rows.map((r, i) => <WkRow key={r.name || r.district} r={r} isT={false} even={i % 2 === 0} />)}
                 {totals && <WkRow r={totals} isT={true} />}
               </tbody>
             </table>
@@ -1347,7 +1393,7 @@ const KasambahaySummaryReport = () => {
               <thead>
                 <tr>
                   <th style={S.thL}>Age Bracket</th>
-                  {DISTRICTS.map(d => <th key={d} style={S.th}>{d}</th>)}
+                  {rows.map(r => <th key={r.name || r.district} style={S.th}>{r.name || r.district}</th>)}
                   <th style={{ ...S.th, color: '#2d2a6e', fontWeight: '700' }}>TOTAL</th>
                 </tr>
               </thead>
@@ -1355,7 +1401,7 @@ const KasambahaySummaryReport = () => {
                 {ageTableRows.map(({ label, key }, i) => (
                   <tr key={key} style={{ background: i % 2 === 0 ? '#fff' : '#faf9fe' }}>
                     <td style={S.tdL}>{label}</td>
-                    {rows.map(r => <td key={r.district} style={S.td}>{n(r[key])}</td>)}
+                    {rows.map(r => <td key={r.name || r.district} style={S.td}>{n(r[key])}</td>)}
                     <td style={{ ...S.td, fontWeight: '700', color: '#534AB7' }}>
                       {n(rows.reduce((s, r) => s + (r[key] || 0), 0))}
                     </td>
@@ -1363,7 +1409,7 @@ const KasambahaySummaryReport = () => {
                 ))}
                 <tr style={S.tot}>
                   <td style={{ ...S.tdL, ...S.tot }}>SUBTOTAL</td>
-                  {rows.map(r => <td key={r.district} style={{ ...S.td, ...S.tot }}>{n(r.subtotal)}</td>)}
+                  {rows.map(r => <td key={r.name || r.district} style={{ ...S.td, ...S.tot }}>{n(r.subtotal)}</td>)}
                   <td style={{ ...S.td, ...S.tot }}>{n(tot.subtotal)}</td>
                 </tr>
               </tbody>
@@ -1377,7 +1423,7 @@ const KasambahaySummaryReport = () => {
             <table style={{ ...S.tbl, minWidth: '500px' }}>
               <thead>
                 <tr>
-                  <th style={S.thL}>District</th>
+                  <th style={S.thL}>{groupBy === 'district' ? 'District' : 'Barangay'}</th>
                   <th style={S.th}>SSS</th>
                   <th style={S.th}>PhilHealth</th>
                   <th style={S.th}>Pag-IBIG</th>
@@ -1386,10 +1432,10 @@ const KasambahaySummaryReport = () => {
               </thead>
               <tbody>
                 {pctRows.map((r, i) => {
-                  const isAll = r.district === 'All Districts';
+                  const isAll = r.name && r.name.startsWith('All ');
                   return (
-                    <tr key={r.district} style={isAll ? S.tot : { background: i % 2 === 0 ? '#fff' : '#faf9fe' }}>
-                      <td style={{ ...S.tdL, ...(isAll ? S.tot : {}) }}>{r.district}</td>
+                    <tr key={r.name} style={isAll ? S.tot : { background: i % 2 === 0 ? '#fff' : '#faf9fe' }}>
+                      <td style={{ ...S.tdL, ...(isAll ? S.tot : {}) }}>{r.name}</td>
                       {['sss','philhealth','pagibig','qcid'].map(k => (
                         <td key={k} style={{ ...S.td, ...(isAll ? S.tot : {}) }}>{pct(r[k])}</td>
                       ))}
