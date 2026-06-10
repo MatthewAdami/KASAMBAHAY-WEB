@@ -279,8 +279,8 @@ function buildGenderStats(records, groupBy = 'district') {
   const distMap = {}
 
   for (const r of records) {
-    if (r.isMale) male++
-    else if (r.isFemale) female++
+    if (r.isFemale) female++
+    else if (r.isMale) male++
 
     let key
     if (groupBy === 'district') {
@@ -291,8 +291,8 @@ function buildGenderStats(records, groupBy = 'district') {
     }
     if (!distMap[key]) distMap[key] = { Male: 0, Female: 0, total: 0 }
     distMap[key].total++
-    if (r.isMale) distMap[key].Male++
-    else if (r.isFemale) distMap[key].Female++
+    if (r.isFemale) distMap[key].Female++
+    else if (r.isMale) distMap[key].Male++
   }
 
   const pieData = [

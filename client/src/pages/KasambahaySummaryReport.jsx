@@ -125,7 +125,7 @@ function buildSummary(records, groupBy = 'district') {
     if (r.pagIbig)    d.pagibig++;
     if (r.qcid)       d.qcid++;
     if (r.isFemale)   d.female++;
-    if (r.isMale)     d.male++;
+    else if (r.isMale) d.male++;
     if (r.isLiveIn)   d.liveIn++;
     if (r.isLiveOut)  d.liveOut++;
     if (r.isOnCall)   d.onCall++;
@@ -500,10 +500,10 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   const ageTotal26 = age15_26 + age1630_26 + age3139_26 + age4050_26 + age5159_26 + age6070_26 + age7189_26 + age90100_26;
 
   const female2425 = cnt(r => r.isFemale && (r.year===2024||r.year===2025));
-  const male2425   = cnt(r => r.isMale   && (r.year===2024||r.year===2025));
+  const male2425   = cnt(r => !r.isFemale && r.isMale && (r.year===2024||r.year===2025));
 
   const female26 = cnt(r => r.isFemale && r.year===2026);
-  const male26   = cnt(r => r.isMale   && r.year===2026);
+  const male26   = cnt(r => !r.isFemale && r.isMale && r.year===2026);
 
   const edKey = (r) => (r.educationalAttainment || r.education || '').toLowerCase();
   const ed = (kw) => cnt(r => edKey(r).includes(kw) && (r.year===2024||r.year===2025));
