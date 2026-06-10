@@ -92,7 +92,7 @@ function buildSummary(records, groupBy = 'district') {
     orientation: 0, organizing: 0, osh: 0,
     genderSens: 0, firstAid: 0, homeSec: 0,
     genHouse: 0, cook: 0, laundry: 0, yaya: 0, gardener: 0,
-    age15below: 0, age1830: 0, age3145: 0, age45above: 0,
+    age15below: 0, age1630: 0, age3139: 0, age4050: 0, age5159: 0, age6070: 0, age7189: 0, age90100: 0,
   });
 
   const map = {};
@@ -144,11 +144,19 @@ function buildSummary(records, groupBy = 'district') {
     if (r.isLaundryPerson)    d.laundry++;
     if (r.isYaya)             d.yaya++;
     if (r.isGardener)         d.gardener++;
-    const age = r.age || 0;
-    if (age <= 15)      d.age15below++;
-    else if (age <= 30) d.age1830++;
-    else if (age <= 45) d.age3145++;
-    else                d.age45above++;
+    const age = parseInt(r.age);
+    if (!isNaN(age) && age > 0) {
+      if (age <= 15) {
+        d.age15below++;
+        console.warn(`🚨 UNDERAGE RECORD FOUND: ${r.firstName} ${r.lastName} (Age: ${age}, District: ${r.district})`);
+      } else if (age <= 30) d.age1630++;
+      else if (age <= 39) d.age3139++;
+      else if (age <= 50) d.age4050++;
+      else if (age <= 59) d.age5159++;
+      else if (age <= 70) d.age6070++;
+      else if (age <= 89) d.age7189++;
+      else                d.age90100++;
+    }
   }
 
   if (groupBy === 'district') {
@@ -462,15 +470,34 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   const svc50p_26  = svc26(50, 999);
   const svcTotal_26= svc35_26+svc510_26+svc1020_26+svc2030_26+svc3040_26+svc4050_26+svc50p_26;
 
-  const age1830_2425 = cnt(r => (r.age||0)>=18 && (r.age||0)<=30 && (r.year===2024||r.year===2025));
-  const age3145_2425 = cnt(r => (r.age||0)>=31 && (r.age||0)<=45 && (r.year===2024||r.year===2025));
-  const age41up_2425 = cnt(r => (r.age||0)> 41                   && (r.year===2024||r.year===2025));
-  const ageTotal2425 = age1830_2425 + age3145_2425 + age41up_2425;
+  const countAge = (min, max, yRange) => cnt(r => {
+    const a = parseInt(r.age);
+    if (isNaN(a) || a <= 0) return false;
+    return a >= min && a <= max && yRange.includes(r.year);
+  });
+  
+  const y2425 = [2024, 2025];
+  const y26 = [2026];
 
-  const age1830_26 = cnt(r => (r.age||0)>=18 && (r.age||0)<=30 && r.year===2026);
-  const age3145_26 = cnt(r => (r.age||0)>=31 && (r.age||0)<=45 && r.year===2026);
-  const age41up_26 = cnt(r => (r.age||0)> 41                   && r.year===2026);
-  const ageTotal26 = age1830_26 + age3145_26 + age41up_26;
+  const age15_2425 = countAge(1, 15, y2425);
+  const age1630_2425 = countAge(16, 30, y2425);
+  const age3139_2425 = countAge(31, 39, y2425);
+  const age4050_2425 = countAge(40, 50, y2425);
+  const age5159_2425 = countAge(51, 59, y2425);
+  const age6070_2425 = countAge(60, 70, y2425);
+  const age7189_2425 = countAge(71, 89, y2425);
+  const age90100_2425 = countAge(90, 100, y2425);
+  const ageTotal2425 = age15_2425 + age1630_2425 + age3139_2425 + age4050_2425 + age5159_2425 + age6070_2425 + age7189_2425 + age90100_2425;
+
+  const age15_26 = countAge(1, 15, y26);
+  const age1630_26 = countAge(16, 30, y26);
+  const age3139_26 = countAge(31, 39, y26);
+  const age4050_26 = countAge(40, 50, y26);
+  const age5159_26 = countAge(51, 59, y26);
+  const age6070_26 = countAge(60, 70, y26);
+  const age7189_26 = countAge(71, 89, y26);
+  const age90100_26 = countAge(90, 100, y26);
+  const ageTotal26 = age15_26 + age1630_26 + age3139_26 + age4050_26 + age5159_26 + age6070_26 + age7189_26 + age90100_26;
 
   const female2425 = cnt(r => r.isFemale && (r.year===2024||r.year===2025));
   const male2425   = cnt(r => r.isMale   && (r.year===2024||r.year===2025));
@@ -651,24 +678,22 @@ async function exportGeneralAnalysisPDF(rawRecords) {
 
   drawFigCaption('Figure 4: Age Brackets');
   autoTable(
-    [['', 'Age 18–30', 'Age 31–45', 'Age 41 Above', 'Total']],
+    [['', '15 & below', '16–30', '31–39', '40–50', '51–59', '60–70', '71–89', '90–100', 'Total']],
     [
-      ['2024 and 2025 Data',    n(age1830_2425), n(age3145_2425), n(age41up_2425), n(ageTotal2425)],
-      ['January to April 2026', n(age1830_26),   n(age3145_26),   n(age41up_26),   n(ageTotal26)],
+      ['2024 and 2025 Data',    n(age15_2425), n(age1630_2425), n(age3139_2425), n(age4050_2425), n(age5159_2425), n(age6070_2425), n(age7189_2425), n(age90100_2425), n(ageTotal2425)],
+      ['January to April 2026', n(age15_26),   n(age1630_26),   n(age3139_26),   n(age4050_26),   n(age5159_26),   n(age6070_26),   n(age7189_26),   n(age90100_26),   n(ageTotal26)],
     ],
-    { columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 55 }, 4: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue } } }
+    { columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 40 }, 9: { fontStyle: 'bold', textColor: PDF_COLORS.darkBlue } }, styles: { fontSize: 6.5 } }
   );
   drawBodyText(
     `The table shows the age brackets of kasambahays for 2024 and 2025, recording a total of ` +
-    `${n(ageTotal2425)} domestic workers. The majority belonged to the age group 41 and above with ` +
-    `${n(age41up_2425)} domestic workers, followed by ages 31–45 with ${n(age3145_2425)}, and ages 18–30 with ${n(age1830_2425)}.`
+    `${n(ageTotal2425)} domestic workers.`
   );
   drawBodyText(
-    `From January to April 2026, a total of ${n(ageTotal26)} kasambahays were recorded, with ` +
-    `${n(age41up_26)} domestic workers aged 41 and above, ${n(age3145_26)} aged 31–45, and ${n(age1830_26)} aged 18–30.`
+    `From January to April 2026, a total of ${n(ageTotal26)} kasambahays were recorded.`
   );
   drawBodyText(
-    'Overall, the data shows that most kasambahays belong to the older age group, indicating that ' +
+    'Overall, the data shows that kasambahays belong to various age groups, indicating that ' +
     'domestic work is largely sustained by experienced adult workers rather than younger individuals.'
   );
 
@@ -832,9 +857,13 @@ async function exportGeneralAnalysisPDF(rawRecords) {
   drawFigCaption('Age Brackets per District');
   const ageBracketsDist = [
     { label: '15 and below', key: 'age15below' },
-    { label: '18–30',        key: 'age1830'    },
-    { label: '31–45',        key: 'age3145'    },
-    { label: '45 and above', key: 'age45above' },
+    { label: '16-30',        key: 'age1630'    },
+    { label: '31-39',        key: 'age3139'    },
+    { label: '40-50',        key: 'age4050'    },
+    { label: '51-59',        key: 'age5159'    },
+    { label: '60-70',        key: 'age6070'    },
+    { label: '71-89',        key: 'age7189'    },
+    { label: '90-100',       key: 'age90100'   },
   ];
   autoTable(
     [['Age Bracket', ...rows.map(r => r.name || r.district), 'TOTAL']],
@@ -939,9 +968,13 @@ function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName, gr
 
   const ageBrackets = [
     { label: '15 and below', key: 'age15below' },
-    { label: '18–30',        key: 'age1830'    },
-    { label: '31–45',        key: 'age3145'    },
-    { label: '45 and above', key: 'age45above' },
+    { label: '16-30',        key: 'age1630'    },
+    { label: '31-39',        key: 'age3139'    },
+    { label: '40-50',        key: 'age4050'    },
+    { label: '51-59',        key: 'age5159'    },
+    { label: '60-70',        key: 'age6070'    },
+    { label: '71-89',        key: 'age7189'    },
+    { label: '90-100',       key: 'age90100'   },
   ];
   const ageData = [
     ['Age Bracket', ...rows.map(r => r.name || r.district), 'TOTAL'],
@@ -981,17 +1014,33 @@ function exportToExcel(rows, totals, pctRows, barangay, rawRecords, fileName, gr
 
 // ─── Shared Age Calculator ───────────────────────────────────────────────────
 function calculateAge(record) {
-  const dob = record.dateOfBirth || record.birthday || record.birthDate;
-  if (!dob) return record.age;
-  const d = new Date(dob);
-  if (isNaN(d.getTime())) return record.age;
-  const today = new Date();
-  let age = today.getFullYear() - d.getFullYear();
-  const m = today.getMonth() - d.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) {
-    age--;
+  // 1. Trust the explicitly saved age field first
+  const possibleAgeFields = ['age', 'currentAge', 'workerAge', 'kasambahayAge'];
+  for (const field of possibleAgeFields) {
+    const val = parseInt(record[field]);
+    if (!isNaN(val) && val > 0 && val < 120) return val;
   }
-  return age;
+
+  // 2. Try computing from DOB fields if age is missing
+  const dobRaw = record.dateOfBirth || record.birthday || record.birthDate;
+  if (dobRaw) {
+    let d = new Date(dobRaw);
+    if (isNaN(d.getTime()) && typeof dobRaw === 'string') {
+      const parts = dobRaw.split(/[\/\-]/);
+      if (parts.length === 3) {
+        if (parts[0].length === 4) d = new Date(`${parts[0]}-${parts[1]}-${parts[2]}`);
+        else d = new Date(`${parts[2]}-${parts[0]}-${parts[1]}`);
+      }
+    }
+    if (!isNaN(d.getTime())) {
+      const today = new Date();
+      let age = today.getFullYear() - d.getFullYear();
+      const m = today.getMonth() - d.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--;
+      if (age > 0 && age < 120) return age;
+    }
+  }
+  return null;
 }
 
 // ─── Fetch ALL pages ──────────────────────────────────────────────────────────
@@ -1035,6 +1084,18 @@ const S = {
   tot:  { background: '#edeaf9', fontWeight: '700', color: '#3c3289' },
   btn:  { padding: '9px 20px', color: '#fff', border: 'none', borderRadius: '7px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' },
   sel:  { padding: '5px 8px', borderRadius: '6px', border: '1px solid #d5d0f0', fontSize: '12px', color: '#333', background: '#fff', cursor: 'pointer', minWidth: '120px' },
+};
+
+const getColBgColor = (name) => {
+  if (!name) return '#f0eefb';
+  const upper = name.toUpperCase();
+  if (upper.includes('DISTRICT 1')) return '#ffb6c1';
+  if (upper.includes('DISTRICT 2')) return '#add8e6';
+  if (upper.includes('DISTRICT 3')) return '#ff66cc';
+  if (upper.includes('DISTRICT 4')) return '#98fb98';
+  if (upper.includes('DISTRICT 5')) return '#ffff99';
+  if (upper.includes('DISTRICT 6')) return '#ffb347';
+  return '#f0eefb';
 };
 
 const n   = (v) => (v || 0).toLocaleString();
@@ -1138,9 +1199,13 @@ const KasambahaySummaryReport = () => {
 
   const ageTableRows = [
     { label: '15 and below', key: 'age15below' },
-    { label: '18–30',        key: 'age1830'    },
-    { label: '31–45',        key: 'age3145'    },
-    { label: '45 and above', key: 'age45above' },
+    { label: '16–30',        key: 'age1630'    },
+    { label: '31–39',        key: 'age3139'    },
+    { label: '40–50',        key: 'age4050'    },
+    { label: '51–59',        key: 'age5159'    },
+    { label: '60–70',        key: 'age6070'    },
+    { label: '71–89',        key: 'age7189'    },
+    { label: '90–100',       key: 'age90100'   },
   ];
 
   const filterLabel = [
@@ -1408,8 +1473,20 @@ const KasambahaySummaryReport = () => {
             <table style={{ ...S.tbl, minWidth: '600px' }}>
               <thead>
                 <tr>
-                  <th style={S.thL}>Age Bracket</th>
-                  {rows.map(r => <th key={r.name || r.district} style={S.th}>{r.name || r.district}</th>)}
+                  <th colSpan={rows.length + 2} style={{ ...S.th, background: '#d4edda', color: '#2d2a6e', fontSize: '14px', padding: '10px' }}>
+                    AGE BRACKET PER {groupBy === 'district' ? 'DISTRICT' : 'BARANGAY'}
+                  </th>
+                </tr>
+                <tr>
+                  <th style={{ ...S.thL, background: '#d4edda', color: '#2d2a6e' }}>AGE BRACKET</th>
+                  {rows.map(r => {
+                    const name = r.name || r.district;
+                    return (
+                      <th key={name} style={{ ...S.th, background: getColBgColor(name), color: '#2d2a6e' }}>
+                        {name}
+                      </th>
+                    );
+                  })}
                   <th style={{ ...S.th, color: '#2d2a6e', fontWeight: '700' }}>TOTAL</th>
                 </tr>
               </thead>

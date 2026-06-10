@@ -23,17 +23,33 @@ const TRAININGS = [
 
 // ─── Shared Age Calculator ───────────────────────────────────────────────────
 function calculateAge(record) {
-  const dob = record.dateOfBirth || record.birthday || record.birthDate;
-  if (!dob) return record.age;
-  const d = new Date(dob);
-  if (isNaN(d.getTime())) return record.age;
-  const today = new Date();
-  let age = today.getFullYear() - d.getFullYear();
-  const m = today.getMonth() - d.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) {
-    age--;
+  // 1. Trust the explicitly saved age field first
+  const possibleAgeFields = ['age', 'currentAge', 'workerAge', 'kasambahayAge'];
+  for (const field of possibleAgeFields) {
+    const val = parseInt(record[field]);
+    if (!isNaN(val) && val > 0 && val < 120) return val;
   }
-  return age;
+
+  // 2. Try computing from DOB fields if age is missing
+  const dobRaw = record.dateOfBirth || record.birthday || record.birthDate;
+  if (dobRaw) {
+    let d = new Date(dobRaw);
+    if (isNaN(d.getTime()) && typeof dobRaw === 'string') {
+      const parts = dobRaw.split(/[\/\-]/);
+      if (parts.length === 3) {
+        if (parts[0].length === 4) d = new Date(`${parts[0]}-${parts[1]}-${parts[2]}`);
+        else d = new Date(`${parts[2]}-${parts[0]}-${parts[1]}`);
+      }
+    }
+    if (!isNaN(d.getTime())) {
+      const today = new Date();
+      let age = today.getFullYear() - d.getFullYear();
+      const m = today.getMonth() - d.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--;
+      if (age > 0 && age < 120) return age;
+    }
+  }
+  return record.age ?? null;
 }
 
 async function fetchAll(token) {
@@ -162,6 +178,8 @@ export default function AdminDashboard() {
 
         const byYear = {}
         const trainingCounts = {}
+        let under15Count = 0
+
         TRAININGS.forEach(t => trainingCounts[t.key] = 0)
         
         allRecords.forEach(r => {
@@ -174,10 +192,13 @@ export default function AdminDashboard() {
           TRAININGS.forEach(t => {
             if (r[t.key]) trainingCounts[t.key]++
           })
+
+          // Tally 15 & below (Child Labor detection)
+          if (r.age > 0 && r.age <= 15) under15Count++
         })
 
         if (isMounted) {
-          setStats({ total: allRecords.length, byYear, trainingCounts, totalRecords: allRecords.length })
+          setStats({ total: allRecords.length, byYear, trainingCounts, totalRecords: allRecords.length, under15Count })
         }
       } catch (err) {
         if (err.message.includes('401')) {
@@ -244,6 +265,31 @@ export default function AdminDashboard() {
 
         {stats && (
           <>
+            {/* ── CRITICAL ALERT (Child Labor Detection) ── */}
+            {stats.under15Count > 0 && (
+              <div style={{
+                background: '#fef2f2', border: '1px solid #fecaca',
+                borderRadius: 10, padding: '16px 20px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14,
+                marginBottom: 24, boxShadow: '0 4px 12px rgba(220, 38, 38, 0.1)'
+              }}>
+                <div>
+                  <h3 style={{ margin: '0 0 6px', color: '#b91c1c', fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 20 }}>⚠️</span> Critical Alert: Underage Workers Detected
+                  </h3>
+                  <p style={{ margin: 0, color: '#991b1b', fontSize: 13, lineHeight: 1.5 }}>
+                    There {stats.under15Count === 1 ? 'is' : 'are'} <strong>{stats.under15Count} record{stats.under15Count === 1 ? '' : 's'}</strong> of a kasambahay aged 15 or below. Under RA 10361 (Kasambahay Law), it is unlawful to employ minors 15 years of age and below.
+                  </p>
+                </div>
+                <button 
+                  onClick={() => navigate('kasambahay?age=15-below')}
+                  style={{ background: '#b91c1c', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}
+                >
+                  Review Records →
+                </button>
+              </div>
+            )}
+
             {/* ── SECTION 1: System Navigation Highlights ── */}
             <div style={{ marginBottom: 24 }}>
               <SectionHeader title="System Highlights · Quick access to system modules" c={c} />

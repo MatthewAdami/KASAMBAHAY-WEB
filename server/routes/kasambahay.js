@@ -52,6 +52,23 @@ router.get('/', auth, async (req, res) => {
       Kasambahay.countDocuments(filter),
     ])
 
+    // ─── DEBUG: Log records with age 15 and below ────────────────────────────
+    // const below15 = data.filter(rec => rec.age <= 15)
+    // console.log(`\n🔍 DEBUG — Records with age 15 and below (${below15.length} found):`)
+    // if (below15.length === 0) {
+    //   console.log('  None found.')
+    // } else {
+    //   below15.forEach((rec, i) => {
+    //     console.log(
+    //       `  [${i + 1}] ${rec.lastName}, ${rec.firstName} ${rec.middleName ?? ''} | ` +
+    //       `Age: ${rec.age} | District: ${rec.district} | Year: ${rec.year} | ` +
+    //       `Barangay: ${rec.barangay} | ID: ${rec._id}`
+    //     )
+    //   })
+    // }
+    // console.log(`─────────────────────────────────────────────────────\n`)
+    // ─── END DEBUG ───────────────────────────────────────────────────────────
+
     res.json({ data, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } })
   } catch (err) {
     res.status(500).json({ message: err.message })
@@ -138,9 +155,7 @@ router.post('/bulk', auth, requireRole('Admin'), async (req, res) => {
       return res.status(400).json({ message: 'Request body must be an array of records.' })
     }
 
-    // Add any additional server-side validation for each record here
-
-    const result = await Kasambahay.insertMany(records, { ordered: false }) // ordered:false continues on validation error
+    const result = await Kasambahay.insertMany(records, { ordered: false })
 
     await logActivity(
       req.user.id,
@@ -152,7 +167,6 @@ router.post('/bulk', auth, requireRole('Admin'), async (req, res) => {
 
     res.status(201).json({ message: `Successfully imported ${result.length} of ${records.length} records.`, insertedCount: result.length })
   } catch (err) {
-    // insertMany with ordered:false will throw a BulkWriteError on validation failures
     if (err.name === 'BulkWriteError') {
       const insertedCount = err.result.nInserted
       const failedCount = err.writeErrors.length
@@ -207,25 +221,17 @@ router.put('/:id/restore', auth, requireRole('Admin'), async (req, res) => {
 })
 
 // ─── PUT update — Admin + Encoder ────────────────────────────────────────────
-// FIX: Uses $set so ONLY the fields explicitly sent are updated.
-// Without $set, Mongoose replaces the whole document, wiping fields
-// that weren't included in req.body (e.g. fields not rendered in the form).
 router.put('/:id', auth, requireRole('Admin', 'SPES', 'GIP'), async (req, res) => {
   try {
-    // Fetch old record BEFORE updating so we can diff it
     const old = await Kasambahay.findById(req.params.id).lean()
     if (!old) return res.status(404).json({ message: 'Record not found.' })
 
-    // ✅ KEY FIX: Use $set — only update fields that were explicitly sent.
-    // This prevents empty-string fields in the payload from wiping out
-    // existing data that wasn't touched in the form.
     const updated = await Kasambahay.findByIdAndUpdate(
       req.params.id,
       { $set: req.body },
       { new: true, runValidators: false }
     )
 
-    // Build a human-readable diff of what changed
     const skip = ['_id', '__v', 'createdAt', 'updatedAt', 'isDeleted', 'deletedAt']
     const changes = []
     for (const key of Object.keys(req.body)) {

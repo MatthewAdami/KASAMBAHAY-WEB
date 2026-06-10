@@ -19,17 +19,33 @@ const DATE_FIELDS = [
 
 // ─── Shared Age Calculator ───────────────────────────────────────────────────
 function calculateAge(record) {
-  const dob = record.dateOfBirth || record.birthday || record.birthDate;
-  if (!dob) return record.age;
-  const d = new Date(dob);
-  if (isNaN(d.getTime())) return record.age;
-  const today = new Date();
-  let age = today.getFullYear() - d.getFullYear();
-  const m = today.getMonth() - d.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) {
-    age--;
+  // 1. Trust the explicitly saved age field first
+  const possibleAgeFields = ['age', 'currentAge', 'workerAge', 'kasambahayAge'];
+  for (const field of possibleAgeFields) {
+    const val = parseInt(record[field]);
+    if (!isNaN(val) && val > 0 && val < 120) return val;
   }
-  return age;
+
+  // 2. Try computing from DOB fields if age is missing
+  const dobRaw = record.dateOfBirth || record.birthday || record.birthDate;
+  if (dobRaw) {
+    let d = new Date(dobRaw);
+    if (isNaN(d.getTime()) && typeof dobRaw === 'string') {
+      const parts = dobRaw.split(/[\/\-]/);
+      if (parts.length === 3) {
+        if (parts[0].length === 4) d = new Date(`${parts[0]}-${parts[1]}-${parts[2]}`);
+        else d = new Date(`${parts[2]}-${parts[0]}-${parts[1]}`);
+      }
+    }
+    if (!isNaN(d.getTime())) {
+      const today = new Date();
+      let age = today.getFullYear() - d.getFullYear();
+      const m = today.getMonth() - d.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--;
+      if (age > 0 && age < 120) return age;
+    }
+  }
+  return record.age ?? null;
 }
 
 // ─── Column definitions ───────────────────────────────────────────────────────
@@ -57,6 +73,7 @@ const ALL_COLUMNS = [
   { key: 'employerContactNumber',   label: 'Employer Contact',       render: k => k.employerContactNumber || '—', width: 140 },
   { key: 'employerEmailAddress',    label: 'Employer Email',         render: k => k.employerEmailAddress || '—', width: 160 },
   { key: 'monthlySalary',           label: 'Monthly Salary',         render: k => k.monthlySalary ? `₱${k.monthlySalary.toLocaleString()}` : '—', width: 120 },
+  { key: 'monthlySalary',           label: 'Monthly Salary',         render: k => !k.monthlySalary ? '—' : String(k.monthlySalary).toUpperCase() === 'N/A' ? 'N/A' : !isNaN(Number(String(k.monthlySalary).replace(/,/g, ''))) ? `₱${Number(String(k.monthlySalary).replace(/,/g, '')).toLocaleString()}` : k.monthlySalary, width: 120 },
   { key: 'mobileNumber',            label: 'Mobile No.',             render: k => k.mobileNumber || '—', width: 120 },
   { key: 'emergencyContactName',    label: 'Emergency Contact',      render: k => k.emergencyContactName || '—', width: 150 },
   { key: 'emergencyContactNumber',  label: 'Emergency No.',          render: k => k.emergencyContactNumber || '—', width: 130 },
@@ -333,7 +350,7 @@ function KasambahayForm({ formData, handleChange, handleGender, formId, onSubmit
             </div>
           </div>
           <FormField label="Edad (Age)">
-            <input type="number" name="age" value={formData.age} onChange={handleChange} style={formStyles.fieldInput} />
+          <input type="text" name="age" value={formData.age} onChange={handleChange} style={formStyles.fieldInput} />
           </FormField>
           <FormField label="Katayuang Sibil (Civil Status)">
             <select name="civilStatus" value={formData.civilStatus} onChange={handleChange} style={formStyles.fieldSelect}>
@@ -357,7 +374,7 @@ function KasambahayForm({ formData, handleChange, handleGender, formId, onSubmit
             <input type="date" name="dateStartedAsKasambahay" value={formData.dateStartedAsKasambahay} onChange={handleChange} style={formStyles.fieldInput} />
           </FormField>
           <FormField label="Ilang taon na naninirahan sa QC? (Years)">
-            <input type="number" name="yearsLivingInQC" value={formData.yearsLivingInQC} onChange={handleChange} style={formStyles.fieldInput} />
+          <input type="text" name="yearsLivingInQC" value={formData.yearsLivingInQC} onChange={handleChange} style={formStyles.fieldInput} />
           </FormField>
         </div>
 
@@ -476,7 +493,7 @@ function KasambahayForm({ formData, handleChange, handleGender, formId, onSubmit
             <input name="employerContactNumber" value={formData.employerContactNumber} onChange={handleChange} style={formStyles.fieldInput} />
           </FormField>
           <FormField label="Email Address ng Employer">
-            <input type="email" name="employerEmailAddress" value={formData.employerEmailAddress} onChange={handleChange} style={formStyles.fieldInput} />
+            <input type="text" name="employerEmailAddress" value={formData.employerEmailAddress} onChange={handleChange} style={formStyles.fieldInput} />
           </FormField>
         </div>
 
@@ -508,7 +525,7 @@ function KasambahayForm({ formData, handleChange, handleGender, formId, onSubmit
             <input name="lengthOfService" value={formData.lengthOfService} onChange={handleChange} style={formStyles.fieldInput} />
           </FormField>
           <FormField label="Sahod / Monthly Salary (PHP)">
-            <input type="number" name="monthlySalary" value={formData.monthlySalary} onChange={handleChange} style={formStyles.fieldInput} />
+          <input type="text" name="monthlySalary" value={formData.monthlySalary} onChange={handleChange} style={formStyles.fieldInput} />
           </FormField>
           <FormField label="Working Arrangements">
             <input name="arrangement" value={formData.arrangement || ''} onChange={handleChange} style={formStyles.fieldInput} placeholder="e.g. Live-in, Live-out, On-call" />
@@ -623,7 +640,7 @@ function KasambahayForm({ formData, handleChange, handleGender, formId, onSubmit
           <FormField label="City"><input name="spouseAddressCity" value={formData.spouseAddressCity} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
           <FormField label="ZIP Code"><input name="spouseAddressZip" value={formData.spouseAddressZip} onChange={handleChange} style={formStyles.fieldInput} /></FormField>
           <FormField label="Bilang ng Anak (No. of Children)">
-            <input type="number" name="numberOfChildren" value={formData.numberOfChildren} onChange={handleChange} style={formStyles.fieldInput} />
+          <input type="text" name="numberOfChildren" value={formData.numberOfChildren} onChange={handleChange} style={formStyles.fieldInput} />
           </FormField>
         </div>
       </div>
@@ -915,7 +932,22 @@ function AddKasambahayModal({ onClose, onSuccess }) {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
-    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
+    setFormData(prev => {
+      const next = { ...prev, [name]: type === 'checkbox' ? checked : value }
+      if (name === 'birthday' && value) {
+        const d = new Date(value);
+        if (!isNaN(d.getTime())) {
+          const today = new Date();
+          let age = today.getFullYear() - d.getFullYear();
+          const m = today.getMonth() - d.getMonth();
+          if (m < 0 || (m === 0 && today.getDate() < d.getDate())) {
+            age--;
+          }
+          next.age = String(age);
+        }
+      }
+      return next;
+    })
   }
   const handleGender      = (g)   => setFormData(prev => ({ ...prev, isMale: g === 'male', isFemale: g === 'female' }))
 
@@ -1031,7 +1063,22 @@ function EditKasambahayModal({ item, onClose, onSuccess }) {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
-    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
+    setFormData(prev => {
+      const next = { ...prev, [name]: type === 'checkbox' ? checked : value }
+      if (name === 'birthday' && value) {
+        const d = new Date(value);
+        if (!isNaN(d.getTime())) {
+          const today = new Date();
+          let age = today.getFullYear() - d.getFullYear();
+          const m = today.getMonth() - d.getMonth();
+          if (m < 0 || (m === 0 && today.getDate() < d.getDate())) {
+            age--;
+          }
+          next.age = String(age);
+        }
+      }
+      return next;
+    })
   }
   const handleGender      = (g)   => setFormData(prev => ({ ...prev, isMale: g === 'male', isFemale: g === 'female' }))
 
@@ -1559,7 +1606,6 @@ function KasambahayData() {
   const [year, setYear]               = useState('')
   const [district, setDistrict]       = useState('')
   const [category, setCategory]       = useState('')
-  const [genderFilter, setGenderFilter] = useState('')
   const [data, setData]               = useState([])
   const [loading, setLoading]         = useState(false)
   const [error, setError]             = useState('')
@@ -1588,11 +1634,15 @@ function KasambahayData() {
     const targetYear     = overrideYear     !== null ? overrideYear     : year
     const targetDistrict = overrideDistrict !== null ? overrideDistrict : district
     const targetDeleted  = overrideDeleted  !== null ? overrideDeleted  : viewDeleted
+
+    const hasLocalFilter = category;
+    const fetchLimit = hasLocalFilter ? 5000 : LIMIT;
+
     try {
       setLoading(true); setError('')
       const token  = localStorage.getItem('token')
       const params = new URLSearchParams({
-        page: pageNum, limit: LIMIT, isDeleted: targetDeleted,
+        page: pageNum, limit: fetchLimit, isDeleted: targetDeleted,
         ...(targetYear     ? { year: targetYear }         : {}),
         ...(targetDistrict ? { district: targetDistrict } : {}),
         ...(searchVal      ? { search: searchVal }        : {}),
@@ -1774,10 +1824,6 @@ function KasambahayData() {
       if (category === 'Gardener'  && !k.isGardener) return false
       if (category === 'Others'    && !k.isOthers) return false
     }
-    if (genderFilter) {
-      if (genderFilter === 'female' && !k.isFemale) return false
-      if (genderFilter === 'male'   && !k.isMale) return false
-    }
     return true
   })
 
@@ -1790,6 +1836,15 @@ function KasambahayData() {
   const sortedData = [...filteredData].sort((a, b) => {
     if (!sortKey) return 0
     let valA = a[sortKey], valB = b[sortKey]
+
+    if (sortKey === 'age' || sortKey === 'yearsLivingInQC' || sortKey === 'monthlySalary') {
+      const numA = parseInt(String(valA).replace(/,/g, ''))
+      const numB = parseInt(String(valB).replace(/,/g, ''))
+      if (!isNaN(numA) && !isNaN(numB)) return sortDir === 'asc' ? numA - numB : numB - numA
+      if (!isNaN(numA)) return sortDir === 'asc' ? -1 : 1
+      if (!isNaN(numB)) return sortDir === 'asc' ? 1 : -1
+    }
+
     if (sortKey === 'gender')       { valA = a.isFemale ? 'Female' : a.isMale ? 'Male' : ''; valB = b.isFemale ? 'Female' : b.isMale ? 'Male' : '' }
     else if (sortKey === 'type')    { valA = a.isGeneralHousehelp ? 'Househelp' : a.isCook ? 'Cook' : a.isLaundryPerson ? 'Laundry' : a.isYaya ? 'Yaya' : a.isGardener ? 'Gardener' : ''; valB = b.isGeneralHousehelp ? 'Househelp' : b.isCook ? 'Cook' : b.isLaundryPerson ? 'Laundry' : b.isYaya ? 'Yaya' : b.isGardener ? 'Gardener' : '' }
     else if (sortKey === 'arrangement') { valA = a.isLiveIn ? 'Live-in' : a.isLiveOut ? 'Live-out' : a.isOnCall ? 'On-call' : ''; valB = b.isLiveIn ? 'Live-in' : b.isLiveOut ? 'Live-out' : b.isOnCall ? 'On-call' : '' }
@@ -1871,21 +1926,21 @@ function KasambahayData() {
           <input type="text" placeholder="Search name or barangay..." value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={handleSearchKey}
             style={{ ...sel, width: '100%', cursor: 'text' }} />
         </div>
-        <div style={{ width: 140, flexShrink: 0 }}>
+        <div style={{ width: 160, flexShrink: 0 }}>
           <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#1a3a6b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Year</label>
           <select value={year} onChange={e => setYear(e.target.value)} style={{ ...sel, width: '100%' }}>
             <option value="">All Years</option>
             {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
-        <div style={{ width: 148, flexShrink: 0 }}>
+        <div style={{ width: 160, flexShrink: 0 }}>
           <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#1a3a6b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>District</label>
           <select value={district} onChange={e => setDistrict(e.target.value)} style={{ ...sel, width: '100%' }}>
             <option value="">All Districts</option>
             {DISTRICTS.map(d => <option key={d} value={d}>District {d}</option>)}
           </select>
         </div>
-        <div style={{ width: 148, flexShrink: 0 }}>
+        <div style={{ width: 160, flexShrink: 0 }}>
           <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#1a3a6b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Type of Work</label>
           <select value={category} onChange={e => setCategory(e.target.value)} style={{ ...sel, width: '100%' }}>
             <option value="">All Types</option>
@@ -1897,20 +1952,12 @@ function KasambahayData() {
             <option value="Others">Others</option>
           </select>
         </div>
-        <div style={{ width: 140, flexShrink: 0 }}>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#1a3a6b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Gender</label>
-          <select value={genderFilter} onChange={e => setGenderFilter(e.target.value)} style={{ ...sel, width: '100%' }}>
-            <option value="">All Genders</option>
-            <option value="female">Female</option>
-            <option value="male">Male</option>
-          </select>
-        </div>
         <button onClick={handleSearch} disabled={loading}
           style={{ height: 42, padding: '0 22px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
           {loading ? 'Loading...' : 'Apply Filters'}
         </button>
-        {(year || district || search || searchInput || category || genderFilter) && (
-          <button onClick={() => { setYear(''); setDistrict(''); setSearch(''); setSearchInput(''); setCategory(''); setGenderFilter(''); fetchData(1, '', '', '') }}
+        {(year || district || search || searchInput || category) && (
+          <button onClick={() => { setYear(''); setDistrict(''); setSearch(''); setSearchInput(''); setCategory(''); fetchData(1, '', '', '') }}
             style={{ height: 42, padding: '0 16px', background: '#f0f0f0', color: '#555', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer', flexShrink: 0 }}>
             Clear
           </button>
